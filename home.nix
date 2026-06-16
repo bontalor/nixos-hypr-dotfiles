@@ -1,42 +1,86 @@
 { config, pkgs, inputs, ... }:
 
 {
-  home.username = "bonta";
-  home.homeDirectory = "/home/bonta";
-  home.stateVersion = "25.11";
+    home.username = "bonta";
+    home.homeDirectory = "/home/bonta";
+    home.stateVersion = "25.11";
 
-  # X11
-  xresources.properties = {
-    "Xft.dpi" = 144;
-  };
+# X11
+    xresources.properties = {
+	"Xft.dpi" = 144;
+    };
 
-  # Cursor
-  home.pointerCursor = {
-    name = "Adwaita";
-    package = pkgs.adwaita-icon-theme;
-    size = 24;
-    gtk.enable = true;
-    x11.enable = true;
-    x11.defaultCursor = "Adwaita";
-  };
+# Cursor
+    home.pointerCursor = {
+	name = "Adwaita";
+	package = pkgs.adwaita-icon-theme;
+	size = 24;
+	gtk.enable = true;
+	x11.enable = true;
+	x11.defaultCursor = "Adwaita";
+    };
 
-  # Programs
-  home.packages = with pkgs; [
-    tree
-    fastfetch
-    chatterino2
-    discord
-    spotify
-    python3
-    qmk_hid
-    wmenu
-    lua-language-server
-  ];
-  programs.bash = {
-    enable = true;
-  };
-  programs.firefox = {
-    enable = true;
-    configPath = "${config.xdg.configHome}/mozilla/firefox";
-  };
+# Services
+    services.mako = {
+	enable = true;
+    };
+
+# Scripts
+    home.file.".local/bin/setwall" = {
+	source = ./scripts/setwall;
+	executable = true;
+    };
+
+# Programs
+    home.packages = with pkgs; [
+	tree
+	    fastfetch
+	    chatterino2
+	    discord
+	    python3
+	    tree-sitter
+	    qmk_hid
+	    wmenu
+	    htop
+	    quickshell
+	    awww
+	    pywal16
+	    kdePackages.dolphin
+	    libnotify
+	    prismlauncher
+	    hyprshot
+	    hyprpicker
+	    qtengine
+	    kdePackages.breeze
+	    wl-clipboard
+	    obs-studio
+	    xrandr
+	    opencode
+	    unicode-emoji
+# Wrapped Spotify package targeting Wayland natively FROM HELL
+	    (pkgs.symlinkJoin {
+	     name = "spotify";
+	     paths = [ pkgs.spotify ];
+	     nativeBuildInputs = [ pkgs.makeWrapper ];
+	     postBuild = ''
+	     wrapProgram $out/bin/spotify \
+	     --unset DISPLAY \
+	     --add-flags "--ozone-platform-hint=wayland" \
+	     --add-flags "--enable-features=UseOzonePlatform,WaylandWindowDecorations"
+	     '';
+	     })
+
+    ];
+    home.sessionVariables = {
+	EMOJI_TEST_FILE =
+	    "${pkgs.unicode-emoji}/share/unicode/emoji/emoji-test.txt";
+    };
+
+    programs.bash = {
+	enable = true;
+    };
+    programs.firefox = {
+	enable = true;
+	configPath = "${config.xdg.configHome}/mozilla/firefox";
+    };
 }

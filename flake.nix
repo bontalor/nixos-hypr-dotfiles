@@ -1,5 +1,5 @@
 {
-    description = "Lor NixOS Niri";
+    description = "lor nixos hyprland pywal";
     
     inputs = {
         nixpkgs.url = "nixpkgs/nixos-unstable";
@@ -8,10 +8,10 @@
             inputs.nixpkgs.follows = "nixpkgs";
         };
     };
-
     outputs = { nixpkgs, home-manager, ... }@inputs: {
         nixosConfigurations.Lor-nixosfw = nixpkgs.lib.nixosSystem {
             system = "x86_64-linux";
+	    specialArgs = { inherit inputs; };
             modules = [
                 ./configuration.nix
                 home-manager.nixosModules.home-manager
@@ -21,7 +21,7 @@
                         useUserPackages = true;
                         users.bonta = import ./home.nix;
                         backupFileExtension = "backup";
-			extraSpecialArgs = { inherit inputs; };
+                        extraSpecialArgs = { inherit inputs; };
                     };
                 }
             ];
