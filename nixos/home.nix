@@ -3,7 +3,17 @@
 {
     home.username = "bonta";
     home.homeDirectory = "/home/bonta";
-    home.stateVersion = "25.11";
+    home.stateVersion = "26.05";
+
+# xdg dirs
+    xdg.userDirs = {
+    	enable = true;
+	documents = "$HOME/documents";
+	pictures = "$HOME/pictures";
+	videos = "$HOME/videos";
+	music = "$HOME/music";
+	download = "$HOME/downloads";
+    };
 
 # X11
     xresources.properties = {
@@ -46,17 +56,26 @@
 	    awww
 	    pywal16
 	    kdePackages.dolphin
+	    kdePackages.kio
+	    kdePackages.kio-fuse
+	    kdePackages.kio-extras
+	    kdePackages.kservice
+	    kdePackages.ffmpegthumbs
+	    kdePackages.qtsvg
+	    kdePackages.breeze
+	    kdePackages.okular
 	    libnotify
 	    prismlauncher
 	    hyprshot
 	    hyprpicker
 	    qtengine
-	    kdePackages.breeze
 	    wl-clipboard
 	    obs-studio
 	    xrandr
 	    opencode
 	    unicode-emoji
+	    mpv
+	    imv
 # Wrapped Spotify package targeting Wayland natively FROM HELL
 	    (pkgs.symlinkJoin {
 	     name = "spotify";
@@ -71,14 +90,11 @@
 	     })
 
     ];
-    home.sessionVariables = {
+        home.sessionVariables = {
 	EMOJI_TEST_FILE =
 	    "${pkgs.unicode-emoji}/share/unicode/emoji/emoji-test.txt";
     };
 
-    programs.bash = {
-	enable = true;
-    };
     programs.firefox = {
 	enable = true;
 	configPath = "${config.xdg.configHome}/mozilla/firefox";

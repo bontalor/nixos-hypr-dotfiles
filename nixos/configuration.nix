@@ -10,6 +10,9 @@
 	./hardware-configuration.nix
 	];
     hardware.graphics.enable = true;
+    hardware.nvidia.open = true;
+    hardware.nvidia.modesetting.enable = true;
+    services.xserver.videoDrivers = [ "nvidia" ];
 
 # Use the systemd-boot EFI boot loader.
 #boot.loader.systemd-boot = {
@@ -21,32 +24,13 @@
     boot.loader.grub.enable = true;
     boot.loader.grub.efiSupport = true;
     boot.loader.grub.device = "nodev";
+    boot.loader.grub.useOSProber = true;
     boot.loader.efi.canTouchEfiVariables = true;
-    boot.loader.grub.useOSProber = false;
-    boot.loader.grub.extraEntries = ''
-	menuentry "NixOS-2" {
-	    set root=(hd0,gpt1)
-		chainloader /EFI/systemd/systemd-bootx64.efi
-	}
-    menuentry "Arch Linux" {
-	set root=(hd0,gpt1)
-	    chainloader /EFI/Linux/arch-linux.efi
-    }
-    menuentry "Omarchy" {
-	set root=(hd0,gpt1)
-	    chainloader /EFI/limine/limine_x64.efi
-    }
-    menuentry "Windows 11" {
-	set root=(hd0,gpt1)
-	    chainloader /EFI/Microsoft/Boot/bootmgfw.efi
-    }
-    '';
-
 
 # Use latest kernel.
     boot.kernelPackages = pkgs.linuxPackages_latest;
 
-    networking.hostName = "Lor-nixosfw"; # Define your hostname.
+    networking.hostName = "lor-nixos"; # Define your hostname.
 
 # Configure network connections interactively with nmcli or nmtui.
 	networking.networkmanager.enable = true;
@@ -75,48 +59,11 @@
 # services.xserver.xkb.layout = "us";
 # services.xserver.xkb.options = "eurosign:e,caps:escape";
 
-# Laptop lid close stuff from HELL
-    services.logind.settings = {
-	Login = {
-	    HandleLidSwitch = "suspend";
-	    HandleLidSwitchExternalPower = "suspend";
-	    HandleLidSwitchDocked = "suspend"; # Ensures it suspends even if multi-monitor/docked
-		LidSwitchIgnoreInhibited = "yes";  # Overrides apps trying to block suspend
-		HoldoffTimeoutSec = "0";           # Removes the 30-second delay rule
-	};
-    };
-
-# Disable specific USB wakeup triggers that cause instant wake loops
-    services.udev.extraRules = ''
-	ACTION=="add", SUBSYSTEM=="serio", DRIVERS=="atkbd", ATTR{power/wakeup}="disabled"
-	SUBSYSTEM=="usb", ATTR{power/wakeup}="disabled"
-	SUBSYSTEM=="i2c", ATTR{power/wakeup}="disabled"
-	'';
-
-# Alternative: Force clear the XHCI (USB) wakeup triggers on boot
-    systemd.services.disable-usb-wakeup = {
-	description = "Disable USB wakeup triggers to fix Framework 16 sleep loops";
-	wantedBy = [ "multi-user.target" ];
-	serviceConfig = {
-	    Type = "oneshot";
-	    ExecStart = "${pkgs.bash}/bin/bash -c 'echo XHC0 > /proc/acpi/wakeup || true'";
-	    RemainAfterExit = true;
-	};
-    };
-
-    boot.kernelParams = [
-	"iommu=pt"
-	    "pcie_aspm=force"           # Forces PCIe Active State Power Management
-	    "nvme_core.default_ps_max_latency=0" # Fixes NVMe controller state transition drops
-	    "amd_iommu=off"             # Prevents IOMMU page faults from interrupting s2idle transitions
-    ];
-
 # Environment Variables
     environment.sessionVariables = {
-	#QT_QPA_PLATFORMTHEME = "hyprqt6engine";
-	#QT_PLUGIN_PATH = "${hyprqt6engine}/lib/qt-6";
 	NIXOS_OZONE_WL = "1";
     };
+    environment.etc."xdg/menus/applications.menu".source = "${pkgs.kdePackages.plasma-workspace}/etc/xdg/menus/plasma-applications.menu";
 
 # Enable CUPS to print documents.
     services.printing.enable = true;
@@ -128,8 +75,6 @@
     };
 
 # Enable sound.
-# services.pulseaudio.enable = true;
-# OR
     services.pipewire = {
 	enable = true;
 	pulse.enable = true;
@@ -148,27 +93,35 @@
     };
 
 # Enable fingerprint support
-    services.fprintd.enable = true;
+    #services.fprintd.enable = true;
 
 # Define a user account. Don't forget to set a password with ‘passwd’.
     users.users.bonta = {
 	isNormalUser = true;
+	shell = pkgs.zsh;
 	extraGroups = [ "wheel" "video" "input" ]; # Enable ‘sudo’ for the user.
     };
 
 # Nix module programs
     programs.bash.enable = true;
-
-    programs.hyprland = {
-	enable = true;
-	withUWSM = false;
-	xwayland.enable = true;
-    };
     programs.bash.loginShellInit = ''
 	if [ "$(tty)" = "/dev/tty1" ]; then
 	    exec start-hyprland
 		fi
 		'';
+    programs.zsh.enable = true;
+    programs.zsh.loginShellInit = ''
+	if [ "$(tty)" = "/dev/tty1" ]; then
+	    exec start-hyprland
+		fi
+		'';
+    environment.shells = with pkgs; [
+    	zsh
+    ];
+
+    programs.hyprland = {
+	enable = true;
+    };
 
 # Enable nonfree (evil) packages
     nixpkgs.config.allowUnfree = true;
@@ -221,6 +174,9 @@
 # Enable the OpenSSH daemon.
     services.openssh.enable = true;
 
+# dolphin show disks
+    services.udisks2.enable = true;
+
 # Open ports in the firewall.
 # networking.firewall.allowedTCPPorts = [ ... ];
 # networking.firewall.allowedUDPPorts = [ ... ];
@@ -249,7 +205,7 @@
 # and migrated your data accordingly.
 #
 # For more information, see `man configuration.nix` or https://nixos.org/manual/nixos/stable/options#opt-system.stateVersion .
-    system.stateVersion = "25.11"; # Did you read the comment?
+    system.stateVersion = "26.05"; # Did you read the comment?
 
 }
 
