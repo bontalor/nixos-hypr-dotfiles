@@ -1,5 +1,6 @@
 import "../../theme"
 import QtQuick
+import Quickshell
 import Quickshell.Io
 
 Item {
@@ -8,15 +9,16 @@ Item {
     height: 30
     clip: true
 
-    property string logoPath: "/home/bonta/.config/quickshell/assets/archlinux-logo.svg"
+    readonly property string assetsDir: Quickshell.shellDir + "/assets"
+    property string logoPath: assetsDir + "/archlinux-logo.svg"
 
     function setLogo(content) {
-        if (!content) { logoPath = "/home/bonta/.config/quickshell/assets/archlinux-logo.svg"; return }
+        if (!content) { logoPath = assetsDir + "/archlinux-logo.svg"; return }
         for (var line of content.split("\n")) {
             if (line.startsWith("ID=")) {
                 var id = line.substring(3).replace(/"/g, "").trim()
                 var paths = {
-                    "arch": "/home/bonta/.config/quickshell/assets/archlinux-logo.svg",
+                    "arch": assetsDir + "/archlinux-logo.svg",
                 }
                 logoPath = paths[id] || ""
                 return

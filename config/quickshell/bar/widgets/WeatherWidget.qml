@@ -60,7 +60,7 @@ Item {
         var url = "https://wttr.in/"
         if (customCity && !retryingFallback) url += encodeURIComponent(customCity) + "?format=j1"
         else url += "?format=j1"
-        fetchProc.command = ["bash", "-c", "curl -s -m 10 '" + url + "' 2>&1"]
+        fetchProc.command = ["curl", "-s", "-m", "10", url]
         fetchProc.running = true
     }
 
@@ -93,9 +93,10 @@ Item {
     }
 
     function readConfig() {
+        var dir = Quickshell.shellDir + "/weather"
         configReader.command = ["bash", "-c",
-            "printf '%s\\n' \"$(cat ~/.config/quickshell/weather/unit 2>/dev/null || echo F)\""
-            + " \"$(cat ~/.config/quickshell/weather/city 2>/dev/null || echo '')\""]
+            "printf '%s\\n' \"$(cat " + dir + "/unit 2>/dev/null || echo F)\""
+            + " \"$(cat " + dir + "/city 2>/dev/null || echo '')\""]
         configReader.running = true
     }
 

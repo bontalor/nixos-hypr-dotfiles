@@ -7,7 +7,7 @@ import QtQuick
 Singleton {
   id: root
 
-  // EVIL ORDINAL FUNCTION FROM HELL
+  // Ordinal suffix helper
   function ordinal(n) {
     const s = ["th","st","nd","rd"]
     const v = n % 100

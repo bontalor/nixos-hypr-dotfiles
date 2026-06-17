@@ -15,7 +15,7 @@ FloatingWindow {
     onClosed: visible = false
 
     property var allActions: [
-        { name: "Lock", icon: "system-lock-screen", command: ["quickshell", "-p", "/home/bonta/.config/quickshell/lockscreen/shell.qml"] },
+        { name: "Lock", icon: "system-lock-screen", command: ["quickshell", "-p", Quickshell.shellDir + "/lockscreen/shell.qml"] },
         { name: "Logout", icon: "system-log-out", command: ["sh", "-c", "loginctl kill-session $XDG_SESSION_ID"] },
         { name: "Suspend", icon: "system-suspend", command: ["systemctl", "suspend"] },
         { name: "Reboot", icon: "system-reboot", command: ["systemctl", "reboot"] },

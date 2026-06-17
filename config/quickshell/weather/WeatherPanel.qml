@@ -57,14 +57,16 @@ FloatingWindow {
     }
 
     onDegreeUnitChanged: {
+        var dir = Quickshell.shellDir + "/weather"
         var esc = degreeUnit.replace(/'/g, "'\\''")
-        unitWriter.command = ["bash", "-c", "mkdir -p ~/.config/quickshell/weather && echo '" + esc + "' > ~/.config/quickshell/weather/unit"]
+        unitWriter.command = ["bash", "-c", "mkdir -p " + dir + " && echo '" + esc + "' > " + dir + "/unit"]
         unitWriter.running = true
     }
 
     onCustomCityChanged: {
+        var dir = Quickshell.shellDir + "/weather"
         var esc = customCity.replace(/'/g, "'\\''")
-        cityWriter.command = ["bash", "-c", "mkdir -p ~/.config/quickshell/weather && echo '" + esc + "' > ~/.config/quickshell/weather/city"]
+        cityWriter.command = ["bash", "-c", "mkdir -p " + dir + " && echo '" + esc + "' > " + dir + "/city"]
         cityWriter.running = true
     }
 
@@ -74,12 +76,13 @@ FloatingWindow {
         stdout: StdioCollector {
             waitForEnd: true
             onStreamFinished: {
+                var dir = Quickshell.shellDir + "/weather"
                 var lines = text.split('\n')
                 if (lines[0].trim()) root.degreeUnit = lines[0].trim()
                 if (lines[1].trim()) root.customCity = lines[1].trim()
-                unitWriter.command = ["bash", "-c", "mkdir -p ~/.config/quickshell/weather && echo '" + root.degreeUnit + "' > ~/.config/quickshell/weather/unit"]
+                unitWriter.command = ["bash", "-c", "mkdir -p " + dir + " && echo '" + root.degreeUnit + "' > " + dir + "/unit"]
                 unitWriter.running = true
-                cityWriter.command = ["bash", "-c", "mkdir -p ~/.config/quickshell/weather && echo '" + root.customCity + "' > ~/.config/quickshell/weather/city"]
+                cityWriter.command = ["bash", "-c", "mkdir -p " + dir + " && echo '" + root.customCity + "' > " + dir + "/city"]
                 cityWriter.running = true
                 fetchWeather()
             }
@@ -87,9 +90,10 @@ FloatingWindow {
     }
 
     Component.onCompleted: {
+        var dir = Quickshell.shellDir + "/weather"
         startupReader.command = ["bash", "-c",
-            "printf '%s\\n' \"$(cat ~/.config/quickshell/weather/unit 2>/dev/null || echo F)\""
-            + " \"$(cat ~/.config/quickshell/weather/city 2>/dev/null || echo '')\""]
+            "printf '%s\\n' \"$(cat " + dir + "/unit 2>/dev/null || echo F)\""
+            + " \"$(cat " + dir + "/city 2>/dev/null || echo '')\""]
         startupReader.running = true
     }
 
@@ -116,7 +120,7 @@ FloatingWindow {
         var url = "https://wttr.in/"
         if (customCity && !retryingFallback) url += encodeURIComponent(customCity) + "?format=j1"
         else url += "?format=j1"
-        fetchProc.command = ["bash", "-c", "curl -s -m 10 '" + url + "' 2>&1"]
+        fetchProc.command = ["curl", "-s", "-m", "10", url]
         fetchProc.running = true
     }
 

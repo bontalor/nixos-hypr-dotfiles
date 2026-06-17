@@ -16,32 +16,15 @@ Item {
     property int playbackState: MprisPlaybackState.Stopped
     property var allPlayers: []
 
-    property int scrollSpeed: 30
     property int maxChars: 8
 
     property string displayText: ""
     property string scrollText: ""
     property int scrollPos: 0
 
-    function codePoints(str) {
-        var result = []
-        var i = 0
-        while (i < str.length) {
-            var code = str.charCodeAt(i)
-            if (code >= 0xD800 && code <= 0xDBFF && i + 1 < str.length) {
-                result.push(str.substring(i, i + 2))
-                i += 2
-            } else {
-                result.push(str.charAt(i))
-                i++
-            }
-        }
-        return result
-    }
-
     function updateDisplayText() {
         displayText = trackArtist ? trackArtist + " - " + trackTitle : trackTitle
-        scrollText = displayText + " " + displayText
+        scrollText = displayText + "   " + displayText
     }
 
     TextMetrics {
@@ -146,7 +129,7 @@ Item {
                 x: 0
                 text: {
                     if (!root.displayText) return "--------"
-                    var chars = codePoints(root.scrollText)
+                    var chars = Array.from(root.scrollText)
                     var slice = chars.slice(root.scrollPos, root.scrollPos + root.maxChars).join("")
                     while (slice.length < root.maxChars) slice += " "
                     return slice
@@ -168,7 +151,7 @@ Item {
 
     function startScroll() {
         if (playbackState !== MprisPlaybackState.Playing) return
-        if (codePoints(root.displayText).length <= root.maxChars) return
+        if (Array.from(root.displayText).length <= root.maxChars) return
         var ms = Date.now() % 1000
         var delay = ms < 250 ? 250 - ms : 1250 - ms
         scrollTimer.interval = delay
@@ -184,11 +167,11 @@ Item {
 
         onTriggered: {
             if (!scrollTimer.repeat) {
-        scrollTimer.interval = 250
-        scrollTimer.repeat = true
+                scrollTimer.interval = 250
+                scrollTimer.repeat = true
                 scrollTimer.running = true
             }
-            var clen = codePoints(root.displayText).length
+            var clen = Array.from(root.displayText).length
             if (root.scrollPos >= clen) {
                 root.scrollPos = 0
             } else {
@@ -197,7 +180,7 @@ Item {
         }
     }
 
-    onDisplayTextChanged: { scrollText = displayText + " " + displayText; scrollPos = 0; scrollTimer.running = false; startScroll() }
+    onDisplayTextChanged: { scrollText = displayText + "   " + displayText; scrollPos = 0; scrollTimer.running = false; startScroll() }
 
     MouseArea {
         id: mouseArea

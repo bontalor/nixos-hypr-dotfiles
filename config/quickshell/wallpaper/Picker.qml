@@ -22,7 +22,7 @@ FloatingWindow {
     signal toggle()
 
     function scan() {
-        scanner.command = ["bash", "-c", "ls -1 $HOME/walls/*.{jpg,jpeg,png,gif,webp,bmp} 2>/dev/null"]
+        scanner.command = ["bash", "-c", "ls -1 " + Quickshell.env("HOME") + "/walls/*.{jpg,jpeg,png,gif,webp,bmp} 2>/dev/null"]
         scanner.running = true
     }
 
