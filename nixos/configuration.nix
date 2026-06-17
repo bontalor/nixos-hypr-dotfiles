@@ -10,6 +10,7 @@
 	./hardware-configuration.nix
 	];
     hardware.graphics.enable = true;
+    hardware.graphics.enable32Bit = true;
     hardware.nvidia.open = true;
     hardware.nvidia.modesetting.enable = true;
     services.xserver.videoDrivers = [ "nvidia" ];
@@ -32,8 +33,11 @@
 
     networking.hostName = "lor-nixos"; # Define your hostname.
 
+# Realtime permissions
+	security.rtkit.enable = true;
+
 # Configure network connections interactively with nmcli or nmtui.
-	networking.networkmanager.enable = true;
+    networking.networkmanager.enable = true;
 
 # Set your time zone.
     time.timeZone = "America/New_York";
@@ -63,7 +67,28 @@
     environment.sessionVariables = {
 	NIXOS_OZONE_WL = "1";
     };
+    fileSystems."/mnt" = {
+	device = "/dev/disk/by-uuid/2b8abe19-0d7a-41ee-9002-6458836551c7";
+	fsType = "ext4";
+	options = [ "defaults" "nofail" ];
+    };
+
+# XDG stuff    
     environment.etc."xdg/menus/applications.menu".source = "${pkgs.kdePackages.plasma-workspace}/etc/xdg/menus/plasma-applications.menu";
+    xdg.portal = {
+	enable = true;
+	extraPortals = [
+	    pkgs.kdePackages.xdg-desktop-portal-kde
+		pkgs.xdg-desktop-portal-hyprland
+	];
+	config = {
+	    hyprland = {
+		"org.freedesktop.impl.portal.ScreenCast" = "hyprland";
+		"org.freedesktop.impl.portal.Screenshot" = "hyprland";
+	    };
+	};
+    };
+
 
 # Enable CUPS to print documents.
     services.printing.enable = true;
@@ -77,11 +102,61 @@
 # Enable sound.
     services.pipewire = {
 	enable = true;
+	audio.enable = true;
 	pulse.enable = true;
 	jack.enable = true;
 	alsa.enable = true;
 	wireplumber.enable = true;
     };
+
+    services.pipewire.extraConfig.pipewire."92-low-latency" = {
+	"context.properties" = {
+	    "default.clock.rate" = 48000;
+	    "default.clock.quantum" = 64;
+	    "default.clock.min-quantum" = 64;
+	    "default.clock.max-quantum" = 64;
+	};
+    };
+
+    services.pipewire.extraConfig.pipewire-pulse."92-low-latency" = {
+	"context.properties" = [
+	{
+	    name = "libpipewire-module-protocol-pulse";
+	    args = { };
+	}
+	];
+	"pulse.properties" = {
+	    "pulse.min.req" = "64/48000";
+	    "pulse.default.req" = "64/48000";
+	    "pulse.max.req" = "64/48000";
+	    "pulse.min.quantum" = "64/48000";
+	    "pulse.max.quantum" = "64/48000";
+	};
+	"stream.properties" = {
+	    "node.latency" = "64/48000";
+	    "resample.quality" = 1;
+	};
+    };
+
+    services.pipewire.extraConfig.jack."92-low-latency" = {
+	"context.properties" = [
+	{
+	    "default.clock.quantum-limit" = "64";
+	}
+	];
+	"jack.properties" = {
+	    "node.latency" = "64/48000";
+	    "node.rate" = "1/48000";
+	    "node.quantum" = "64/48000";
+	};
+    };
+    services.pipewire.extraConfig.client."92-low-latency" = {
+	"stream.properties" = {
+	    "node.latency" = "64/48000";
+	    "resample.quality" = 1;
+	};
+    };
+
 
 # Enable touchpad support (enabled default in most desktopManager).
 # services.libinput.enable = true;
@@ -93,7 +168,7 @@
     };
 
 # Enable fingerprint support
-    #services.fprintd.enable = true;
+#services.fprintd.enable = true;
 
 # Define a user account. Don't forget to set a password with ‘passwd’.
     users.users.bonta = {
@@ -101,6 +176,12 @@
 	shell = pkgs.zsh;
 	extraGroups = [ "wheel" "video" "input" ]; # Enable ‘sudo’ for the user.
     };
+
+    security.pam.loginLimits = [
+    { domain = "@audio"; item = "memlock"; type = "-"; value = "unlimited"; }
+    { domain = "@audio"; item = "rtprio";  type = "-"; value = "99"; }
+    { domain = "@audio"; item = "nice";    type = "-"; value = "-19"; }
+    ];
 
 # Nix module programs
     programs.bash.enable = true;
@@ -116,7 +197,7 @@
 		fi
 		'';
     environment.shells = with pkgs; [
-    	zsh
+	zsh
     ];
 
     programs.hyprland = {
@@ -145,11 +226,11 @@
 
     fonts.packages = with pkgs; [
 	nerd-fonts.jetbrains-mono
-	noto-fonts
-	noto-fonts-lgc-plus
-	noto-fonts-cjk-sans
-	noto-fonts-cjk-serif
-	twitter-color-emoji
+	    noto-fonts
+	    noto-fonts-lgc-plus
+	    noto-fonts-cjk-sans
+	    noto-fonts-cjk-serif
+	    twitter-color-emoji
     ];
 
     fonts.fontconfig = {

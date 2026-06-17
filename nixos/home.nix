@@ -47,6 +47,7 @@
 	    fastfetch
 	    chatterino2
 	    discord
+	    vesktop
 	    python3
 	    tree-sitter
 	    qmk_hid
@@ -76,6 +77,9 @@
 	    unicode-emoji
 	    mpv
 	    imv
+	    steam
+	    waywall
+	    glfw3-minecraft
 # Wrapped Spotify package targeting Wayland natively FROM HELL
 	    (pkgs.symlinkJoin {
 	     name = "spotify";
