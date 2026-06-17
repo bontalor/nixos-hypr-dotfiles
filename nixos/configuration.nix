@@ -12,13 +12,17 @@
     boot.loader.grub.useOSProber = true;
     boot.loader.efi.canTouchEfiVariables = true;
     boot.kernelPackages = pkgs.linuxPackages_latest;
-    boot.kernelParams = [ "threadirqs" ];
+    boot.kernelParams = [
+	"threadirqs"
+	''acpi_osi="!Windows 2015"''
+    ];
 
     # Hardware
     hardware.graphics.enable = true;
     hardware.graphics.enable32Bit = true;
     hardware.nvidia.open = true;
     hardware.nvidia.modesetting.enable = true;
+    hardware.nvidia.powerManagement.enable = true;
     hardware.bluetooth.enable = true;
     hardware.bluetooth.powerOnBoot = false;
 
