@@ -16,7 +16,7 @@ FloatingWindow {
 
     property var allActions: [
         { name: "Lock", icon: "system-lock-screen", command: ["quickshell", "-p", Quickshell.shellDir + "/lockscreen/shell.qml"] },
-        { name: "Logout", icon: "system-log-out", command: ["sh", "-c", "loginctl kill-session $XDG_SESSION_ID"] },
+	{ name: "Logout", icon: "system-log-out", command: ["loginctl", "terminate-user", ""] },
         { name: "Suspend", icon: "system-suspend", command: ["systemctl", "suspend"] },
         { name: "Reboot", icon: "system-reboot", command: ["systemctl", "reboot"] },
         { name: "Power Off", icon: "system-shutdown", command: ["systemctl", "poweroff"] }

@@ -5,102 +5,108 @@
     home.homeDirectory = "/home/bonta";
     home.stateVersion = "26.05";
 
-# xdg dirs
+    # XDG dirs
     xdg.userDirs = {
-    	enable = true;
-	documents = "$HOME/documents";
-	pictures = "$HOME/pictures";
-	videos = "$HOME/videos";
-	music = "$HOME/music";
-	download = "$HOME/downloads";
+        enable = true;
+        documents = "$HOME/documents";
+        pictures = "$HOME/pictures";
+        videos = "$HOME/videos";
+        music = "$HOME/music";
+        download = "$HOME/downloads";
     };
 
-# X11
+    # X11 / XWayland
     xresources.properties = {
-	"Xft.dpi" = 144;
+        "Xft.dpi" = 144;
     };
-
-# Cursor
     home.pointerCursor = {
-	name = "Adwaita";
-	package = pkgs.adwaita-icon-theme;
-	size = 24;
-	gtk.enable = true;
-	x11.enable = true;
-	x11.defaultCursor = "Adwaita";
+        name = "Adwaita";
+        package = pkgs.adwaita-icon-theme;
+        size = 24;
+        gtk.enable = true;
+        x11.enable = true;
+        x11.defaultCursor = "Adwaita";
     };
 
-# Services
-    services.mako = {
-	enable = true;
-    };
+    # Services
+    services.mako.enable = true;
 
-# Scripts
+    # Scripts
     home.file.".local/bin/setwall" = {
-	source = ./scripts/setwall;
-	executable = true;
+        source = ./scripts/setwall;
+        executable = true;
     };
 
-# Programs
+    # Packages
     home.packages = with pkgs; [
-	tree
-	    fastfetch
-	    chatterino2
-	    discord
-	    vesktop
-	    python3
-	    tree-sitter
-	    qmk_hid
-	    wmenu
-	    htop
-	    quickshell
-	    awww
-	    pywal16
-	    kdePackages.dolphin
-	    kdePackages.kio
-	    kdePackages.kio-fuse
-	    kdePackages.kio-extras
-	    kdePackages.kservice
-	    kdePackages.ffmpegthumbs
-	    kdePackages.qtsvg
-	    kdePackages.breeze
-	    kdePackages.okular
-	    libnotify
-	    prismlauncher
-	    hyprshot
-	    hyprpicker
-	    qtengine
-	    wl-clipboard
-	    obs-studio
-	    xrandr
-	    opencode
-	    unicode-emoji
-	    mpv
-	    imv
-	    steam
-	    waywall
-	    glfw3-minecraft
-# Wrapped Spotify package targeting Wayland natively FROM HELL
-	    (pkgs.symlinkJoin {
-	     name = "spotify";
-	     paths = [ pkgs.spotify ];
-	     nativeBuildInputs = [ pkgs.makeWrapper ];
-	     postBuild = ''
-	     wrapProgram $out/bin/spotify \
-	     --unset DISPLAY \
-	     --add-flags "--ozone-platform-hint=wayland" \
-	     --add-flags "--enable-features=UseOzonePlatform,WaylandWindowDecorations"
-	     '';
-	     })
-
+        tree
+        fastfetch
+        chatterino2
+        discord
+        vesktop
+        python3
+        tree-sitter
+        qmk_hid
+        wmenu
+        htop
+        awww
+        pywal16
+        kdePackages.dolphin
+        kdePackages.kio
+        kdePackages.kio-fuse
+        kdePackages.kio-extras
+        kdePackages.kservice
+        kdePackages.ffmpegthumbs
+        kdePackages.qtsvg
+        kdePackages.breeze
+        kdePackages.okular
+        kdePackages.ark
+        libnotify
+        prismlauncher
+        hyprshot
+        hyprpicker
+        qtengine
+	qt6.qtwayland
+        wl-clipboard
+        obs-studio
+        xrandr
+        opencode
+        unicode-emoji
+        mpv
+        imv
+        steam
+        waywall
+        glfw3-minecraft
+        libarchive
+        gearlever
+        appimage-run
+	rofi
+        (pkgs.symlinkJoin {
+            name = "spotify";
+            paths = [ pkgs.spotify ];
+            nativeBuildInputs = [ pkgs.makeWrapper ];
+            postBuild = ''
+                wrapProgram $out/bin/spotify \
+                    --unset DISPLAY \
+                    --add-flags "--ozone-platform-hint=wayland" \
+                    --add-flags "--enable-features=UseOzonePlatform,WaylandWindowDecorations"
+            '';
+        })
     ];
-        home.sessionVariables = {
-	EMOJI_TEST_FILE =
-	    "${pkgs.unicode-emoji}/share/unicode/emoji/emoji-test.txt";
+
+    # Session
+    home.sessionVariables = {
+        EMOJI_TEST_FILE = "${pkgs.unicode-emoji}/share/unicode/emoji/emoji-test.txt";
     };
 
+    # Programs
     programs.firefox = {
+        enable = true;
+        configPath = "${config.xdg.configHome}/mozilla/firefox";
+    };
+
+    programs.quickshell = {
 	enable = true;
-	configPath = "${config.xdg.configHome}/mozilla/firefox";
+	systemd.enable = true;
     };
 }

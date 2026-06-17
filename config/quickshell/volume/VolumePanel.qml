@@ -167,7 +167,7 @@ for obj in data:
     }
 
     function setConfigProfile(deviceId, profileIndex) {
-        setProc.command = ["pw-cli", "s", String(deviceId), "Profile", '{ "index": ' + String(profileIndex) + ' }']
+        setProc.command = ["pw-cli", "s", String(deviceId), "Profile", '{ "index": ' + String(profileIndex) + ', "save": true }']
         setProc.running = true
         configExpanded = false
         for (var i = 0; i < configDevices.length; i++) {

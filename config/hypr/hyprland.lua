@@ -35,12 +35,17 @@ local emoji       = "qs ipc call overlay toggle emoji"
 ---- AUTOSTART ----
 
 hl.on("hyprland.start", function()
-    hl.exec_cmd("systemctl --user start hyprland-session.target")
     hl.exec_cmd("xrandr --output DP-5 --primary")
     hl.exec_cmd("kbuildsycoca6")
-    hl.exec_cmd("qs")
     hl.exec_cmd("awww-daemon --no-cache")
-    hl.exec_cmd("bash ~/.local/bin/setwall ~/walls/")
+    hl.exec_cmd("~/.local/bin/setwall ~/walls/")
+    hl.exec_cmd("systemctl --user start quickshell.service")
+end)
+
+---- AUTOSTOP ----
+
+hl.on("hyprland.shutdown", function()
+    hl.exec_cmd("systemctl --user stop quickshell.service")
 end)
 
 ---- ENVIRONMENT VARIABLES ----
@@ -52,6 +57,12 @@ hl.env("__GLX_VENDOR_LIBRARY_NAME", "nvidia")
 -- kde slop
 --hl.env("XDG_MENU_PREFIX", "plasma-")
 --hl.env("XDG_CURRENT_DESKTOP", "KDE")
+
+-- portal detection
+hl.env("XDG_CURRENT_DESKTOP", "Hyprland")
+
+-- make firefox file picker dolphin
+hl.env("GTK_USE_PORTAL", "1")
 
 hl.env("QT_QPA_PLATFORMTHEME", "qtengine")
 hl.env("XCURSOR_SIZE", "24")
