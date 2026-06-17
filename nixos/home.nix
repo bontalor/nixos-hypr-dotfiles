@@ -95,9 +95,8 @@
     ];
 
     # Session
-    home.sessionVariables = {
-        EMOJI_TEST_FILE = "${pkgs.unicode-emoji}/share/unicode/emoji/emoji-test.txt";
-    };
+    home.file.".local/share/emoji-test.txt".source =
+	"${pkgs.unicode-emoji}/share/unicode/emoji/emoji-test.txt";
 
     # Programs
     programs.firefox = {
