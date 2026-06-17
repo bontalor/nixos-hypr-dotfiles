@@ -1,7 +1,7 @@
 ---- MONITORS ----
 
 hl.monitor({
-    output   = "DP-1",
+    output   = "DP-5",
     mode     = "1920x1080@144.000",
     position = "1600x0",
     scale    = "1",
@@ -9,7 +9,7 @@ hl.monitor({
 })
 
 hl.monitor({
-    output   = "DP-2",
+    output   = "DP-4",
     mode     = "1600x900@60.000",
     position = "0x0",
     scale    = "1",
@@ -36,7 +36,7 @@ local emoji       = "qs ipc call overlay toggle emoji"
 
 hl.on("hyprland.start", function()
     hl.exec_cmd("systemctl --user start hyprland-session.target")
-    hl.exec_cmd("xrandr --output DP-1 --primary")
+    hl.exec_cmd("xrandr --output DP-5 --primary")
     hl.exec_cmd("kbuildsycoca6")
     hl.exec_cmd("qs")
     hl.exec_cmd("awww-daemon --no-cache")
@@ -50,7 +50,8 @@ hl.env("LIBVA_DRIVER_NAME", "nvidia")
 hl.env("__GLX_VENDOR_LIBRARY_NAME", "nvidia")
 
 -- kde slop
-hl.env("XDG_MENU_PREFIX", "arch-")
+--hl.env("XDG_MENU_PREFIX", "plasma-")
+--hl.env("XDG_CURRENT_DESKTOP", "KDE")
 
 hl.env("QT_QPA_PLATFORMTHEME", "qtengine")
 hl.env("XCURSOR_SIZE", "24")
@@ -171,7 +172,7 @@ hl.config({
 
 hl.config({
     cursor = {
-        default_monitor = "DP-1",
+        default_monitor = "DP-5",
         no_break_fs_vrr = 1,
         min_refresh_rate = 144,
         no_hardware_cursors = 0,
@@ -183,7 +184,7 @@ hl.config({
 local mainMod = "SUPER"
 hl.bind(mainMod .. " + Return", hl.dsp.exec_cmd(terminal), { repeating = true })
 hl.bind(mainMod .. " + Q", hl.dsp.window.close(), { repeating = true })
-hl.bind(mainMod .. " + SHIFT + W", hl.dsp.window.kill())
+hl.bind(mainMod .. " + SHIFT + Q", hl.dsp.window.kill())
 hl.bind(mainMod .. " + M",
     hl.dsp.exec_cmd("command -v hyprshutdown >/dev/null 2>&1 && hyprshutdown || hyprctl dispatch 'hl.dsp.exit()'"))
 hl.bind(mainMod .. " + Z", hl.dsp.window.float({ action = "toggle" }), { repeating = true })
@@ -258,13 +259,13 @@ hl.bind("XF86AudioPrev", hl.dsp.exec_cmd("playerctl previous"), { locked = true 
 for i = 1, 8 do
     hl.workspace_rule({
         workspace = tostring(i),
-        monitor   = "DP-1",
+        monitor   = "DP-5",
     })
 end
 
 hl.workspace_rule({
     workspace = "9",
-    monitor   = "DP-2",
+    monitor   = "DP-4",
 })
 
 hl.window_rule({
@@ -292,13 +293,13 @@ hl.window_rule({
     match = { fullscreen = "true" }, immediate = true
 })
 
-hl.window_rule({
-    name = "low-scroll-factor",
-    match = {
-        class = "discord|spotify|firefox"
-    },
-    scroll_mouse = 0.5,
-})
+--hl.window_rule({
+--    name = "low-scroll-factor",
+--    match = {
+--        class = "discord|spotify|firefox"
+--    },
+--    scroll_mouse = 0.5,
+--})
 
 hl.window_rule({
     name = "quickshell-floating-windows",
