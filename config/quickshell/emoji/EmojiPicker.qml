@@ -19,7 +19,9 @@ FloatingWindow {
 
     Process {
         id: emojiLoader
-        command: ["sh", "-c", "cat /nix/store/*-unicode-emoji-test-*/share/unicode/emoji/emoji-test.txt 2>/dev/null || cat /usr/share/unicode/emoji/emoji-test.txt"]
+	command: [
+	    "cat", Quickshell.env("HOME") + "/.local/share/emoji-test.txt"
+	]
         running: true
         stdout: StdioCollector {
             waitForEnd: true
