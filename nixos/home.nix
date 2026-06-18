@@ -43,6 +43,7 @@
         fastfetch
         chatterino2
         discord
+	spotify
         vesktop
         python3
         tree-sitter
@@ -81,17 +82,17 @@
         gearlever
         appimage-run
 	rofi
-        (pkgs.symlinkJoin {
-            name = "spotify";
-            paths = [ pkgs.spotify ];
-            nativeBuildInputs = [ pkgs.makeWrapper ];
-            postBuild = ''
-                wrapProgram $out/bin/spotify \
-                    --unset DISPLAY \
-                    --add-flags "--ozone-platform-hint=wayland" \
-                    --add-flags "--enable-features=UseOzonePlatform,WaylandWindowDecorations"
-            '';
-        })
+        # (pkgs.symlinkJoin {
+        #     name = "spotify";
+        #     paths = [ pkgs.spotify ];
+        #     nativeBuildInputs = [ pkgs.makeWrapper ];
+        #     postBuild = ''
+        #         wrapProgram $out/bin/spotify \
+        #             --unset DISPLAY \
+        #             --add-flags "--ozone-platform-hint=wayland" \
+        #             --add-flags "--enable-features=UseOzonePlatform,WaylandWindowDecorations"
+        #     '';
+        # })
     ];
 
     # Session

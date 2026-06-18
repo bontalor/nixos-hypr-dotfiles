@@ -55,8 +55,8 @@ alias ls='ls --color=auto'
 alias grep='grep --color=auto'
 alias diff='diff --color=auto'
 alias open='xdg-open'
-alias vim='nvim'
-alias update-grub='sudo grub-mkconfig -o /boot/grub/grub.cfg'
+alias nrs='sudo nixos-rebuild switch'
+alias gpp="git add . && git commit -m 'asdf' && git push"
 
 # Fun
 autoload -U tetriscurses
