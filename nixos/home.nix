@@ -44,6 +44,7 @@
         chatterino2
         discord
 	spotify
+	qbittorrent
         vesktop
         python3
         tree-sitter
