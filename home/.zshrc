@@ -14,16 +14,16 @@ zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}'
 
 # Prompt Colors
 USER_BG=4
-USER_FG=15
+USER_FG=0
 
 AT_BG=8
-AT_FG=15
+AT_FG=0
 
 HOST_BG=5
-HOST_FG=15
+HOST_FG=0
 
 DIR_BG=8
-DIR_FG=15
+DIR_FG=0
 
 # Prompt character
 if [[ $EUID -eq 0 ]]; then

@@ -88,7 +88,7 @@ Scope {
 
                     Rectangle {
                         anchors.fill: parent
-                        color: clockMouse.containsMouse ? Qt.alpha(Colors.base08, 0.75) : "transparent"
+                        color: clockMouse.containsMouse ? Colors.background : "transparent"
                     }
 
                     Text {

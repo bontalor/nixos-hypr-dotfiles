@@ -27,7 +27,7 @@ Item {
 
                 Rectangle {
                     anchors.fill: parent
-                    color: delegateMouse.containsMouse ? Qt.alpha(Colors.base08, 0.75) : "transparent"
+                    color: delegateMouse.containsMouse ? Colors.background : "transparent"
                 }
 
                 QsMenuAnchor {

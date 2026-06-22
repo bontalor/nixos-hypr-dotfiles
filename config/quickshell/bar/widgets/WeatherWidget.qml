@@ -118,7 +118,7 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        color: mouseArea.containsMouse ? Qt.alpha(Colors.base08, 0.75) : "transparent"
+        color: mouseArea.containsMouse ? Colors.background : "transparent"
     }
 
     Text {

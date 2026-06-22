@@ -14,7 +14,7 @@ Row {
 
             Rectangle {
                 anchors.fill: parent
-                color: isActive || mouseArea.containsMouse ? Qt.alpha(Colors.base08, 0.75) : "transparent"
+                color: isActive || mouseArea.containsMouse ? Colors.background : "transparent"
             }
 
             Text {

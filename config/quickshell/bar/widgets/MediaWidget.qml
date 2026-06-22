@@ -103,6 +103,14 @@ Item {
 
     Component.onCompleted: { refreshPlayer(); startScroll() }
 
+    Rectangle {
+        x: contentRow.x - 10
+        y: 0
+        width: contentRow.width + 20
+        height: 30
+        color: mouseArea.containsMouse ? Colors.background : "transparent"
+    }
+
     Item {
         id: contentRow
         anchors { left: parent.left; leftMargin: 10; right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
@@ -114,7 +122,7 @@ Item {
             text: "\u266b"
             font.pixelSize: 16
             font.family: "JetBrainsMono Nerd Font"
-            color: currentPlayer && playbackState === MprisPlaybackState.Playing ? Colors.foreground : Qt.alpha(Colors.foreground, 0.75)
+            color: Colors.foreground
         }
 
         Item {
@@ -136,17 +144,9 @@ Item {
                 }
                 font.pixelSize: 16
                 font.family: "JetBrainsMono Nerd Font"
-                color: currentPlayer && playbackState === MprisPlaybackState.Playing ? Colors.foreground : Qt.alpha(Colors.foreground, 0.75)
+                color: Colors.foreground
             }
         }
-    }
-
-    Rectangle {
-        x: contentRow.x - 10
-        y: 0
-        width: contentRow.width + 20
-        height: 30
-        color: mouseArea.containsMouse ? Qt.alpha(Colors.base08, 0.75) : "transparent"
     }
 
     function startScroll() {
