@@ -24,7 +24,7 @@ Item {
 
     function updateDisplayText() {
         displayText = trackArtist ? trackArtist + " - " + trackTitle : trackTitle
-        scrollText = displayText + "   " + displayText
+        scrollText = displayText + " " + displayText
     }
 
     TextMetrics {
@@ -180,7 +180,7 @@ Item {
         }
     }
 
-    onDisplayTextChanged: { scrollText = displayText + "   " + displayText; scrollPos = 0; scrollTimer.running = false; startScroll() }
+    onDisplayTextChanged: { scrollText = displayText + "" + displayText; scrollPos = 0; scrollTimer.running = false; startScroll() }
 
     MouseArea {
         id: mouseArea
