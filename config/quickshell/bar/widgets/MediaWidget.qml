@@ -108,7 +108,7 @@ Item {
         y: 0
         width: contentRow.width + 20
         height: 30
-        color: mouseArea.containsMouse ? Colors.background : "transparent"
+        color: mouseArea.containsMouse ? Qt.alpha(Colors.foreground, 0.25) : "transparent"
     }
 
     Item {

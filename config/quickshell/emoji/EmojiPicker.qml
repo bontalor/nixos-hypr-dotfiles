@@ -9,7 +9,7 @@ FloatingWindow {
     title: "Emoji Picker"
     color: "transparent"
     implicitWidth: 850
-    implicitHeight: 460
+    implicitHeight: 450
     visible: false
 
     onClosed: visible = false

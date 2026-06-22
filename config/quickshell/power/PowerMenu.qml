@@ -8,8 +8,8 @@ FloatingWindow {
     id: root
     title: "Power Menu"
     color: "transparent"
-    implicitWidth: 300
-    implicitHeight: 250
+    implicitWidth: 850
+    implicitHeight: 450
     visible: false
 
     onClosed: visible = false

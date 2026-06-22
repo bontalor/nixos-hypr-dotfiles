@@ -14,7 +14,16 @@ Row {
 
             Rectangle {
                 anchors.fill: parent
-                color: isActive || mouseArea.containsMouse ? Colors.background : "transparent"
+                color: isActive || mouseArea.containsMouse ? Qt.alpha(Colors.foreground, 0.25) : "transparent"
+            }
+
+            Rectangle {
+                width: 5
+                height: 5
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 0
+                color: Hyprland.toplevels.values.some(t => t.workspace?.id === index + 1) ? Colors.foreground : "transparent"
             }
 
             Text {
@@ -23,7 +32,7 @@ Row {
                 text: index + 1
                 font.pixelSize: 16
                 font.family: "JetBrainsMono Nerd Font"
-                color: Hyprland.toplevels.values.some(t => t.workspace?.id === index + 1) ? Colors.base04 : Colors.foreground
+                color: Colors.foreground
             }
             MouseArea {
                 id: mouseArea

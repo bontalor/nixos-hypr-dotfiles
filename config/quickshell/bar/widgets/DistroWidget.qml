@@ -40,7 +40,7 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        color: mouseArea.containsMouse ? Colors.background : "transparent"
+        color: mouseArea.containsMouse ? Qt.alpha(Colors.foreground, 0.25) : "transparent"
         radius: 0
     }
 

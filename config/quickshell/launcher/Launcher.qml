@@ -8,7 +8,7 @@ FloatingWindow {
     title: "App Launcher"
     color: "transparent"
     implicitWidth: 850
-    implicitHeight: 460
+    implicitHeight: 450
     visible: false
 
     onClosed: visible = false

@@ -7,8 +7,8 @@ FloatingWindow {
     id: root
     title: "Battery & Power"
     color: "transparent"
-    implicitWidth: 520
-    implicitHeight: 520
+    implicitWidth: 850
+    implicitHeight: 450
     visible: false
 
     onClosed: visible = false

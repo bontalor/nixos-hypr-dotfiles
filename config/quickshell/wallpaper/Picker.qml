@@ -87,38 +87,44 @@ FloatingWindow {
             root.visible = false
         }
 
-        
-        GridView {
-            id: grid
-            anchors { left: parent.left; leftMargin: 10; right: parent.right; top: parent.top; topMargin: 10; bottom: parent.bottom; bottomMargin: 10 }
-            model: root.wallpapers
-            cellWidth: 210
-            cellHeight: 146.5
-            interactive: false
-            highlightRangeMode: GridView.StrictlyEnforceRange
-            snapMode: GridView.SnapToRow
+        Rectangle {
+            anchors.fill: parent
+            anchors.margins: 10
+            color: Qt.alpha(Colors.base00, 0.75)
 
-            delegate: Item {
-                width: grid.cellWidth - 10
-                height: grid.cellHeight - 10
+            GridView {
+                id: grid
+                anchors.fill: parent
+                anchors { leftMargin: 10; rightMargin: 0; topMargin: 10; bottomMargin: 10 }
+                model: root.wallpapers
+                cellWidth: 205
+                cellHeight: 140
+                clip: true
+                interactive: false
+                highlightRangeMode: GridView.StrictlyEnforceRange
+                snapMode: GridView.SnapToRow
 
-                Image {
-                    anchors.fill: parent
-                    source: model.path
-                    sourceSize.width: 200
-                    sourceSize.height: 140
-                    fillMode: Image.PreserveAspectCrop
-                    asynchronous: true
-                    cache: true
-                    smooth: true
-                }
+                delegate: Item {
+                    width: grid.cellWidth - 10
+                    height: grid.cellHeight - 10
 
-                Rectangle {
-                    anchors.fill: parent
-                    radius: 0
-                    color: "transparent"
-                    border.width: index === root.selected ? 5 : 0
-                    border.color: Colors.base05
+                    Image {
+                        anchors.fill: parent
+                        source: model.path
+                        sourceSize.width: 195
+                        sourceSize.height: 130
+                        fillMode: Image.PreserveAspectCrop
+                        asynchronous: true
+                        cache: true
+                        smooth: true
+                    }
+
+                    Rectangle {
+                        anchors.fill: parent
+                        color: "transparent"
+                        border.width: index === root.selected ? 5 : 0
+                        border.color: Colors.base05
+                    }
                 }
             }
         }
