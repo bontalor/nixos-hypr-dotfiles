@@ -10,15 +10,16 @@ Item {
     clip: true
 
     readonly property string assetsDir: Quickshell.shellDir + "/assets"
-    property string logoPath: assetsDir + "/archlinux-logo.svg"
+    property string logoPath: "/run/current-system/sw/share/icons/hicolor/scalable/apps/nix-snowflake.svg"
 
     function setLogo(content) {
-        if (!content) { logoPath = assetsDir + "/archlinux-logo.svg"; return }
+        if (!content) { logoPath = "/run/current-system/sw/share/icons/hicolor/scalable/apps/nix-snowflake.svg"; return }
         for (var line of content.split("\n")) {
             if (line.startsWith("ID=")) {
                 var id = line.substring(3).replace(/"/g, "").trim()
                 var paths = {
                     "arch": assetsDir + "/archlinux-logo.svg",
+                    "nixos": "/run/current-system/sw/share/icons/hicolor/scalable/apps/nix-snowflake.svg",
                 }
                 logoPath = paths[id] || ""
                 return
