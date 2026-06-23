@@ -35,8 +35,11 @@ FloatingWindow {
     Timer {
         interval: 1000
         repeat: true
-        running: true
+        running: root.visible
         onTriggered: now = new Date()
+        onRunningChanged: {
+            if (running) now = new Date()
+        }
     }
 
     Rectangle {

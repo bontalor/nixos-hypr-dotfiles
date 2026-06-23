@@ -75,14 +75,6 @@ Item {
         }
     }
 
-    // Fallback: refresh battery status every 60s
-    Timer {
-        interval: 60000
-        repeat: true
-        running: true
-        onTriggered: fetchStatus()
-    }
-
     Component.onCompleted: fetchStatus()
 
     Process {

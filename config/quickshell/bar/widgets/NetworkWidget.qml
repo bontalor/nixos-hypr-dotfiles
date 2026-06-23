@@ -98,14 +98,6 @@ Item {
         }
     }
 
-    // Fallback: refresh network status every 30s
-    Timer {
-        interval: 30000
-        repeat: true
-        running: true
-        onTriggered: fetchStatus()
-    }
-
     Component.onCompleted: fetchStatus()
 
     Process {

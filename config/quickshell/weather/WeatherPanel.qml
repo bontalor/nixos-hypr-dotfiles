@@ -58,15 +58,13 @@ FloatingWindow {
 
     onDegreeUnitChanged: {
         var dir = Quickshell.shellDir + "/weather"
-        var esc = degreeUnit.replace(/'/g, "'\\''")
-        unitWriter.command = ["bash", "-c", "mkdir -p " + dir + " && echo '" + esc + "' > " + dir + "/unit"]
+        unitWriter.command = ["sh", "-c", "mkdir -p \"$1\" && printf '%s' \"$2\" > \"$1\"/unit", "sh", dir, degreeUnit]
         unitWriter.running = true
     }
 
     onCustomCityChanged: {
         var dir = Quickshell.shellDir + "/weather"
-        var esc = customCity.replace(/'/g, "'\\''")
-        cityWriter.command = ["bash", "-c", "mkdir -p " + dir + " && echo '" + esc + "' > " + dir + "/city"]
+        cityWriter.command = ["sh", "-c", "mkdir -p \"$1\" && printf '%s' \"$2\" > \"$1\"/city", "sh", dir, customCity]
         cityWriter.running = true
     }
 
@@ -80,9 +78,9 @@ FloatingWindow {
                 var lines = text.split('\n')
                 if (lines[0].trim()) root.degreeUnit = lines[0].trim()
                 if (lines[1].trim()) root.customCity = lines[1].trim()
-                unitWriter.command = ["bash", "-c", "mkdir -p " + dir + " && echo '" + root.degreeUnit + "' > " + dir + "/unit"]
+                unitWriter.command = ["sh", "-c", "mkdir -p \"$1\" && printf '%s' \"$2\" > \"$1\"/unit", "sh", dir, root.degreeUnit]
                 unitWriter.running = true
-                cityWriter.command = ["bash", "-c", "mkdir -p " + dir + " && echo '" + root.customCity + "' > " + dir + "/city"]
+                cityWriter.command = ["sh", "-c", "mkdir -p \"$1\" && printf '%s' \"$2\" > \"$1\"/city", "sh", dir, root.customCity]
                 cityWriter.running = true
                 fetchWeather()
             }
@@ -91,9 +89,9 @@ FloatingWindow {
 
     Component.onCompleted: {
         var dir = Quickshell.shellDir + "/weather"
-        startupReader.command = ["bash", "-c",
-            "printf '%s\\n' \"$(cat " + dir + "/unit 2>/dev/null || echo F)\""
-            + " \"$(cat " + dir + "/city 2>/dev/null || echo '')\""]
+        startupReader.command = ["sh", "-c",
+            "cat \"$1/unit\" 2>/dev/null || echo F; cat \"$1/city\" 2>/dev/null || echo ''",
+            "sh", dir]
         startupReader.running = true
     }
 

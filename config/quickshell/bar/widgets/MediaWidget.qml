@@ -26,7 +26,7 @@ Item {
 
     property var peakNode: null
     property var peakLevels: [0, 0, 0, 0, 0, 0, 0, 0]
-    property int peakFps: 20
+    property int peakFps: 10
     function updateDisplayText() {
         displayText = trackArtist ? trackArtist + " - " + trackTitle : trackTitle
         scrollText = displayText + " " + displayText
@@ -172,11 +172,9 @@ Item {
         }
     }
 
-    Timer {
-        interval: 2000
-        repeat: true
-        running: true
-        onTriggered: refreshPlayer()
+    Connections {
+        target: Mpris && Mpris.players
+        function onValuesChanged() { refreshPlayer() }
     }
 
     PwNodePeakMonitor {
@@ -194,7 +192,7 @@ Item {
             if (peakNode) {
                 var raw = Math.min(1, peakMon.peak)
                 for (var i = 0; i < 8; i++) {
-                    var sensitivity = 0.3 + Math.random() * 1.2
+                    var sensitivity = 0.6 + Math.random() * 0.5
                     var decay = 0.01 + Math.random() * 0.05
                     var target = Math.min(1, raw * sensitivity * 1.2)
                     if (target > arr[i]) {
@@ -203,8 +201,6 @@ Item {
                         arr[i] = Math.max(0, arr[i] - decay)
                     }
                 }
-            } else {
-                for (var i = 0; i < 8; i++) arr[i] = 0
             }
             root.peakLevels = arr
         }

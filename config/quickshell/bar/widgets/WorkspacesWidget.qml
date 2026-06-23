@@ -4,11 +4,30 @@ import Quickshell
 import Quickshell.Hyprland
 Row {
     spacing: 10
+
+    property var workspaceIds: (function() {
+        var ids = {}
+        var vals = Hyprland.workspaces.values
+        for (var i = 0; i < vals.length; i++) ids[vals[i].id] = true
+        return ids
+    })()
+    property var occupiedWorkspaces: (function() {
+        var ids = {}
+        var vals = Hyprland.toplevels.values
+        for (var i = 0; i < vals.length; i++) {
+            var wid = vals[i].workspace?.id
+            if (wid) ids[wid] = true
+        }
+        return ids
+    })()
+    property int focusedWorkspaceId: Hyprland.focusedWorkspace?.id ?? -1
+
     Repeater {
         model: 9
         Item {
-            property var ws: Hyprland.workspaces.values.find(w => w.id === index + 1)
-            property bool isActive: Hyprland.focusedWorkspace?.id === (index + 1)
+            readonly property bool wsExists: root.workspaceIds[index + 1] === true
+            readonly property bool isActive: root.focusedWorkspaceId === (index + 1)
+            readonly property bool isOccupied: root.occupiedWorkspaces[index + 1] === true
             width: 30
             height: 30
 
@@ -23,7 +42,7 @@ Row {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: 0
-                color: Hyprland.toplevels.values.some(t => t.workspace?.id === index + 1) ? Colors.foreground : "transparent"
+                color: isOccupied ? Colors.foreground : "transparent"
             }
 
             Text {

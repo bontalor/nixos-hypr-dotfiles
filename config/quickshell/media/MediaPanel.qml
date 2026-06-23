@@ -148,9 +148,9 @@ FloatingWindow {
         onTriggered: { if (currentPlayer) currentPlayer.positionChanged() }
     }
 
-    Timer {
-        interval: 2000; repeat: true; running: true
-        onTriggered: refreshPlayer()
+    Connections {
+        target: Mpris && Mpris.players
+        function onValuesChanged() { refreshPlayer() }
     }
 
     onVisibleChanged: {
@@ -398,6 +398,9 @@ FloatingWindow {
                             height: Math.min(220, parent.height)
                             source: root.trackArtUrl
                             fillMode: Image.PreserveAspectCrop
+                            asynchronous: true
+                            sourceSize.width: 220
+                            sourceSize.height: 220
                             smooth: true
                         }
                     }

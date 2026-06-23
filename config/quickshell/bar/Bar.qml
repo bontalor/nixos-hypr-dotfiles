@@ -144,14 +144,6 @@ Scope {
                         }
                     }
 
-                    Timer {
-                        id: stateTimer
-                        interval: 300
-                        repeat: true
-                        running: true
-                        onTriggered: layoutState.updateState()
-                    }
-
                     Component.onCompleted: layoutState.updateState()
 
                     Rectangle {

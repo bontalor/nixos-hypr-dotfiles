@@ -82,7 +82,7 @@ FloatingWindow {
         function applyWallpaper() {
             if (root.wallpapers.count === 0) return
             var path = root.wallpapers.get(root.selected).path
-            setter.command = ["bash", "-c", "~/.local/bin/setwall '" + path + "'"]
+            setter.command = [Quickshell.env("HOME") + "/.local/bin/setwall", path]
             setter.running = true
             root.visible = false
         }

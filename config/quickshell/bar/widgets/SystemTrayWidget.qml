@@ -43,7 +43,6 @@ Item {
                     width: 22
                     height: 22
                     source: trayDelegate.modelData.icon
-                    mipmap: true
                     backer.sourceSize.width: 22 * Screen.devicePixelRatio
                     backer.sourceSize.height: 22 * Screen.devicePixelRatio
                 }

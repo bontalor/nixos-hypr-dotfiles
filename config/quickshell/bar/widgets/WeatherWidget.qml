@@ -94,9 +94,9 @@ Item {
 
     function readConfig() {
         var dir = Quickshell.shellDir + "/weather"
-        configReader.command = ["bash", "-c",
-            "printf '%s\\n' \"$(cat " + dir + "/unit 2>/dev/null || echo F)\""
-            + " \"$(cat " + dir + "/city 2>/dev/null || echo '')\""]
+        configReader.command = ["sh", "-c",
+            "cat \"$1/unit\" 2>/dev/null || echo F; cat \"$1/city\" 2>/dev/null || echo ''",
+            "sh", dir]
         configReader.running = true
     }
 

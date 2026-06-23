@@ -1,4 +1,4 @@
-import "theme"
+import "../theme"
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -27,6 +27,9 @@ Rectangle {
         anchors.fill: parent
         source: wallpaperPath ? "file://" + wallpaperPath : ""
         fillMode: Image.PreserveAspectCrop
+        asynchronous: true
+        sourceSize.width: 1920
+        sourceSize.height: 1080
     }
     Process {
         id: btnProcess
