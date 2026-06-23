@@ -30,6 +30,7 @@ FloatingWindow {
     property bool canSeek: currentPlayer ? currentPlayer.canSeek : false
     property string trackArtUrl: currentPlayer ? (currentPlayer.trackArtUrl || "") : ""
     property bool manuallySelected: false
+    property var playerTimestamps: ({})
 
     function fmtTime(sec) {
         var totalSec = Math.floor(sec)
@@ -40,6 +41,27 @@ FloatingWindow {
 
     function refreshPlayer() {
         var raw = Mpris.players.values
+        var now = Date.now()
+        var activeKeys = {}
+
+        for (var i = 0; i < raw.length; i++) {
+            var p = raw[i]
+            var key = p.desktopEntry || p.identity || p.dbusName
+            activeKeys[key] = true
+            var prev = playerTimestamps[key]
+            if (!prev) {
+                playerTimestamps[key] = { trackTitle: p.trackTitle, playbackState: p.playbackState, time: now }
+            } else if (prev.trackTitle !== p.trackTitle || prev.playbackState !== p.playbackState) {
+                prev.trackTitle = p.trackTitle
+                prev.playbackState = p.playbackState
+                prev.time = now
+            }
+        }
+
+        for (var key in playerTimestamps) {
+            if (!activeKeys[key]) delete playerTimestamps[key]
+        }
+
         var best = {}
         for (var i = 0; i < raw.length; i++) {
             var p = raw[i]
@@ -53,20 +75,40 @@ FloatingWindow {
                 if (newScore > curScore) best[key] = p
             }
         }
+
         var filtered = []
         for (var key in best) filtered.push(best[key])
         allPlayers = filtered
+
         if (manuallySelected) {
             if (currentPlayer && filtered.indexOf(currentPlayer) >= 0) return
             manuallySelected = false
         }
-        var playing = null
+
+        var playingPlayers = []
         for (var i = 0; i < filtered.length; i++) {
             if (filtered[i].playbackState === MprisPlaybackState.Playing) {
-                playing = filtered[i]
-                break
+                playingPlayers.push(filtered[i])
             }
         }
+
+        var playing = null
+        if (playingPlayers.length === 1) {
+            playing = playingPlayers[0]
+        } else if (playingPlayers.length > 1) {
+            var bestPlaying = playingPlayers[0]
+            var bestTime = 0
+            for (var i = 0; i < playingPlayers.length; i++) {
+                var key = playingPlayers[i].desktopEntry || playingPlayers[i].identity || playingPlayers[i].dbusName
+                var ts = playerTimestamps[key] ? playerTimestamps[key].time : 0
+                if (ts > bestTime) {
+                    bestTime = ts
+                    bestPlaying = playingPlayers[i]
+                }
+            }
+            playing = bestPlaying
+        }
+
         if (!playing && currentPlayer) return
         setPlayer(playing)
     }
@@ -277,16 +319,21 @@ FloatingWindow {
                 height: parent.height
                 color: Qt.alpha(Colors.base00, 0.75)
 
-                Flickable {
-                    id: flick
-                    anchors.fill: parent
-                    anchors.margins: 10
-                    contentHeight: contentCol.height
-                    clip: true
+                Item {
+                    anchors {
+                        top: parent.top; topMargin: 10
+                        left: parent.left; leftMargin: 10
+                        right: parent.right; rightMargin: 10
+                        bottom: parent.bottom; bottomMargin: 10
+                    }
 
                     Column {
-                        id: contentCol
-                        width: parent.width
+                        id: topContent
+                        anchors {
+                            top: parent.top
+                            left: parent.left
+                            right: parent.right
+                        }
                         spacing: 10
 
                         Rectangle {
@@ -307,50 +354,71 @@ FloatingWindow {
                             }
                         }
 
-                        Text {
+                        Column {
                             width: parent.width
-                            text: root.trackTitle || "No Track"
-                            color: Colors.foreground
-                            font.pixelSize: 16
-                            font.family: "JetBrainsMono Nerd Font"
-                            horizontalAlignment: Text.AlignHCenter
-                            wrapMode: Text.WordWrap
+                            spacing: 10
                             visible: currentPlayer !== null
-                        }
 
-                        Text {
-                            width: parent.width
-                            text: root.trackArtist || ""
-                            color: Colors.foreground
-                            font.pixelSize: 16
-                            font.family: "JetBrainsMono Nerd Font"
-                            horizontalAlignment: Text.AlignHCenter
-                            wrapMode: Text.WordWrap
-                            visible: currentPlayer !== null && text !== ""
-                        }
+                            Text {
+                                width: parent.width
+                                text: root.trackTitle || "No Track"
+                                color: Colors.foreground
+                                font.pixelSize: 16
+                                font.family: "JetBrainsMono Nerd Font"
+                                horizontalAlignment: Text.AlignHCenter
+                                wrapMode: Text.WordWrap
+                            }
 
-                        Item {
-                            width: parent.width
-                            height: 220
-                            visible: currentPlayer !== null && root.trackArtUrl !== ""
-
-                            Image {
-                                anchors.centerIn: parent
-                                width: 220; height: 220
-                                source: root.trackArtUrl
-                                fillMode: Image.PreserveAspectCrop
-                                smooth: true
+                            Text {
+                                width: parent.width
+                                text: root.trackArtist || ""
+                                color: Colors.foreground
+                                font.pixelSize: 16
+                                font.family: "JetBrainsMono Nerd Font"
+                                horizontalAlignment: Text.AlignHCenter
+                                wrapMode: Text.WordWrap
+                                visible: text !== ""
                             }
                         }
+                    }
 
-                        Text {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            text: "No media playing"
-                            color: Qt.alpha(Colors.foreground, 0.75)
-                            font.pixelSize: 16
-                            font.family: "JetBrainsMono Nerd Font"
-                            visible: currentPlayer === null
+                    Item {
+                        id: artArea
+                        anchors {
+                            left: parent.left
+                            right: parent.right
+                            top: topContent.bottom
+                            bottom: bottomCol.top
                         }
+                        visible: currentPlayer !== null && root.trackArtUrl !== ""
+
+                        Image {
+                            anchors.centerIn: parent
+                            width: Math.min(220, parent.width)
+                            height: Math.min(220, parent.height)
+                            source: root.trackArtUrl
+                            fillMode: Image.PreserveAspectCrop
+                            smooth: true
+                        }
+                    }
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "No media playing"
+                        color: Qt.alpha(Colors.foreground, 0.75)
+                        font.pixelSize: 16
+                        font.family: "JetBrainsMono Nerd Font"
+                        visible: currentPlayer === null
+                    }
+
+                    Column {
+                        id: bottomCol
+                        anchors {
+                            bottom: parent.bottom
+                            left: parent.left
+                            right: parent.right
+                        }
+                        spacing: 10
 
                         Item {
                             width: parent.width
@@ -415,18 +483,34 @@ FloatingWindow {
                                 width: 45; height: 45
                                 color: Qt.alpha(Colors.base0d, 0.75)
 
-                                Item {
-                                    anchors.centerIn: parent
+                                Canvas {
+                                    id: prevBtnIcon
                                     width: 30; height: 30
+                                    anchors.centerIn: parent
+                                    property color iconColor: Colors.foreground
 
-                                    Text {
-                                        anchors.fill: parent
-                                        text: "\u23ee"
-                                        color: Colors.foreground
-                                        font.pixelSize: 30
-                                        font.family: "JetBrainsMono Nerd Font"
-                                        verticalAlignment: Text.AlignVCenter
-                                        horizontalAlignment: Text.AlignHCenter
+                                    onPaint: {
+                                        var ctx = getContext("2d")
+                                        if (!ctx) return
+                                        ctx.clearRect(0, 0, width, height)
+                                        ctx.fillStyle = iconColor
+                                        ctx.beginPath()
+                                        ctx.moveTo(5, 15)
+                                        ctx.lineTo(13, 5)
+                                        ctx.lineTo(13, 25)
+                                        ctx.closePath()
+                                        ctx.fill()
+                                        ctx.beginPath()
+                                        ctx.moveTo(15, 15)
+                                        ctx.lineTo(23, 5)
+                                        ctx.lineTo(23, 25)
+                                        ctx.closePath()
+                                        ctx.fill()
+                                    }
+
+                                    Connections {
+                                        target: Colors
+                                        function onForegroundChanged() { prevBtnIcon.requestPaint() }
                                     }
                                 }
 
@@ -441,18 +525,36 @@ FloatingWindow {
                                 width: 45; height: 45
                                 color: Qt.alpha(Colors.base0d, 0.75)
 
-                                Item {
-                                    anchors.centerIn: parent
+                                Canvas {
+                                    id: playPauseBtnIcon
                                     width: 30; height: 30
+                                    anchors.centerIn: parent
+                                    property color iconColor: Colors.foreground
+                                    property bool isPlaying: root.playbackState === MprisPlaybackState.Playing
 
-                                    Text {
-                                        anchors.fill: parent
-                                        text: root.playbackState === MprisPlaybackState.Playing ? "\u23f8" : "\u23f5"
-                                        color: Colors.foreground
-                                        font.pixelSize: 30
-                                        font.family: "JetBrainsMono Nerd Font"
-                                        verticalAlignment: Text.AlignVCenter
-                                        horizontalAlignment: Text.AlignHCenter
+                                    onPaint: {
+                                        var ctx = getContext("2d")
+                                        if (!ctx) return
+                                        ctx.clearRect(0, 0, width, height)
+                                        ctx.fillStyle = iconColor
+                                        if (isPlaying) {
+                                            ctx.fillRect(9, 6, 5, 18)
+                                            ctx.fillRect(16, 6, 5, 18)
+                                        } else {
+                                            ctx.beginPath()
+                                            ctx.moveTo(23, 15)
+                                            ctx.lineTo(11, 5)
+                                            ctx.lineTo(11, 25)
+                                            ctx.closePath()
+                                            ctx.fill()
+                                        }
+                                    }
+
+                                    onIsPlayingChanged: playPauseBtnIcon.requestPaint()
+
+                                    Connections {
+                                        target: Colors
+                                        function onForegroundChanged() { playPauseBtnIcon.requestPaint() }
                                     }
                                 }
 
@@ -467,18 +569,34 @@ FloatingWindow {
                                 width: 45; height: 45
                                 color: Qt.alpha(Colors.base0d, 0.75)
 
-                                Item {
-                                    anchors.centerIn: parent
+                                Canvas {
+                                    id: nextBtnIcon
                                     width: 30; height: 30
+                                    anchors.centerIn: parent
+                                    property color iconColor: Colors.foreground
 
-                                    Text {
-                                        anchors.fill: parent
-                                        text: "\u23ed"
-                                        color: Colors.foreground
-                                        font.pixelSize: 30
-                                        font.family: "JetBrainsMono Nerd Font"
-                                        verticalAlignment: Text.AlignVCenter
-                                        horizontalAlignment: Text.AlignHCenter
+                                    onPaint: {
+                                        var ctx = getContext("2d")
+                                        if (!ctx) return
+                                        ctx.clearRect(0, 0, width, height)
+                                        ctx.fillStyle = iconColor
+                                        ctx.beginPath()
+                                        ctx.moveTo(15, 15)
+                                        ctx.lineTo(7, 5)
+                                        ctx.lineTo(7, 25)
+                                        ctx.closePath()
+                                        ctx.fill()
+                                        ctx.beginPath()
+                                        ctx.moveTo(25, 15)
+                                        ctx.lineTo(17, 5)
+                                        ctx.lineTo(17, 25)
+                                        ctx.closePath()
+                                        ctx.fill()
+                                    }
+
+                                    Connections {
+                                        target: Colors
+                                        function onForegroundChanged() { nextBtnIcon.requestPaint() }
                                     }
                                 }
 
