@@ -194,9 +194,9 @@ Item {
             if (peakNode) {
                 var raw = Math.min(1, peakMon.peak)
                 for (var i = 0; i < 8; i++) {
-                    var sensitivity = 0.5 + i * 0.08
-                    var decay = 0.03 + i * 0.004
-                    var target = Math.min(1, raw * sensitivity * 2.5)
+                    var sensitivity = 0.3 + Math.random() * 1.2
+                    var decay = 0.01 + Math.random() * 0.05
+                    var target = Math.min(1, raw * sensitivity * 1.2)
                     if (target > arr[i]) {
                         arr[i] = target
                     } else if (arr[i] > 0) {
