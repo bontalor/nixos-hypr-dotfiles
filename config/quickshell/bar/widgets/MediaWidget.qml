@@ -12,24 +12,38 @@ Item {
     visible: true
 
     property var currentPlayer: null
-    property string trackTitle: ""
-    property string trackArtist: ""
-    property int playbackState: MprisPlaybackState.Stopped
+    
+    // Declarative property bindings automatically update when currentPlayer changes
+    property string trackTitle: currentPlayer ? (currentPlayer.trackTitle ?? "") : ""
+    property string trackArtist: currentPlayer ? (currentPlayer.trackArtist ?? "") : ""
+    property int playbackState: currentPlayer ? currentPlayer.playbackState : MprisPlaybackState.Stopped
+    
     property var playerTimestamps: ({})
-
     property int maxChars: 8
 
     property string displayText: ""
     property string scrollText: ""
-
     property int scrollPos: 0
 
     property var peakNode: null
     property var peakLevels: [0, 0, 0, 0, 0, 0, 0, 0]
-    property int peakFps: 10
+    property int peakFps: 20
+
     function updateDisplayText() {
         displayText = trackArtist ? trackArtist + " - " + trackTitle : trackTitle
         scrollText = displayText + " " + displayText
+    }
+
+    // Automatically trigger text updates and scrolling when tracks change
+    onTrackTitleChanged: { scrollPos = 0; updateDisplayText(); startScroll() }
+    onTrackArtistChanged: { scrollPos = 0; updateDisplayText(); startScroll() }
+    onPlaybackStateChanged: {
+        if (playbackState === MprisPlaybackState.Playing) {
+            startScroll()
+        } else {
+            scrollPos = 0
+            scrollTimer.running = false
+        }
     }
 
     TextMetrics {
@@ -116,38 +130,25 @@ Item {
             playing = bestPlaying
         }
 
-        if (!playing && currentPlayer) return
-
+        // Fixed: Removed the early return here so layout resets correctly when music stops
         if (playing !== currentPlayer) {
             currentPlayer = playing
-            if (playing) {
-                trackTitle = playing.trackTitle || ""
-                trackArtist = playing.trackArtist || ""
-                playbackState = playing.playbackState
-                updateDisplayText()
-            } else {
-                trackTitle = ""
-                trackArtist = ""
-                playbackState = MprisPlaybackState.Stopped
+            if (!playing) {
+                scrollPos = 0
                 displayText = ""
                 scrollText = ""
             }
-            scrollPos = 0
         }
     }
 
-    Connections {
-        target: currentPlayer
-        function onTrackTitleChanged() { trackTitle = currentPlayer?.trackTitle ?? ""; playbackState = currentPlayer?.playbackState ?? MprisPlaybackState.Stopped; trackArtist = currentPlayer?.trackArtist ?? ""; updateDisplayText() }
-        function onTrackArtistChanged() { trackArtist = currentPlayer?.trackArtist ?? ""; updateDisplayText() }
-        function onPlaybackStateChanged() {
-            playbackState = currentPlayer?.playbackState ?? MprisPlaybackState.Stopped
-            if (playbackState === MprisPlaybackState.Playing) {
-                startScroll()
-            } else {
-                scrollPos = 0
-                scrollTimer.running = false
-            }
+    // Dynamically tracks property changes inside ALL active players without using timers
+    Instantiator {
+        model: Mpris.players
+        delegate: Connections {
+            target: modelData
+            function onPlaybackStateChanged() { root.refreshPlayer() }
+            function onTrackTitleChanged() { root.refreshPlayer() }
+            function onTrackArtistChanged() { root.refreshPlayer() }
         }
     }
 
@@ -192,7 +193,7 @@ Item {
             if (peakNode) {
                 var raw = Math.min(1, peakMon.peak)
                 for (var i = 0; i < 8; i++) {
-                    var sensitivity = 0.6 + Math.random() * 0.5
+                    var sensitivity = 0.3 + Math.random() * 1.2
                     var decay = 0.01 + Math.random() * 0.05
                     var target = Math.min(1, raw * sensitivity * 1.2)
                     if (target > arr[i]) {
@@ -201,6 +202,8 @@ Item {
                         arr[i] = Math.max(0, arr[i] - decay)
                     }
                 }
+            } else {
+                for (var i = 0; i < 8; i++) arr[i] = 0
             }
             root.peakLevels = arr
         }
@@ -229,7 +232,6 @@ Item {
 
             Repeater {
                 model: 8
-
                 delegate: Item {
                     property int colIdx: index
                     x: colIdx * 4
@@ -238,7 +240,6 @@ Item {
 
                     Repeater {
                         model: 8
-
                         delegate: Rectangle {
                             required property int index
                             width: 2
@@ -288,7 +289,6 @@ Item {
 
     Timer {
         id: scrollTimer
-        interval: 500
         repeat: false
         running: false
 
@@ -306,8 +306,6 @@ Item {
             }
         }
     }
-
-    onDisplayTextChanged: { scrollPos = 0; startScroll() }
 
     MouseArea {
         id: mouseArea
