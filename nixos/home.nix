@@ -43,6 +43,7 @@
         fastfetch
         chatterino2
         discord
+	webcord
 	spotify
 	qbittorrent
         vesktop
@@ -53,6 +54,7 @@
         htop
         awww
         pywal16
+	pywalfox-native
         kdePackages.dolphin
         kdePackages.kio
         kdePackages.kio-fuse
@@ -64,25 +66,30 @@
         kdePackages.okular
         kdePackages.ark
         libnotify
-        prismlauncher
+	temurin-jre-bin-21
         hyprshot
         hyprpicker
         qtengine
 	qt6.qtwayland
         wl-clipboard
-        obs-studio
         xrandr
         opencode
         unicode-emoji
         mpv
         imv
-        steam
         waywall
         glfw3-minecraft
         libarchive
         gearlever
         appimage-run
 	rofi
+	osu-lazer-bin
+	xvfb
+	cava
+	lavat
+	evtest
+	ydotool
+	theclicker
         # (pkgs.symlinkJoin {
         #     name = "spotify";
         #     paths = [ pkgs.spotify ];
