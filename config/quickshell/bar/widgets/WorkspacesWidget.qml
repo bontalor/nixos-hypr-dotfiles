@@ -18,8 +18,8 @@ Row {
             }
 
             Rectangle {
-                width: 5
-                height: 5
+                width: 4
+                height: 4
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: 0
