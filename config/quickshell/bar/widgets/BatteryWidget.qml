@@ -1,5 +1,6 @@
 import "../../theme"
 import QtQuick
+import Quickshell
 import Quickshell.Io
 
 Item {
@@ -82,6 +83,11 @@ Item {
         command: ["upower", "--monitor"]
         running: true
         onStdoutChanged: { if (stdout.length > 0) fetchStatus() }
+    }
+
+    Connections {
+        target: Quickshell
+        function onReloadCompleted() { fetchStatus() }
     }
 
     Process {

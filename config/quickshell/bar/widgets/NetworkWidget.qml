@@ -1,5 +1,6 @@
 import "../../theme"
 import QtQuick
+import Quickshell
 import Quickshell.Io
 
 Item {
@@ -103,6 +104,11 @@ Item {
     Process {
         id: actionProc
         running: false
+    }
+
+    Connections {
+        target: Quickshell
+        function onReloadCompleted() { fetchStatus() }
     }
 
     Process {
