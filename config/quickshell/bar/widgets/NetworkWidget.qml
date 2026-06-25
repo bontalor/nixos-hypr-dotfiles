@@ -106,6 +106,13 @@ Item {
     }
 
     Process {
+        id: nmMonitor
+        command: ["nmcli", "monitor"]
+        running: true
+        onStdoutChanged: { if (stdout.length > 0) fetchStatus() }
+    }
+
+    Process {
         id: ipcToggle
         command: ["qs", "ipc", "call", "overlay", "toggle", "network"]
         running: false

@@ -203,6 +203,13 @@ FloatingWindow {
     }
 
     Process {
+        id: networkMonitor
+        command: ["nmcli", "monitor"]
+        running: false
+        onStdoutChanged: { if (stdout.length > 0 && root.visible) runFetch(true, true) }
+    }
+
+    Process {
         id: scanProc
         running: false
         stdout: StdioCollector {
@@ -320,11 +327,14 @@ FloatingWindow {
 
     onVisibleChanged: {
         if (visible) {
+            networkMonitor.running = true
             runFetch(true, true)
             mainRect.forceActiveFocus()
             selSection = 0
             inSection = false
             selDevice = 0
+        } else {
+            networkMonitor.running = false
         }
     }
 

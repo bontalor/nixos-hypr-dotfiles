@@ -149,6 +149,13 @@ FloatingWindow {
         running: false
     }
 
+    Process {
+        id: batteryMonitor
+        command: ["upower", "--monitor"]
+        running: false
+        onStdoutChanged: { if (stdout.length > 0 && root.visible) runFetch() }
+    }
+
     function setProfile(name) {
         var cmdName = name.toLowerCase().replace(/ /g, '-')
         for (var i = 0; i < powerProfiles.length; i++) {
@@ -173,11 +180,14 @@ FloatingWindow {
 
     onVisibleChanged: {
         if (visible) {
+            batteryMonitor.running = true
             runFetch()
             mainRect.forceActiveFocus()
             selSection = 0
             inSection = false
             selDevice = 0
+        } else {
+            batteryMonitor.running = false
         }
     }
 

@@ -78,6 +78,13 @@ Item {
     Component.onCompleted: fetchStatus()
 
     Process {
+        id: upowerMonitor
+        command: ["upower", "--monitor"]
+        running: true
+        onStdoutChanged: { if (stdout.length > 0) fetchStatus() }
+    }
+
+    Process {
         id: ipcToggle
         command: ["qs", "ipc", "call", "overlay", "toggle", "battery"]
         running: false
