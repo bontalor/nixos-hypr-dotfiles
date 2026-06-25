@@ -1,6 +1,5 @@
 import "../../theme"
 import QtQuick
-import Quickshell
 import Quickshell.Io
 
 Item {
@@ -104,18 +103,6 @@ Item {
     Process {
         id: actionProc
         running: false
-    }
-
-    Connections {
-        target: Quickshell
-        function onReloadCompleted() { fetchStatus() }
-    }
-
-    Process {
-        id: nmMonitor
-        command: ["nmcli", "monitor"]
-        running: true
-        onStdoutChanged: { if (stdout.length > 0) fetchStatus() }
     }
 
     Process {

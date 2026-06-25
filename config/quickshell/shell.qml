@@ -14,14 +14,6 @@ import Quickshell
 import Quickshell.Io
 
 Scope {
-    Process {
-        command: ["bash", "-c", "
-            systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE DISPLAY DBUS_SESSION_BUS_ADDRESS 2>/dev/null
-            dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE DISPLAY 2>/dev/null || true
-        "]
-        running: true
-    }
-
     Bar{}
     Notifications{}
 

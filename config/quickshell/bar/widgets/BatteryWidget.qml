@@ -1,6 +1,5 @@
 import "../../theme"
 import QtQuick
-import Quickshell
 import Quickshell.Io
 
 Item {
@@ -77,18 +76,6 @@ Item {
     }
 
     Component.onCompleted: fetchStatus()
-
-    Process {
-        id: upowerMonitor
-        command: ["upower", "--monitor"]
-        running: true
-        onStdoutChanged: { if (stdout.length > 0) fetchStatus() }
-    }
-
-    Connections {
-        target: Quickshell
-        function onReloadCompleted() { fetchStatus() }
-    }
 
     Process {
         id: ipcToggle
