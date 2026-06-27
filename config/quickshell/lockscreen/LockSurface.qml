@@ -1,4 +1,4 @@
-import "../theme"
+import "./theme"
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -21,8 +21,8 @@ Rectangle {
         id: wallpaperFile
         path: Quickshell.env("HOME") + "/.cache/wal/wal"
         watchChanges: true
-        onFileChanged: root.wallpaperPath = text.trim()
-        Component.onCompleted: root.wallpaperPath = text.trim()
+        onLoaded: root.wallpaperPath = text().trim()
+        onFileChanged: root.wallpaperPath = text().trim()
     }
     Image {
         anchors.fill: parent
