@@ -19,7 +19,7 @@ Item {
         id: weatherText
         anchors.centerIn: parent
         text: WeatherModel.dataReady
-            ? WeatherCodes.icon(parseInt(WeatherModel.weatherData.current_condition[0].weatherCode)) + " " + (WeatherModel.degreeUnit === "F" ? WeatherModel.weatherData.current_condition[0].temp_F : WeatherModel.weatherData.current_condition[0].temp_C) + "\u00b0" + WeatherModel.degreeUnit
+            ? (WeatherModel.isNight ? WeatherModel.moonIcon + " " : "") + WeatherCodes.icon(parseInt(WeatherModel.weatherData.current_condition[0].weatherCode)) + " " + (WeatherModel.degreeUnit === "F" ? WeatherModel.weatherData.current_condition[0].temp_F : WeatherModel.weatherData.current_condition[0].temp_C) + "\u00b0" + WeatherModel.degreeUnit
             : ""
         font.pixelSize: 16
         font.family: "JetBrainsMono Nerd Font"

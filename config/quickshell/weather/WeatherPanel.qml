@@ -93,68 +93,6 @@ FloatingWindow {
         onActivated: root.visible = false
     }
 
-    function moonLunarAge() {
-        var now = new Date()
-        var y = now.getFullYear()
-        var m = now.getMonth() + 1
-        var d = now.getDate()
-        var h = now.getHours()
-        var mn = now.getMinutes()
-        var s = now.getSeconds()
-        if (m <= 2) { y -= 1; m += 12 }
-        var a = Math.floor(y / 100)
-        var b = 2 - a + Math.floor(a / 4)
-        var jd = Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + d + b - 1524.5
-        jd += h / 24 + mn / 1440 + s / 86400
-        var days = jd - 2451550.226
-        var cycles = days / 29.530587
-        return (cycles - Math.floor(cycles)) * 29.530587
-    }
-
-    function moonPhase() {
-        var age = moonLunarAge()
-        if (age < 1.5 || age >= 28.0) return "New Moon"
-        if (age < 6.4) return "Waxing Crescent"
-        if (age < 8.4) return "First Quarter"
-        if (age < 13.3) return "Waxing Gibbous"
-        if (age < 16.2) return "Full Moon"
-        if (age < 21.1) return "Waning Gibbous"
-        if (age < 23.1) return "Last Quarter"
-        return "Waning Crescent"
-    }
-
-    function moonIllumination() {
-        var age = moonLunarAge()
-        return Math.round(50 * (1 - Math.cos(2 * Math.PI * age / 29.530587)))
-    }
-
-    function moonIcon() {
-        var p = moonPhase().toLowerCase()
-        if (p.includes("new")) return "\uD83C\uDF11"
-        if (p.includes("waxing crescent")) return "\uD83C\uDF12"
-        if (p.includes("first quarter")) return "\uD83C\uDF13"
-        if (p.includes("waxing gibbous")) return "\uD83C\uDF14"
-        if (p.includes("full")) return "\uD83C\uDF15"
-        if (p.includes("waning gibbous")) return "\uD83C\uDF16"
-        if (p.includes("last quarter")) return "\uD83C\uDF17"
-        if (p.includes("waning crescent")) return "\uD83C\uDF18"
-        return ""
-    }
-
-    function nextFullMoon() {
-        var age = moonLunarAge()
-        var daysUntilFull = (14.765 - age + 29.530587) % 29.530587
-        if (daysUntilFull < 0.5) return "Today"
-        if (daysUntilFull < 1.5) return "Tomorrow"
-        var today = new Date()
-        var nextFull = new Date(today)
-        nextFull.setDate(today.getDate() + Math.round(daysUntilFull))
-        var y = nextFull.getFullYear()
-        var m = String(nextFull.getMonth() + 1).padStart(2, '0')
-        var d = String(nextFull.getDate()).padStart(2, '0')
-        return y + "-" + m + "-" + d
-    }
-
     Rectangle {
         id: mainRect
         anchors.fill: parent
@@ -502,7 +440,7 @@ FloatingWindow {
 
                                     Text {
                                         visible: WeatherModel.dataReady
-                                        text: WeatherModel.dataReady ? moonIcon() + "  " + moonPhase() : ""
+                                        text: WeatherModel.dataReady ? WeatherModel.moonIcon + "  " + WeatherModel.moonPhase : ""
                                         color: Colors.foreground
                                         font.pixelSize: 32
                                         font.family: "JetBrainsMono Nerd Font"
@@ -512,7 +450,7 @@ FloatingWindow {
 
                                     Text {
                                         visible: WeatherModel.dataReady
-                                        text: WeatherModel.dataReady ? "Illumination: " + moonIllumination() + "%" : ""
+                                        text: WeatherModel.dataReady ? "Illumination: " + WeatherModel.moonIllumination + "%" : ""
                                         color: Colors.foreground
                                         font.pixelSize: 16
                                         font.family: "JetBrainsMono Nerd Font"
@@ -536,7 +474,7 @@ FloatingWindow {
 
                                     Text {
                                         visible: WeatherModel.dataReady
-                                        text: WeatherModel.dataReady ? "Next full moon: " + nextFullMoon() : ""
+                                        text: WeatherModel.dataReady ? "Next full moon: " + WeatherModel.nextFullMoon : ""
                                         color: Colors.foreground
                                         font.pixelSize: 16
                                         font.family: "JetBrainsMono Nerd Font"
