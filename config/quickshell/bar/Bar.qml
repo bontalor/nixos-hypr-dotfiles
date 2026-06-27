@@ -31,7 +31,7 @@ Scope {
 
     Process {
         id: networkMonitor
-        command: ["bash", "-c", "nmcli device monitor 2>/dev/null | while IFS= read -r line; do case \"$line\" in *\": connected\"|*\": disconnected\") qs ipc call refresh-network refresh ;; esac; done"]
+        command: ["bash", "-c", "nmcli device monitor 2>/dev/null | while IFS= read -r line; do case \"$line\" in *\": connected\"|*\": disconnected\") qs ipc call refresh-network refresh; qs ipc call refresh-network-panel refresh ;; esac; done"]
         running: true
     }
 

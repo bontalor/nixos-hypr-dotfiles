@@ -13,6 +13,13 @@ FloatingWindow {
 
     onClosed: visible = false
 
+    IpcHandler {
+        target: "refresh-network-panel"
+        function refresh(): void {
+            if (root.visible) runFetch(true)
+        }
+    }
+
     property int selSection: 0
     property bool inSection: false
     property int selDevice: 0
