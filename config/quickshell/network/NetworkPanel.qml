@@ -37,7 +37,6 @@ FloatingWindow {
     property string connectivityState: parsedData.connectivityState
     property string connectivityLevel: parsedData.connectivityLevel
     property var savedConnections: parsedData.savedConnections
-    property bool scanning: false
     property string connectingSsid: ""
     property string disconnectingSsid: ""
     property string pendingEthDevice: ""
@@ -180,34 +179,6 @@ FloatingWindow {
         running: false
     }
 
-    Process {
-        id: scanProc
-        running: false
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: scanDelay.running = true
-        }
-    }
-
-    Timer {
-        id: scanDelay
-        interval: 4000
-        repeat: false
-        property int retries: 0
-        onTriggered: {
-            scanning = false
-            runFetch(true)
-            retries = 0
-        }
-    }
-
-    function scanWifi() {
-        if (scanning || scanProc.running) return
-        scanning = true
-        scanProc.command = ["nmcli", "device", "wifi", "rescan"]
-        scanProc.running = true
-    }
-
     function setWifiEnabled(val) {
         actionProc.command = ["nmcli", "radio", "wifi", val ? "on" : "off"]
         actionProc.running = true
@@ -263,7 +234,7 @@ FloatingWindow {
 
     function currentModelLength() {
         switch (selSection) {
-        case 0: return wifiEnabled ? wifiNetworks.length + 1 : 0
+        case 0: return wifiEnabled ? wifiNetworks.length : 0
         case 1: return ethernetDevices.length
         case 2: return 2
         case 3: return 2
@@ -339,11 +310,7 @@ FloatingWindow {
             case Qt.Key_Return:
             case Qt.Key_Enter:
                 if (selSection === 0 && inSection) {
-                    if (selDevice === 0) {
-                        if (!scanning) scanWifi()
-                    } else {
-                        toggleWifiNetwork(selDevice - 1)
-                    }
+                    toggleWifiNetwork(selDevice)
                 } else if (selSection === 1 && inSection) {
                     toggleEthernet(selDevice)
                 } else if (selSection === 2 && inSection) {
@@ -473,11 +440,7 @@ FloatingWindow {
                     function scrollToSelection() {
                         var y, h
                         if (inSection) {
-                            if (selSection === 0 && wifiEnabled) {
-                                y = selDevice === 0 ? 40 : 40 + 55 * selDevice
-                            } else {
-                                y = 40 + selDevice * 55
-                            }
+                            y = 40 + selDevice * 55
                             h = 45
                         }
                         if (y !== undefined) flick.scrollToVisible(y, h)
@@ -523,33 +486,6 @@ FloatingWindow {
                                 font.family: "JetBrainsMono Nerd Font"
                             }
 
-                            Rectangle {
-                                width: parent.width
-                                height: 45
-                                visible: wifiEnabled
-                                color: inSection && selDevice === 0 ? Qt.alpha(Colors.base01, 0.75) : "transparent"
-
-                                Text {
-                                    text: scanning ? "Scanning..." : "Scan"
-                                    anchors {
-                                        left: parent.left; leftMargin: 10
-                                        verticalCenter: parent.verticalCenter
-                                    }
-                                    color: scanning ? Qt.alpha(Colors.foreground, 0.75) : Colors.foreground
-                                    font.pixelSize: 16
-                                    font.family: "JetBrainsMono Nerd Font"
-                                }
-
-                                MouseArea {
-                                    anchors.fill: parent
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        if (!inSection) { inSection = true; selDevice = 0 }
-                                        if (!scanning) scanWifi()
-                                    }
-                                }
-                            }
-
                             Repeater {
                                 model: wifiNetworks
                                 visible: wifiEnabled
@@ -562,7 +498,7 @@ FloatingWindow {
 
                                     Rectangle {
                                         anchors.fill: parent
-                                        color: inSection && index + 1 === selDevice ? Qt.alpha(Colors.base01, 0.75) : "transparent"
+                                        color: inSection && index === selDevice ? Qt.alpha(Colors.base01, 0.75) : "transparent"
                                     }
 
                                     Text {
@@ -620,7 +556,7 @@ FloatingWindow {
                                         anchors.fill: parent
                                         cursorShape: Qt.PointingHandCursor
                                         onClicked: {
-                                            if (!inSection) { inSection = true; selDevice = index + 1 }
+                                            if (!inSection) { inSection = true; selDevice = index }
                                             toggleWifiNetwork(index)
                                         }
                                     }
@@ -631,7 +567,7 @@ FloatingWindow {
                                 width: parent.width
                                 height: 30
                                 visible: wifiEnabled && wifiNetworks.length === 0
-                                text: scanning ? "Scanning..." : "No Wi-Fi networks found"
+                                text: "No Wi-Fi networks found"
                                 horizontalAlignment: Text.AlignHCenter
                                 verticalAlignment: Text.AlignVCenter
                                 color: Qt.alpha(Colors.foreground, 0.75)
