@@ -180,11 +180,7 @@ FloatingWindow {
     }
 
     function setWifiEnabled(val) {
-        if (val) {
-            actionProc.command = ["bash", "-c", "nmcli radio wifi on; for i in $(seq 1 15); do nmcli -t device status | grep -q 'wifi:connected' && break; sleep 1; done"]
-        } else {
-            actionProc.command = ["nmcli", "radio", "wifi", "off"]
-        }
+        actionProc.command = ["nmcli", "radio", "wifi", val ? "on" : "off"]
         actionProc.running = true
         wifiEnabled = val
     }

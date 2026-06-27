@@ -29,6 +29,12 @@ Scope {
         function refresh(): void { ipcSignals.refreshMedia() }
     }
 
+    Process {
+        id: networkMonitor
+        command: ["bash", "-c", "nmcli device monitor 2>/dev/null | while IFS= read -r line; do qs ipc call refresh-network refresh; done"]
+        running: true
+    }
+
     Variants {
         model: Quickshell.screens;
         PanelWindow {

@@ -136,16 +136,6 @@ Item {
         }
     }
 
-    function toggleWifi() {
-        if (actionProc.running) return
-        if (wifiIsEnabled) {
-            actionProc.command = ["nmcli", "radio", "wifi", "off"]
-        } else {
-            actionProc.command = ["bash", "-c", "nmcli radio wifi on; for i in $(seq 1 15); do nmcli -t device status | grep -q 'wifi:connected' && break; sleep 1; done"]
-        }
-        actionProc.running = true
-    }
-
     MouseArea {
         id: mouseArea
         anchors.fill: parent
@@ -154,7 +144,9 @@ Item {
         acceptedButtons: Qt.LeftButton | Qt.RightButton
         onClicked: (mouse) => {
             if (mouse.button === Qt.RightButton) {
-                toggleWifi()
+                if (actionProc.running) return
+                actionProc.command = ["nmcli", "radio", "wifi", wifiIsEnabled ? "off" : "on"]
+                actionProc.running = true
             } else {
                 ipcToggle.running = true
             }
