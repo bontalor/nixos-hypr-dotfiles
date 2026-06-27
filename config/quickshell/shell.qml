@@ -17,6 +17,19 @@ Scope {
     Bar{}
     Notifications{}
 
+    property var panels: [
+        { key: "powermenu", panel: powerMenu },
+        { key: "picker", panel: picker },
+        { key: "launcher", panel: launcher },
+        { key: "volume", panel: volumePanel },
+        { key: "network", panel: networkPanel },
+        { key: "battery", panel: batteryPanel },
+        { key: "datetime", panel: dateTimePanel },
+        { key: "weather", panel: weatherPanel },
+        { key: "media", panel: mediaPanel },
+        { key: "emoji", panel: emojiPicker }
+    ]
+
     Picker { id: picker }
     Launcher { id: launcher }
     PowerMenu { id: powerMenu }
@@ -28,25 +41,10 @@ Scope {
     MediaPanel { id: mediaPanel }
     EmojiPicker { id: emojiPicker }
 
-    property var overlayPanels: ({
-        "powermenu": powerMenu,
-        "picker": picker,
-        "launcher": launcher,
-        "volume": volumePanel,
-        "network": networkPanel,
-        "battery": batteryPanel,
-        "datetime": dateTimePanel,
-        "weather": weatherPanel,
-        "media": mediaPanel,
-        "emoji": emojiPicker
-    })
-
     function togglePanel(name) {
-        var keys = Object.keys(overlayPanels);
-        for (var i = 0; i < keys.length; i++) {
-            var key = keys[i];
-            var p = overlayPanels[key];
-            p.visible = (key === name) ? !p.visible : false;
+        for (var i = 0; i < panels.length; i++) {
+            var entry = panels[i]
+            entry.panel.visible = (entry.key === name) ? !entry.panel.visible : false
         }
     }
 
@@ -54,7 +52,7 @@ Scope {
         target: "overlay"
         enabled: true
         function toggle(name: string): void {
-            togglePanel(name);
+            togglePanel(name)
         }
     }
 }

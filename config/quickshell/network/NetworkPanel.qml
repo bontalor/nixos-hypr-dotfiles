@@ -24,161 +24,139 @@ FloatingWindow {
         { name: "NetworkManager" }
     ]
 
-    property var wifiNetworks: []
-    property var ethernetDevices: []
-    property bool wifiEnabled: false
-    property string wifiDeviceName: ""
-    property string connectivityState: ""
-    property string connectivityLevel: ""
+    property string rawText: ""
+    property bool includeWifi: true
+    property bool replaceNetworks: true
+
+    property var parsedData: parseAll(rawText)
+
+    property var wifiNetworks: parsedData.wifiNetworks
+    property var ethernetDevices: parsedData.ethernetDevices
+    property bool wifiEnabled: parsedData.wifiEnabled
+    property string wifiDeviceName: parsedData.wifiDeviceName
+    property string connectivityState: parsedData.connectivityState
+    property string connectivityLevel: parsedData.connectivityLevel
+    property var savedConnections: parsedData.savedConnections
     property bool scanning: false
-    property var savedConnections: []
     property string connectingSsid: ""
     property string disconnectingSsid: ""
     property string pendingEthDevice: ""
 
-    function parseOutput(text, replaceNetworks) {
-        var wifis = []
-        var eths = []
-        var wifiOn = false
-        var devName = ""
-        var connS = ""
-        var connL = ""
-        var activeConns = []
-        var foundDevices = false
-        var foundWifi = false
-        var foundRadio = false
-        var foundGeneral = false
-        if (replaceNetworks === undefined) replaceNetworks = true
+    function parseAll(text) {
+        var wifis = [], eths = [], savedCons = []
+        var wifiOn = false, devName = "", connState = "", connLevel = ""
 
         var sections = text.split("###")
         for (var si = 0; si < sections.length; si++) {
             var sec = sections[si]
             if (sec.indexOf("DEVICES\n") === 0) {
-                foundDevices = true
                 var body = sec.substring(8).trim()
-                if (!body) continue
-                var lines = body.split("\n")
-                for (var i = 0; i < lines.length; i++) {
-                    var parts = lines[i].split(":")
-                    var t = parts[1]
-                    if (t === "wifi") {
-                        devName = parts[0]
-                    } else if (t === "ethernet") {
-                        var st = parts[2].split(" ")[0]
-                        var conn = parts.slice(3).join(":")
-                        eths.push({ name: parts[0], type: t, state: st, connection: conn })
+                if (body) {
+                    var lines = body.split("\n")
+                    for (var i = 0; i < lines.length; i++) {
+                        var parts = lines[i].split(":")
+                        var t = parts[1]
+                        if (t === "wifi") {
+                            devName = parts[0]
+                        } else if (t === "ethernet") {
+                            var st = parts[2].split(" ")[0]
+                            var conn = parts.slice(3).join(":")
+                            eths.push({ name: parts[0], type: t, state: st, connection: conn })
+                        }
                     }
                 }
             } else if (sec.indexOf("WIFI\n") === 0) {
-                var body = sec.substring(5).trim()
-                if (!body) continue
-                foundWifi = true
-                var lines = body.split("\n")
-                for (var i = 0; i < lines.length; i++) {
-                    if (!lines[i]) continue
-                    var parts = lines[i].split(":")
-                    var ssid = parts[0]
-                    if (!ssid || ssid === "--") continue
-                    var isActive = parts[3] === "yes"
-                    if (replaceNetworks) {
+                body = sec.substring(5).trim()
+                if (body) {
+                    var lines = body.split("\n")
+                    for (var i = 0; i < lines.length; i++) {
+                        if (!lines[i]) continue
+                        var parts = lines[i].split(":")
+                        var ssid = parts[0]
+                        if (!ssid || ssid === "--") continue
+                        var isActive = parts[3] === "yes"
                         wifis.push({
                             ssid: ssid,
                             security: parts[1] || "Open",
                             signal: parseInt(parts[2]) || 0,
                             active: isActive
                         })
-                    } else {
-                        for (var wi = 0; wi < wifiNetworks.length; wi++) {
-                            if (wifiNetworks[wi].ssid === ssid) {
-                                wifiNetworks[wi].active = isActive
-                                break
-                            }
-                        }
                     }
-                }
-
-                if (replaceNetworks && wifis.length > 1) {
-                    var wifiMap = {}
-                    for (var di = 0; di < wifis.length; di++) {
-                        var w = wifis[di]
-                        var existing = wifiMap[w.ssid]
-                        if (!existing || w.active || (!existing.active && w.signal > existing.signal)) {
-                            wifiMap[w.ssid] = w
+                    if (wifis.length > 1) {
+                        var wifiMap = {}
+                        for (var di = 0; di < wifis.length; di++) {
+                            var w = wifis[di]
+                            var existing = wifiMap[w.ssid]
+                            if (!existing || w.active || (!existing.active && w.signal > existing.signal))
+                                wifiMap[w.ssid] = w
                         }
+                        wifis = []
+                        for (var key in wifiMap) wifis.push(wifiMap[key])
                     }
-                    wifis = []
-                    for (var key in wifiMap) wifis.push(wifiMap[key])
                 }
             } else if (sec.indexOf("RADIO\n") === 0) {
-                foundRadio = true
                 wifiOn = sec.substring(6).trim() === "enabled"
             } else if (sec.indexOf("GENERAL\n") === 0) {
-                foundGeneral = true
-                var body = sec.substring(8).trim()
+                body = sec.substring(8).trim()
                 if (body) {
                     var parts = body.split(":")
-                    if (parts.length > 0) connS = parts[0]
-                    if (parts.length > 1) connL = parts[1]
+                    if (parts.length > 0) connState = parts[0]
+                    if (parts.length > 1) connLevel = parts[1]
                 }
             } else if (sec.indexOf("CONNS\n") === 0) {
-                var body = sec.substring(6).trim()
+                body = sec.substring(6).trim()
                 if (body) {
                     var conns = body.split("\n")
-                    var list = []
                     for (var ci = 0; ci < conns.length; ci++) {
-                        if (conns[ci]) list.push(conns[ci])
+                        if (conns[ci]) savedCons.push(conns[ci])
                     }
-                    savedConnections = list
                 }
             } else if (sec.indexOf("ACTIVE\n") === 0) {
-                var body = sec.substring(7).trim()
+                body = sec.substring(7).trim()
                 if (body) {
                     var conns = body.split("\n")
                     for (var ci = 0; ci < conns.length; ci++) {
-                        if (conns[ci]) activeConns.push(conns[ci])
+                        for (var ni = 0; ni < wifis.length; ni++) {
+                            if (conns[ci] && wifis[ni].ssid === conns[ci])
+                                wifis[ni].active = true
+                        }
                     }
                 }
             }
         }
-
-        if (foundWifi && replaceNetworks) wifiNetworks = wifis
-        if (foundDevices) { ethernetDevices = eths; wifiDeviceName = devName }
-        if (foundRadio) wifiEnabled = wifiOn
-        if (foundGeneral) { connectivityState = connS; connectivityLevel = connL }
-
-        if (activeConns.length > 0) {
-            for (var ni = 0; ni < wifiNetworks.length; ni++) {
-                for (var aci = 0; aci < activeConns.length; aci++) {
-                    if (wifiNetworks[ni].ssid === activeConns[aci]) {
-                        wifiNetworks[ni].active = true
-                        break
-                    }
-                }
-            }
+        return {
+            wifiNetworks: wifis, ethernetDevices: eths,
+            wifiEnabled: wifiOn, wifiDeviceName: devName,
+            connectivityState: connState, connectivityLevel: connLevel,
+            savedConnections: savedCons
         }
     }
 
-    function runFetch(includeWifi, replaceNetworks) {
-        if (fetchProc.running) return
-        if (includeWifi === undefined) includeWifi = true
-        if (replaceNetworks === undefined) replaceNetworks = true
-        if (includeWifi) {
-            fetchProc.command = ["bash", "-c", "echo '###DEVICES'; nmcli -t device status 2>/dev/null; echo '###WIFI'; nmcli -t -f SSID,SECURITY,SIGNAL,ACTIVE device wifi list 2>/dev/null; echo '###RADIO'; nmcli radio wifi 2>/dev/null; echo '###GENERAL'; nmcli -t general status 2>/dev/null; echo '###CONNS'; nmcli -t -f NAME connection show 2>/dev/null; echo '###ACTIVE'; nmcli -t -f NAME connection show --active 2>/dev/null"]
-        } else {
-            fetchProc.command = ["bash", "-c", "echo '###DEVICES'; nmcli -t device status 2>/dev/null; echo '###RADIO'; nmcli radio wifi 2>/dev/null; echo '###GENERAL'; nmcli -t general status 2>/dev/null; echo '###CONNS'; nmcli -t -f NAME connection show 2>/dev/null; echo '###ACTIVE'; nmcli -t -f NAME connection show --active 2>/dev/null"]
+    function hasSavedConnection(ssid) {
+        for (var ci = 0; ci < savedConnections.length; ci++) {
+            if (savedConnections[ci] === ssid) return true
         }
-        fetchProc.replaceNetworks = replaceNetworks
-        fetchProc.running = true
+        return false
     }
 
     Process {
         id: fetchProc
         running: false
-        property bool replaceNetworks: true
         stdout: StdioCollector {
             waitForEnd: true
-            onStreamFinished: parseOutput(text, fetchProc.replaceNetworks)
+            onStreamFinished: rawText = text
         }
+    }
+
+    function runFetch(includeWifi) {
+        if (fetchProc.running) return
+        if (includeWifi === undefined) includeWifi = true
+        if (includeWifi) {
+            fetchProc.command = ["bash", "-c", "echo '###DEVICES'; nmcli -t device status 2>/dev/null; echo '###WIFI'; nmcli -t -f SSID,SECURITY,SIGNAL,ACTIVE device wifi list 2>/dev/null; echo '###RADIO'; nmcli radio wifi 2>/dev/null; echo '###GENERAL'; nmcli -t general status 2>/dev/null; echo '###CONNS'; nmcli -t -f NAME connection show 2>/dev/null; echo '###ACTIVE'; nmcli -t -f NAME connection show --active 2>/dev/null"]
+        } else {
+            fetchProc.command = ["bash", "-c", "echo '###DEVICES'; nmcli -t device status 2>/dev/null; echo '###RADIO'; nmcli radio wifi 2>/dev/null; echo '###GENERAL'; nmcli -t general status 2>/dev/null; echo '###CONNS'; nmcli -t -f NAME connection show 2>/dev/null; echo '###ACTIVE'; nmcli -t -f NAME connection show --active 2>/dev/null"]
+        }
+        fetchProc.running = true
     }
 
     Process {
@@ -187,7 +165,7 @@ FloatingWindow {
         stdout: StdioCollector {
             waitForEnd: true
             onStreamFinished: {
-                runFetch(true, true)
+                runFetch(true)
                 connectingSsid = ""
                 disconnectingSsid = ""
                 pendingEthDevice = ""
@@ -207,9 +185,7 @@ FloatingWindow {
         running: false
         stdout: StdioCollector {
             waitForEnd: true
-            onStreamFinished: {
-                scanDelay.running = true
-            }
+            onStreamFinished: scanDelay.running = true
         }
     }
 
@@ -226,6 +202,7 @@ FloatingWindow {
     }
 
     function scanWifi() {
+        if (scanning || scanProc.running) return
         scanning = true
         scanProc.command = ["nmcli", "device", "wifi", "rescan"]
         scanProc.running = true
@@ -294,14 +271,6 @@ FloatingWindow {
         }
     }
 
-    function hasSavedConnection(ssid) {
-        var list = savedConnections
-        for (var ci = 0; ci < list.length; ci++) {
-            if (list[ci] === ssid) return true
-        }
-        return false
-    }
-
     function toggleWifiNetwork(idx) {
         var list = wifiNetworks
         if (idx >= list.length) return
@@ -320,7 +289,7 @@ FloatingWindow {
 
     onVisibleChanged: {
         if (visible) {
-            runFetch(true, true)
+            runFetch(true)
             mainRect.forceActiveFocus()
             selSection = 0
             inSection = false

@@ -8,20 +8,21 @@ Rectangle {
     id: root
     required property LockContext context
     color: "transparent"
+
     property string wallpaperPath: ""
-    Process {
-        id: wallpaperReader
-        command: ["cat", Quickshell.env("HOME") + "/.cache/wal/wal"]
-        running: true
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: root.wallpaperPath = text.trim()
-        }
+
+    function ordinal(n) {
+        var s = ["th","st","nd","rd"]
+        var v = n % 100
+        return n + (s[(v-20)%10] || s[v] || s[0])
     }
+
     FileView {
+        id: wallpaperFile
         path: Quickshell.env("HOME") + "/.cache/wal/wal"
         watchChanges: true
-        onFileChanged: wallpaperReader.running = true
+        onFileChanged: root.wallpaperPath = text.trim()
+        Component.onCompleted: root.wallpaperPath = text.trim()
     }
     Image {
         anchors.fill: parent
@@ -35,6 +36,12 @@ Rectangle {
         id: btnProcess
         running: false
     }
+
+    property string formattedDate: {
+        var d = clock.date
+        return Qt.formatDateTime(d, "dddd, MMMM ") + root.ordinal(d.getDate()) + Qt.formatDateTime(d, ", yyyy")
+    }
+
     Rectangle {
         id: panel
         x: 10
@@ -77,15 +84,7 @@ Rectangle {
                     color: Qt.alpha(Colors.foreground, 0.75)
                     font.pixelSize: 16
                     font.family: "JetBrainsMono Nerd Font"
-                    function ordinal(n) {
-                        var s = ["th","st","nd","rd"]
-                        var v = n % 100
-                        return n + (s[(v-20)%10] || s[v] || s[0])
-                    }
-                    text: {
-                        var d = clock.date
-                        return Qt.formatDateTime(d, "dddd, MMMM ") + ordinal(d.getDate()) + Qt.formatDateTime(d, ", yyyy")
-                    }
+                    text: root.formattedDate
                 }
             }
             Rectangle {
@@ -138,7 +137,7 @@ Rectangle {
                 spacing: 45
                 Repeater {
                     model: [
-                        { name: "Logout", icon: "system-log-out", command: ["sh", "-c", "loginctl kill-session $XDG_SESSION_ID"] },
+                        { name: "Logout", icon: "system-log-out", command: ["sh", "-c", "loginctl kill-session \"${XDG_SESSION_ID:-$(loginctl list-sessions --no-legend | head -n1 | awk '{print $1}')}\""] },
                         { name: "Suspend", icon: "system-suspend", command: ["systemctl", "suspend"] },
                         { name: "Reboot", icon: "system-reboot", command: ["systemctl", "reboot"] },
                         { name: "Power Off", icon: "system-shutdown", command: ["systemctl", "poweroff"] }

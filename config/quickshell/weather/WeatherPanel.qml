@@ -1,5 +1,5 @@
 import "../theme"
-import "WeatherCodes.js" as WeatherCodes
+import "."
 import QtQuick
 import QtQuick.Controls
 import Quickshell
@@ -26,13 +26,9 @@ FloatingWindow {
         { name: "Configuration" }
     ]
 
-    property string customCity: ""
-    property string degreeUnit: "F"
     property bool configExpanded: false
     property int selConfigItem: 0
     property int selConfigProfile: 0
-    property var weatherData: ({})
-    property bool dataReady: false
 
     property int selCity: 0
     property bool cityEditing: false
@@ -46,116 +42,11 @@ FloatingWindow {
         }
     }
 
-    Process {
-        id: unitWriter
-        running: false
-    }
-
-    Process {
-        id: cityWriter
-        running: false
-    }
-
-    onDegreeUnitChanged: {
-        var dir = Quickshell.shellDir + "/weather"
-        unitWriter.command = ["sh", "-c", "mkdir -p \"$1\" && printf '%s' \"$2\" > \"$1\"/unit", "sh", dir, degreeUnit]
-        unitWriter.running = true
-    }
-
-    onCustomCityChanged: {
-        var dir = Quickshell.shellDir + "/weather"
-        cityWriter.command = ["sh", "-c", "mkdir -p \"$1\" && printf '%s' \"$2\" > \"$1\"/city", "sh", dir, customCity]
-        cityWriter.running = true
-    }
-
-    Process {
-        id: startupReader
-        running: false
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: {
-                var dir = Quickshell.shellDir + "/weather"
-                var lines = text.split('\n')
-                if (lines[0].trim()) root.degreeUnit = lines[0].trim()
-                if (lines[1].trim()) root.customCity = lines[1].trim()
-                unitWriter.command = ["sh", "-c", "mkdir -p \"$1\" && printf '%s' \"$2\" > \"$1\"/unit", "sh", dir, root.degreeUnit]
-                unitWriter.running = true
-                cityWriter.command = ["sh", "-c", "mkdir -p \"$1\" && printf '%s' \"$2\" > \"$1\"/city", "sh", dir, root.customCity]
-                cityWriter.running = true
-                fetchWeather()
-            }
-        }
-    }
-
-    Component.onCompleted: {
-        var dir = Quickshell.shellDir + "/weather"
-        startupReader.command = ["sh", "-c",
-            "printf '%s\\n' \"$(cat \"$1/unit\" 2>/dev/null)\" \"$(cat \"$1/city\" 2>/dev/null)\"",
-            "sh", dir]
-        startupReader.running = true
-    }
-
-    function parseWeatherData(text) {
-        try {
-            var json = JSON.parse(text)
-            if (json && json.current_condition && json.current_condition[0]) {
-                weatherData = json
-                dataReady = true
-            }
-        } catch (e) {}
-    }
-
-    property bool fetchRunning: false
-    property bool needsRefetch: false
-    property bool retryingFallback: false
-
-    function fetchWeather() {
-        if (fetchRunning) {
-            needsRefetch = true
-            return
-        }
-        fetchRunning = true
-        var url = "https://wttr.in/"
-        if (customCity && !retryingFallback) url += encodeURIComponent(customCity) + "?format=j1"
-        else url += "?format=j1"
-        fetchProc.command = ["curl", "-s", "-m", "10", url]
-        fetchProc.running = true
-    }
-
-    Process {
-        id: fetchProc
-        running: false
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: {
-                fetchRunning = false
-                parseWeatherData(text)
-                if (!dataReady && customCity && !retryingFallback) {
-                    retryingFallback = true
-                    fetchWeather()
-                    return
-                }
-                retryingFallback = false
-                if (needsRefetch) {
-                    needsRefetch = false
-                    fetchWeather()
-                }
-            }
-        }
-    }
-
-    Timer {
-        interval: 600000
-        repeat: true
-        running: root.visible
-        onTriggered: fetchWeather()
-    }
-
     function currentModelLength() {
         switch (selSection) {
-        case 0: return dataReady ? 1 : 0
-        case 1: return dataReady ? 1 : 0
-        case 2: return dataReady ? 1 : 0
+        case 0: return WeatherModel.dataReady ? 1 : 0
+        case 1: return WeatherModel.dataReady ? 1 : 0
+        case 2: return WeatherModel.dataReady ? 1 : 0
         case 3: return 2
         default: return 0
         }
@@ -163,7 +54,7 @@ FloatingWindow {
 
     onVisibleChanged: {
         if (visible) {
-            fetchWeather()
+            WeatherModel.fetchWeather()
             mainRect.forceActiveFocus()
             selSection = 0
             inSection = false
@@ -171,6 +62,30 @@ FloatingWindow {
             configExpanded = false
             cityEditing = false
         }
+    }
+
+    readonly property var cc: {
+        if (!WeatherModel.dataReady || !WeatherModel.weatherData.current_condition || !WeatherModel.weatherData.current_condition.length)
+            return null
+        return WeatherModel.weatherData.current_condition[0]
+    }
+
+    readonly property var astro: {
+        if (!WeatherModel.dataReady || !WeatherModel.weatherData.weather || !WeatherModel.weatherData.weather.length)
+            return null
+        var w0 = WeatherModel.weatherData.weather[0]
+        if (!w0.astronomy || !w0.astronomy.length) return null
+        return w0.astronomy[0]
+    }
+
+    readonly property var area: {
+        if (!WeatherModel.dataReady || !WeatherModel.weatherData.nearest_area || !WeatherModel.weatherData.nearest_area.length)
+            return null
+        var a0 = WeatherModel.weatherData.nearest_area[0]
+        if (!a0.areaName || !a0.areaName.length) return null
+        if (!a0.region || !a0.region.length) return null
+        if (!a0.country || !a0.country.length) return null
+        return a0
     }
 
     Shortcut {
@@ -282,24 +197,24 @@ FloatingWindow {
                 if (selSection === 3 && inSection && configExpanded) {
                     if (selConfigItem === 0) {
                         if (selConfigProfile === 0) {
-                            customCity = ""
+                            WeatherModel.customCity = ""
                             configExpanded = false
-                            fetchWeather()
+                           WeatherModel.fetchWeather()
                         } else if (selConfigProfile === 1) {
                             if (!cityEditing) {
                                 cityEditing = true
-                                cityInputText = customCity || ""
+                                cityInputText = WeatherModel.customCity || ""
                             } else {
-                                customCity = cityInputText
+                                WeatherModel.customCity = cityInputText
                                 cityEditing = false
                                 configExpanded = false
-                                fetchWeather()
+                               WeatherModel.fetchWeather()
                                 mainRect.forceActiveFocus()
                             }
                         }
                     } else if (selConfigItem === 1) {
-                        if (selConfigProfile === 0) degreeUnit = "F"
-                        else if (selConfigProfile === 1) degreeUnit = "C"
+                        if (selConfigProfile === 0) WeatherModel.degreeUnit = "F"
+                        else if (selConfigProfile === 1) WeatherModel.degreeUnit = "C"
                         configExpanded = false
                     }
                 } else if (selSection === 3 && inSection && !configExpanded) {
@@ -482,15 +397,15 @@ FloatingWindow {
 
                             Item {
                                 width: parent.width
-                                height: dataReady ? 30 * 10 : 30
+                                height: WeatherModel.dataReady ? 30 * 10 : 30
 
                                 Column {
                                     anchors.fill: parent
                                     spacing: 10
 
                                     Text {
-                                        visible: dataReady
-                                        text: dataReady ? WeatherCodes.icon(parseInt(weatherData.current_condition[0].weatherCode)) + "  " + (degreeUnit === "F" ? weatherData.current_condition[0].temp_F : weatherData.current_condition[0].temp_C) + "\u00b0" + degreeUnit : ""
+                                        visible: WeatherModel.dataReady
+                                        text: cc ? WeatherCodes.icon(parseInt(cc.weatherCode)) + "  " + (WeatherModel.degreeUnit === "F" ? cc.temp_F : cc.temp_C) + "\u00b0" + WeatherModel.degreeUnit : ""
                                         color: Colors.foreground
                                         font.pixelSize: 32
                                         font.family: "JetBrainsMono Nerd Font"
@@ -498,71 +413,71 @@ FloatingWindow {
                                     }
 
                                     Text {
-                                        visible: dataReady
-                                        text: dataReady ? WeatherCodes.desc(parseInt(weatherData.current_condition[0].weatherCode)) : ""
+                                        visible: WeatherModel.dataReady
+                                        text: cc ? WeatherCodes.desc(parseInt(cc.weatherCode)) : ""
                                         color: Colors.foreground
                                         font.pixelSize: 16
                                         font.family: "JetBrainsMono Nerd Font"
                                     }
 
                                     Text {
-                                        visible: dataReady
-                                        text: dataReady ? "Feels like " + (degreeUnit === "F" ? weatherData.current_condition[0].FeelsLikeF : weatherData.current_condition[0].FeelsLikeC) + "\u00b0" + degreeUnit : ""
+                                        visible: WeatherModel.dataReady
+                                        text: cc ? "Feels like " + (WeatherModel.degreeUnit === "F" ? cc.FeelsLikeF : cc.FeelsLikeC) + "\u00b0" + WeatherModel.degreeUnit : ""
                                         color: Colors.foreground
                                         font.pixelSize: 16
                                         font.family: "JetBrainsMono Nerd Font"
                                     }
 
                                     Text {
-                                        visible: dataReady
-                                        text: dataReady ? "Humidity: " + weatherData.current_condition[0].humidity + "%" : ""
+                                        visible: WeatherModel.dataReady
+                                        text: cc ? "Humidity: " + cc.humidity + "%" : ""
                                         color: Colors.foreground
                                         font.pixelSize: 16
                                         font.family: "JetBrainsMono Nerd Font"
                                     }
 
                                     Text {
-                                        visible: dataReady
-                                        text: dataReady ? "Wind: " + weatherData.current_condition[0].windspeedKmph + " km/h " + weatherData.current_condition[0].winddir16Point : ""
+                                        visible: WeatherModel.dataReady
+                                        text: cc ? "Wind: " + cc.windspeedKmph + " km/h " + cc.winddir16Point : ""
                                         color: Colors.foreground
                                         font.pixelSize: 16
                                         font.family: "JetBrainsMono Nerd Font"
                                     }
 
                                     Text {
-                                        visible: dataReady
-                                        text: dataReady ? "UV Index: " + weatherData.current_condition[0].uvIndex : ""
+                                        visible: WeatherModel.dataReady
+                                        text: cc ? "UV Index: " + cc.uvIndex : ""
                                         color: Colors.foreground
                                         font.pixelSize: 16
                                         font.family: "JetBrainsMono Nerd Font"
                                     }
 
                                     Text {
-                                        visible: dataReady
-                                        text: dataReady ? "Pressure: " + weatherData.current_condition[0].pressure + " mb" : ""
+                                        visible: WeatherModel.dataReady
+                                        text: cc ? "Pressure: " + cc.pressure + " mb" : ""
                                         color: Colors.foreground
                                         font.pixelSize: 16
                                         font.family: "JetBrainsMono Nerd Font"
                                     }
 
                                     Text {
-                                        visible: dataReady
-                                        text: dataReady ? "Visibility: " + weatherData.current_condition[0].visibility + " km" : ""
+                                        visible: WeatherModel.dataReady
+                                        text: cc ? "Visibility: " + cc.visibility + " km" : ""
                                         color: Colors.foreground
                                         font.pixelSize: 16
                                         font.family: "JetBrainsMono Nerd Font"
                                     }
 
                                     Text {
-                                        visible: dataReady
-                                        text: dataReady ? "Cloud cover: " + weatherData.current_condition[0].cloudcover + "%" : ""
+                                        visible: WeatherModel.dataReady
+                                        text: cc ? "Cloud cover: " + cc.cloudcover + "%" : ""
                                         color: Colors.foreground
                                         font.pixelSize: 16
                                         font.family: "JetBrainsMono Nerd Font"
                                     }
 
                                     Text {
-                                        visible: !dataReady
+                                        visible: !WeatherModel.dataReady
                                         text: "Fetching weather data..."
                                         color: Colors.foreground
                                         font.pixelSize: 16
@@ -579,15 +494,15 @@ FloatingWindow {
 
                             Item {
                                 width: parent.width
-                                height: dataReady ? 30 * 6 : 30
+                                height: WeatherModel.dataReady ? 30 * 6 : 30
 
                                 Column {
                                     anchors.fill: parent
                                     spacing: 10
 
                                     Text {
-                                        visible: dataReady
-                                        text: dataReady ? moonIcon() + "  " + moonPhase() : ""
+                                        visible: WeatherModel.dataReady
+                                        text: WeatherModel.dataReady ? moonIcon() + "  " + moonPhase() : ""
                                         color: Colors.foreground
                                         font.pixelSize: 32
                                         font.family: "JetBrainsMono Nerd Font"
@@ -596,43 +511,39 @@ FloatingWindow {
                                     }
 
                                     Text {
-                                        visible: dataReady
-                                        text: dataReady ? "Illumination: " + moonIllumination() + "%" : ""
+                                        visible: WeatherModel.dataReady
+                                        text: WeatherModel.dataReady ? "Illumination: " + moonIllumination() + "%" : ""
                                         color: Colors.foreground
                                         font.pixelSize: 16
                                         font.family: "JetBrainsMono Nerd Font"
                                     }
 
                                     Text {
-                                        visible: dataReady && weatherData.weather && weatherData.weather[0] && weatherData.weather[0].astronomy
-                                        text: dataReady && weatherData.weather && weatherData.weather[0] && weatherData.weather[0].astronomy
-                                            ? "Moonrise: " + weatherData.weather[0].astronomy[0].moonrise
-                                            : ""
+                                        visible: WeatherModel.dataReady && astro !== null
+                                        text: astro ? "Moonrise: " + astro.moonrise : ""
                                         color: Colors.foreground
                                         font.pixelSize: 16
                                         font.family: "JetBrainsMono Nerd Font"
                                     }
 
                                     Text {
-                                        visible: dataReady && weatherData.weather && weatherData.weather[0] && weatherData.weather[0].astronomy
-                                        text: dataReady && weatherData.weather && weatherData.weather[0] && weatherData.weather[0].astronomy
-                                            ? "Moonset: " + weatherData.weather[0].astronomy[0].moonset
-                                            : ""
+                                        visible: WeatherModel.dataReady && astro !== null
+                                        text: astro ? "Moonset: " + astro.moonset : ""
                                         color: Colors.foreground
                                         font.pixelSize: 16
                                         font.family: "JetBrainsMono Nerd Font"
                                     }
 
                                     Text {
-                                        visible: dataReady
-                                        text: dataReady ? "Next full moon: " + nextFullMoon() : ""
+                                        visible: WeatherModel.dataReady
+                                        text: WeatherModel.dataReady ? "Next full moon: " + nextFullMoon() : ""
                                         color: Colors.foreground
                                         font.pixelSize: 16
                                         font.family: "JetBrainsMono Nerd Font"
                                     }
 
                                     Text {
-                                        visible: !dataReady
+                                        visible: !WeatherModel.dataReady
                                         text: "Fetching astronomy data..."
                                         color: Colors.foreground
                                         font.pixelSize: 16
@@ -649,38 +560,38 @@ FloatingWindow {
 
                             Item {
                                 width: parent.width
-                                height: dataReady ? 30 * 3 : 30
+                                height: WeatherModel.dataReady ? 30 * 3 : 30
 
                                 Column {
                                     anchors.fill: parent
                                     spacing: 10
 
                                     Text {
-                                        visible: dataReady
-                                        text: dataReady ? weatherData.nearest_area[0].areaName[0].value : ""
+                                        visible: WeatherModel.dataReady
+                                        text: area ? area.areaName[0].value : ""
                                         color: Colors.foreground
                                         font.pixelSize: 16
                                         font.family: "JetBrainsMono Nerd Font"
                                     }
 
                                     Text {
-                                        visible: dataReady
-                                        text: dataReady ? weatherData.nearest_area[0].region[0].value + ", " + weatherData.nearest_area[0].country[0].value : ""
+                                        visible: WeatherModel.dataReady
+                                        text: area ? area.region[0].value + ", " + area.country[0].value : ""
                                         color: Colors.foreground
                                         font.pixelSize: 16
                                         font.family: "JetBrainsMono Nerd Font"
                                     }
 
                                     Text {
-                                        visible: dataReady
-                                        text: "Using: " + (customCity || "Auto (IP)")
+                                        visible: WeatherModel.dataReady
+                                        text: "Using: " + (WeatherModel.customCity || "Auto (IP)")
                                         color: Colors.foreground
                                         font.pixelSize: 16
                                         font.family: "JetBrainsMono Nerd Font"
                                     }
 
                                     Text {
-                                        visible: !dataReady
+                                        visible: !WeatherModel.dataReady
                                         text: "Fetching location data..."
                                         color: Colors.foreground
                                         font.pixelSize: 16
@@ -716,7 +627,7 @@ FloatingWindow {
                                         height: 45
 
                                         Text {
-                                            text: "City: " + (customCity || "Auto")
+                                            text: "City: " + (WeatherModel.customCity || "Auto")
                                             anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
                                             color: Colors.foreground
                                             font.pixelSize: 16
@@ -764,9 +675,9 @@ FloatingWindow {
                                                 cursorShape: Qt.PointingHandCursor
                                                 onClicked: {
                                                     if (inSection) {
-                                                        customCity = ""
+                                                        WeatherModel.customCity = ""
                                                         configExpanded = false
-                                                        fetchWeather()
+                                                       WeatherModel.fetchWeather()
                                                     }
                                                 }
                                             }
@@ -797,10 +708,10 @@ FloatingWindow {
                                                 text: cityInputText
                                                 focus: cityEditing
                                                 onAccepted: {
-                                                    customCity = text
+                                                    WeatherModel.customCity = text
                                                     cityEditing = false
                                                     configExpanded = false
-                                                    fetchWeather()
+                                                   WeatherModel.fetchWeather()
                                                     mainRect.forceActiveFocus()
                                                 }
                                                 Keys.onPressed: (event) => {
@@ -819,7 +730,7 @@ FloatingWindow {
                                                     if (inSection) {
                                                         if (!cityEditing) {
                                                             cityEditing = true
-                                                            cityInputText = customCity || ""
+                                                            cityInputText = WeatherModel.customCity || ""
                                                         }
                                                     }
                                                 }
@@ -850,7 +761,7 @@ FloatingWindow {
                                         height: 45
 
                                         Text {
-                                            text: "Unit: \u00b0" + degreeUnit
+                                            text: "Unit: \u00b0" + WeatherModel.degreeUnit
                                             anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
                                             color: Colors.foreground
                                             font.pixelSize: 16
@@ -898,7 +809,7 @@ FloatingWindow {
                                                 cursorShape: Qt.PointingHandCursor
                                                 onClicked: {
                                                     if (inSection) {
-                                                        degreeUnit = "F"
+                                                        WeatherModel.degreeUnit = "F"
                                                         configExpanded = false
                                                     }
                                                 }
@@ -925,7 +836,7 @@ FloatingWindow {
                                                 cursorShape: Qt.PointingHandCursor
                                                 onClicked: {
                                                     if (inSection) {
-                                                        degreeUnit = "C"
+                                                        WeatherModel.degreeUnit = "C"
                                                         configExpanded = false
                                                     }
                                                 }

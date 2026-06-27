@@ -1,4 +1,5 @@
 import "../theme"
+import "."
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -16,7 +17,7 @@ FloatingWindow {
 
     property var allActions: [
         { name: "Lock", icon: "system-lock-screen", command: ["quickshell", "-p", Quickshell.shellDir + "/lockscreen/shell.qml"] },
-	{ name: "Logout", icon: "system-log-out", command: ["loginctl", "terminate-user", ""] },
+        { name: "Logout", icon: "system-log-out", command: ["loginctl", "terminate-user", Quickshell.env("USER")] },
         { name: "Suspend", icon: "system-suspend", command: ["systemctl", "suspend"] },
         { name: "Reboot", icon: "system-reboot", command: ["systemctl", "reboot"] },
         { name: "Power Off", icon: "system-shutdown", command: ["systemctl", "poweroff"] }
@@ -31,23 +32,24 @@ FloatingWindow {
 
         var matches = allActions.filter(function(a) { return a.name && a.name.toLowerCase().includes(q) })
 
-        matches.sort(function(a, b) {
+        return fuzzySort(q, matches)
+    }
+
+    function fuzzySort(query, items) {
+        var q = query.toLowerCase()
+        return items.sort(function(a, b) {
             var aName = a.name.toLowerCase()
             var bName = b.name.toLowerCase()
             var aIdx = aName.indexOf(q)
             var bIdx = bName.indexOf(q)
-
             if (aIdx === 0 && bIdx !== 0) return -1
             if (bIdx === 0 && aIdx !== 0) return 1
-
             if (aName.length !== bName.length) return aName.length - bName.length
             if (aIdx !== bIdx) return aIdx - bIdx
             if (aName < bName) return -1
             if (aName > bName) return 1
             return 0
         })
-
-        return matches
     }
 
     function executeSelected() {
@@ -102,10 +104,10 @@ FloatingWindow {
                     Keys.onPressed: event => {
                         switch (event.key) {
                         case Qt.Key_Down:
-                            selectedIndex = Math.min(selectedIndex + 1, filteredActions.length - 1)
+                            selectedIndex = Math.max(0, Math.min(selectedIndex + 1, filteredActions.length - 1))
                             event.accepted = true; break
                         case Qt.Key_Up:
-                            selectedIndex = Math.max(selectedIndex - 1, 0)
+                            selectedIndex = Math.max(0, selectedIndex - 1)
                             event.accepted = true; break
                         case Qt.Key_Return:
                         case Qt.Key_Enter:

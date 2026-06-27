@@ -1,4 +1,5 @@
 import "../theme"
+import "."
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -19,9 +20,9 @@ FloatingWindow {
 
     Process {
         id: emojiLoader
-	command: [
-	    "cat", Quickshell.env("HOME") + "/.local/share/emoji-test.txt"
-	]
+        command: [
+            "cat", Quickshell.env("HOME") + "/.local/share/emoji-test.txt"
+        ]
         running: true
         stdout: StdioCollector {
             waitForEnd: true
@@ -52,7 +53,12 @@ FloatingWindow {
         var q = searchText.text.trim().toLowerCase()
         if (q === "") return allEmojis.slice(0, 10)
         var matches = allEmojis.filter(function(e) { return e.name && e.name.toLowerCase().includes(q) })
-        matches.sort(function(a, b) {
+        return fuzzySort(q, matches).slice(0, 10)
+    }
+
+    function fuzzySort(query, items) {
+        var q = query.toLowerCase()
+        return items.sort(function(a, b) {
             var aName = a.name.toLowerCase()
             var bName = b.name.toLowerCase()
             var aIdx = aName.indexOf(q)
@@ -65,7 +71,6 @@ FloatingWindow {
             if (aName > bName) return 1
             return 0
         })
-        return matches.slice(0, 10)
     }
 
     function launchSelected() {

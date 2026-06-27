@@ -22,17 +22,21 @@ FloatingWindow {
         { name: "Power Profiles" }
     ]
 
-    property int batteryPercent: -1
-    property string batteryState: ""
-    property string batteryTime: ""
-    property int batteryTimeNum: -1
-    property string batteryModel: ""
+    property string rawText: ""
 
-    property var powerProfiles: []
-    property string activeProfile: ""
-    property bool profileDaemonAvailable: true
+    property var parsedData: parseAll(rawText)
 
-    function parseOutput(text) {
+    property int batteryPercent: parsedData.batteryPercent
+    property string batteryState: parsedData.batteryState
+    property string batteryTime: parsedData.batteryTime
+    property int batteryTimeNum: parsedData.batteryTimeNum
+    property string batteryModel: parsedData.batteryModel
+
+    property var powerProfiles: parsedData.powerProfiles
+    property string activeProfile: parsedData.activeProfile
+    property bool profileDaemonAvailable: parsedData.profileDaemonAvailable
+
+    function parseAll(text) {
         var pct = -1
         var state = ""
         var timeText = ""
@@ -64,7 +68,7 @@ FloatingWindow {
                     }
                 }
             } else if (sec.indexOf("PROFILES\n") === 0) {
-                var body = sec.substring(9).trim()
+                body = sec.substring(9).trim()
                 if (!body) { daemonOk = false; continue }
                 var lines = body.split("\n")
                 for (var i = 0; i < lines.length; i++) {
@@ -96,22 +100,13 @@ FloatingWindow {
             }
         }
 
-        batteryPercent = pct
-        batteryState = state
-        batteryTime = timeText
-        batteryModel = model
-        powerProfiles = proflist
-        activeProfile = active
-        profileDaemonAvailable = daemonOk
-    }
-
-    function runFetch() {
-        if (fetchProc.running) {
-            pendingFetch = true
-            return
+        return {
+            batteryPercent: pct, batteryState: state,
+            batteryTime: timeText, batteryModel: model,
+            batteryTimeNum: -1,
+            powerProfiles: proflist, activeProfile: active,
+            profileDaemonAvailable: daemonOk
         }
-        fetchProc.command = ["bash", "-c", "echo '###BATTERY'; upower -i $(upower -e 2>/dev/null | grep battery | grep -v DisplayDevice | head -1) 2>/dev/null; echo '###PROFILES'; if powerprofilesctl list 2>/dev/null; then :; elif [ -r /sys/firmware/acpi/platform_profile ]; then ACTIVE=$(cat /sys/firmware/acpi/platform_profile); for p in $(cat /sys/firmware/acpi/platform_profile_choices 2>/dev/null); do if [ \"$p\" = \"$ACTIVE\" ]; then echo \"* $p:\"; else echo \"  $p:\"; fi; done; else echo 'NOT AVAILABLE'; fi"]
-        fetchProc.running = true
     }
 
     property bool pendingFetch: false
@@ -122,13 +117,22 @@ FloatingWindow {
         stdout: StdioCollector {
             waitForEnd: true
             onStreamFinished: {
-                parseOutput(text)
+                rawText = text
                 if (pendingFetch) {
                     pendingFetch = false
                     fetchProc.running = true
                 }
             }
         }
+    }
+
+    function runFetch() {
+        if (fetchProc.running) {
+            pendingFetch = true
+            return
+        }
+        fetchProc.command = ["bash", "-c", "echo '###BATTERY'; upower -i $(upower -e 2>/dev/null | grep battery | grep -v DisplayDevice | head -1) 2>/dev/null; echo '###PROFILES'; if powerprofilesctl list 2>/dev/null; then :; elif [ -r /sys/firmware/acpi/platform_profile ]; then ACTIVE=$(cat /sys/firmware/acpi/platform_profile); for p in $(cat /sys/firmware/acpi/platform_profile_choices 2>/dev/null); do if [ \"$p\" = \"$ACTIVE\" ]; then echo \"* $p:\"; else echo \"  $p:\"; fi; done; else echo 'NOT AVAILABLE'; fi"]
+        fetchProc.running = true
     }
 
     Process {
@@ -156,7 +160,7 @@ FloatingWindow {
         }
         powerProfiles = powerProfiles.slice()
         activeProfile = name
-        actionProc.command = ["bash", "-c", "powerprofilesctl set '" + cmdName + "' 2>&1"]
+        actionProc.command = ["powerprofilesctl", "set", cmdName]
         actionProc.running = true
     }
 
@@ -474,14 +478,14 @@ FloatingWindow {
                                         }
                                         spacing: 8
 
-                                Text {
-                                    id: profileIcon
-                                    text: {
-                                        if (modelData.name === "Performance") return "\uf0e7"
-                                        if (modelData.name === "Balanced") return "\uf0eb"
-                                        if (modelData.name === "Power Saver") return "\uf06c"
-                                        return "\uf128"
-                                    }
+                                        Text {
+                                            id: profileIcon
+                                            text: {
+                                                if (modelData.name === "Performance") return "\uf0e7"
+                                                if (modelData.name === "Balanced") return "\uf0eb"
+                                                if (modelData.name === "Power Saver") return "\uf06c"
+                                                return "\uf128"
+                                            }
                                             color: modelData.active ? Colors.base0b : Qt.alpha(Colors.foreground, 0.75)
                                             font.pixelSize: 16
                                             font.family: "JetBrainsMono Nerd Font"

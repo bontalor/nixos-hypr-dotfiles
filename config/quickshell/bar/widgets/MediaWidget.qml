@@ -11,84 +11,27 @@ Item {
     clip: true
     visible: true
 
-    property var currentPlayer: null
-    
-    // Declarative property bindings automatically update when currentPlayer changes
+    property int playerRefreshCounter: 0
+    property var playerTimestamps: ({})
+
+    property var currentPlayer: selectCurrentPlayer(Mpris.players.values, playerTimestamps)
+
     property string trackTitle: currentPlayer ? (currentPlayer.trackTitle ?? "") : ""
     property string trackArtist: currentPlayer ? (currentPlayer.trackArtist ?? "") : ""
     property int playbackState: currentPlayer ? currentPlayer.playbackState : MprisPlaybackState.Stopped
-    
-    property var playerTimestamps: ({})
+
     property int maxChars: 8
 
     property string displayText: ""
     property string scrollText: ""
     property int scrollPos: 0
 
-    property var peakNode: null
+    property var peakNode: findPeakNode(Pipewire.nodes)
     property var peakLevels: [0, 0, 0, 0, 0, 0, 0, 0]
     property int peakFps: 20
 
-    function updateDisplayText() {
-        displayText = trackArtist ? trackArtist + " - " + trackTitle : trackTitle
-        scrollText = displayText + " " + displayText
-    }
-
-    // Automatically trigger text updates and scrolling when tracks change
-    onTrackTitleChanged: { scrollPos = 0; updateDisplayText(); startScroll() }
-    onTrackArtistChanged: { scrollPos = 0; updateDisplayText(); startScroll() }
-    onPlaybackStateChanged: {
-        if (playbackState === MprisPlaybackState.Playing) {
-            startScroll()
-        } else {
-            scrollPos = 0
-            scrollTimer.running = false
-        }
-    }
-
-    TextMetrics {
-        id: textMetrics
-        font.family: "JetBrainsMono Nerd Font"
-        font.pixelSize: 16
-        text: "M".repeat(maxChars)
-    }
-
-    function refreshPeakNode() {
-        var nodes = Pipewire.nodes
-        if (!nodes || !nodes.values) return
-        var vals = nodes.values
-        for (var i = 0; i < vals.length; i++) {
-            var n = vals[i]
-            if (n.audio && !n.isStream && n.isSink) {
-                peakNode = n
-                return
-            }
-        }
-    }
-
-    function refreshPlayer() {
-        var raw = Mpris.players.values
-        var now = Date.now()
-        var activeKeys = {}
-
-        for (var i = 0; i < raw.length; i++) {
-            var p = raw[i]
-            var key = p.desktopEntry || p.identity || p.dbusName
-            activeKeys[key] = true
-            var prev = playerTimestamps[key]
-            if (!prev) {
-                playerTimestamps[key] = { trackTitle: p.trackTitle, playbackState: p.playbackState, time: now }
-            } else if (prev.trackTitle !== p.trackTitle || prev.playbackState !== p.playbackState) {
-                prev.trackTitle = p.trackTitle
-                prev.playbackState = p.playbackState
-                prev.time = now
-            }
-        }
-
-        for (var key in playerTimestamps) {
-            if (!activeKeys[key]) delete playerTimestamps[key]
-        }
-
+    function selectCurrentPlayer(raw, timestamps) {
+        if (!raw || raw.length === 0) return null
         var best = {}
         for (var i = 0; i < raw.length; i++) {
             var p = raw[i]
@@ -102,15 +45,13 @@ Item {
                 if (newScore > curScore) best[key] = p
             }
         }
-
         var filtered = []
         for (var key in best) filtered.push(best[key])
 
         var playingPlayers = []
         for (var i = 0; i < filtered.length; i++) {
-            if (filtered[i].playbackState === MprisPlaybackState.Playing) {
+            if (filtered[i].playbackState === MprisPlaybackState.Playing)
                 playingPlayers.push(filtered[i])
-            }
         }
 
         var playing = null
@@ -121,7 +62,7 @@ Item {
             var bestTime = 0
             for (var i = 0; i < playingPlayers.length; i++) {
                 var key = playingPlayers[i].desktopEntry || playingPlayers[i].identity || playingPlayers[i].dbusName
-                var ts = playerTimestamps[key] ? playerTimestamps[key].time : 0
+                var ts = timestamps[key] ? timestamps[key].time : 0
                 if (ts > bestTime) {
                     bestTime = ts
                     bestPlaying = playingPlayers[i]
@@ -129,53 +70,65 @@ Item {
             }
             playing = bestPlaying
         }
+        return playing
+    }
 
-        // Fixed: Removed the early return here so layout resets correctly when music stops
-        if (playing !== currentPlayer) {
-            currentPlayer = playing
-            if (!playing) {
-                scrollPos = 0
-                displayText = ""
-                scrollText = ""
-            }
+    function findPeakNode(nodes) {
+        if (!nodes) return null
+        var vals = nodes.values
+        for (var i = 0; i < vals.length; i++) {
+            var n = vals[i]
+            if (n.audio && !n.isStream && n.isSink) return n
+        }
+        return null
+    }
+
+    function updateTimestamp(p) {
+        var key = p.desktopEntry || p.identity || p.dbusName
+        var now = Date.now()
+        var prev = playerTimestamps[key]
+        if (!prev) {
+            playerTimestamps[key] = { trackTitle: p.trackTitle, playbackState: p.playbackState, time: now }
+        } else if (prev.trackTitle !== p.trackTitle || prev.playbackState !== p.playbackState) {
+            prev.trackTitle = p.trackTitle
+            prev.playbackState = p.playbackState
+            prev.time = now
         }
     }
 
-    // Dynamically tracks property changes inside ALL active players without using timers
     Instantiator {
         model: Mpris.players
         delegate: Connections {
             target: modelData
-            function onPlaybackStateChanged() { root.refreshPlayer() }
-            function onTrackTitleChanged() { root.refreshPlayer() }
-            function onTrackArtistChanged() { root.refreshPlayer() }
+            function onPlaybackStateChanged() { root.updateTimestamp(modelData); root.playerRefreshCounter++ }
+            function onTrackTitleChanged() { root.updateTimestamp(modelData); root.playerRefreshCounter++ }
+            function onTrackArtistChanged() { root.playerRefreshCounter++ }
         }
     }
 
-    Timer {
-        id: peakNodeRefresh
-        interval: 500
-        repeat: false
-        running: false
-        onTriggered: refreshPeakNode()
-    }
-
-    Connections {
-        target: Pipewire?.nodes
-        function onValuesChanged() {
-            if (!peakNode) { refreshPeakNode(); return }
-            var vals = Pipewire.nodes.values
-            var found = false
-            for (var i = 0; i < vals.length; i++) {
-                if (vals[i] === peakNode) { found = true; break }
-            }
-            if (!found) peakNodeRefresh.restart()
+    onCurrentPlayerChanged: {
+        scrollPos = 0
+        if (currentPlayer) {
+            displayText = trackArtist ? trackArtist + " - " + trackTitle : trackTitle
+            scrollText = displayText + " " + displayText
+        } else {
+            displayText = ""
+            scrollText = ""
         }
+        if (playbackState === MprisPlaybackState.Playing) startScroll()
+        else { scrollPos = 0; scrollTimer.running = false }
     }
 
-    Connections {
-        target: Mpris && Mpris.players
-        function onValuesChanged() { refreshPlayer() }
+    onPlaybackStateChanged: {
+        if (playbackState === MprisPlaybackState.Playing) startScroll()
+        else { scrollPos = 0; scrollTimer.running = false }
+    }
+
+    TextMetrics {
+        id: textMetrics
+        font.family: "JetBrainsMono Nerd Font"
+        font.pixelSize: 16
+        text: "M".repeat(maxChars)
     }
 
     PwNodePeakMonitor {
@@ -186,7 +139,7 @@ Item {
 
     Timer {
         interval: 1000 / Math.max(1, peakFps)
-        running: root.visible
+        running: root.visible && playbackState === MprisPlaybackState.Playing
         repeat: true
         onTriggered: {
             var arr = root.peakLevels.slice()
@@ -209,7 +162,7 @@ Item {
         }
     }
 
-    Component.onCompleted: { refreshPlayer(); refreshPeakNode(); startScroll() }
+    Component.onCompleted: startScroll()
 
     Rectangle {
         x: contentRow.x - 10

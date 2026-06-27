@@ -10,32 +10,35 @@ Item {
     clip: true
 
     readonly property string assetsDir: Quickshell.shellDir + "/assets"
-    property string logoPath: "/run/current-system/sw/share/icons/hicolor/scalable/apps/nix-snowflake.svg"
 
-    function setLogo(content) {
-        if (!content) { logoPath = "/run/current-system/sw/share/icons/hicolor/scalable/apps/nix-snowflake.svg"; return }
-        for (var line of content.split("\n")) {
-            if (line.startsWith("ID=")) {
-                var id = line.substring(3).replace(/"/g, "").trim()
+    property string distroContent: ""
+
+    property string logoPath: computeLogoPath(distroContent)
+
+    function computeLogoPath(content) {
+        if (!content) return "/run/current-system/sw/share/icons/hicolor/scalable/apps/nix-snowflake.svg"
+        var lines = content.split("\n")
+        for (var i = 0; i < lines.length; i++) {
+            if (lines[i].startsWith("ID=")) {
+                var id = lines[i].substring(3).replace(/"/g, "").trim()
                 var paths = {
                     "arch": assetsDir + "/archlinux-logo.svg",
                     "nixos": "/run/current-system/sw/share/icons/hicolor/scalable/apps/nix-snowflake.svg",
                 }
-                logoPath = paths[id] || ""
-                return
+                return paths[id] || ""
             }
         }
+        return ""
     }
 
     Process {
         id: distroProbe
         command: ["cat", "/etc/os-release"]
         running: true
-        onStdoutChanged: root.setLogo(stdout)
-    }
-
-    Component.onCompleted: {
-        if (distroProbe.stdout) root.setLogo(distroProbe.stdout)
+        stdout: StdioCollector {
+            waitForEnd: true
+            onStreamFinished: root.distroContent = text
+        }
     }
 
     Rectangle {
@@ -49,7 +52,7 @@ Item {
         anchors.centerIn: parent
         width: 22
         height: 22
-        source: "file:///" + root.logoPath
+        source: root.logoPath ? "file://" + root.logoPath : ""
         fillMode: Image.PreserveAspectFit
         sourceSize.width: 22
         sourceSize.height: 22

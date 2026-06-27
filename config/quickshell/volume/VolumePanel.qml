@@ -32,10 +32,28 @@ FloatingWindow {
         { name: "Configuration" }
     ]
 
-    property var playbackStreams: []
-    property var recordingStreams: []
-    property var sinkNodes: []
-    property var sourceNodes: []
+    property var allNodes: {
+        var raw = Pipewire.nodes
+        var vals = raw && raw.values ? raw.values : []
+        nodeTracker.objects = vals
+        var pbs = [], rcs = [], sks = [], srcs = []
+        for (var i = 0; i < vals.length; i++) {
+            var n = vals[i]
+            if (!n.audio || isMonitorNode(n)) continue
+            if (n.isStream) {
+                if (n.type === PwNodeType.AudioOutStream) pbs.push(n)
+                else if (n.type === PwNodeType.AudioInStream) rcs.push(n)
+            }
+            if (n.isSink && !n.isStream) sks.push(n)
+            else if (!n.isSink && !n.isStream && n.type === PwNodeType.AudioSource) srcs.push(n)
+        }
+        return { playbackStreams: pbs, recordingStreams: rcs, sinkNodes: sks, sourceNodes: srcs }
+    }
+
+    property var playbackStreams: allNodes.playbackStreams
+    property var recordingStreams: allNodes.recordingStreams
+    property var sinkNodes: allNodes.sinkNodes
+    property var sourceNodes: allNodes.sourceNodes
 
     property var configDevices: []
     property int selConfigDevice: 0
@@ -44,6 +62,25 @@ FloatingWindow {
 
     property int peakFps: 20
     property real peakDecay: 0.05
+
+    Timer {
+        interval: 1000 / Math.max(1, peakFps)
+        running: root.visible
+        repeat: true
+        onTriggered: {
+            if (!nodeRepeater) return
+            for (var i = 0; i < nodeRepeater.count; i++) {
+                var item = nodeRepeater.itemAt(i)
+                if (!item) continue
+                var target = item.nodeMuted ? 0 : Math.min(1, item.currentPeak * item.nodeVolume)
+                if (target > item.displayedPeak) {
+                    item.displayedPeak = target
+                } else if (item.displayedPeak > 0) {
+                    item.displayedPeak = Math.max(0, item.displayedPeak - root.peakDecay)
+                }
+            }
+        }
+    }
 
     function isMonitorNode(n) {
         if (n.name) {
@@ -56,35 +93,6 @@ FloatingWindow {
             if (n.properties["application.name"] === "Quickshell Peak Detect") return true
         }
         return false
-    }
-
-    function refreshNodeLists() {
-        var pbs = [], rcs = [], sks = [], srcs = []
-        var raw = Pipewire.nodes
-        var vals = raw && raw.values ? raw.values : []
-        nodeTracker.objects = vals
-
-        for (var i = 0; i < vals.length; i++) {
-            var n = vals[i]
-            if (!n.audio || isMonitorNode(n)) continue
-            if (n.isStream) {
-                if (n.type === PwNodeType.AudioOutStream) pbs.push(n)
-                else if (n.type === PwNodeType.AudioInStream) rcs.push(n)
-            }
-            if (n.isSink && !n.isStream) sks.push(n)
-            else if (!n.isSink && !n.isStream && n.type === PwNodeType.AudioSource) srcs.push(n)
-        }
-        playbackStreams = pbs
-        recordingStreams = rcs
-        sinkNodes = sks
-        sourceNodes = srcs
-    }
-
-    Timer {
-        id: refreshDebounce
-        interval: 100
-        repeat: false
-        onTriggered: { if (root.visible) refreshNodeLists() }
     }
 
     function currentModel() {
@@ -201,20 +209,12 @@ for obj in data:
 
     onVisibleChanged: {
         if (visible) {
-            refreshNodeLists()
             refreshConfigDevices()
             mainRect.forceActiveFocus()
             selSection = 0
             inSection = false
             selDevice = 0
             configExpanded = false
-        }
-    }
-
-    Connections {
-        target: Pipewire && Pipewire.nodes
-        function onValuesChanged() {
-            refreshDebounce.restart()
         }
     }
 
@@ -273,11 +273,11 @@ for obj in data:
             case Qt.Key_Return:
             case Qt.Key_Enter:
                 if (selSection === 4 && inSection) {
-                    if (configExpanded) {
+                    if (configExpanded && selConfigDevice < configDevices.length) {
                         var profiles = configDevices[selConfigDevice].profiles
                         if (selConfigProfile >= 0 && selConfigProfile < profiles.length)
                             setConfigProfile(configDevices[selConfigDevice].id, profiles[selConfigProfile].index)
-                    } else {
+                    } else if (!configExpanded && configDevices.length > 0) {
                         configExpanded = true
                         selConfigProfile = 0
                     }
@@ -288,11 +288,11 @@ for obj in data:
                 event.accepted = true; break
             case Qt.Key_J:
             case Qt.Key_Down:
-                if (selSection === 4 && configExpanded && inSection) {
+                if (selSection === 4 && configExpanded && inSection && selConfigDevice < configDevices.length) {
                     var profiles = configDevices[selConfigDevice].profiles
                     selConfigProfile = Math.min(selConfigProfile + 1, Math.max(0, profiles.length - 1))
                 } else if (selSection === 4 && inSection) {
-                    selConfigDevice = Math.min(selConfigDevice + 1, Math.max(0, configDevices.length - 1))
+                    selConfigDevice = Math.max(0, Math.min(selConfigDevice + 1, Math.max(0, configDevices.length - 1)))
                 } else if (inSection && selSection < 4) {
                     var maxD = currentModel().length - 1
                     selDevice = Math.min(selDevice + 1, Math.max(0, maxD))
@@ -451,6 +451,7 @@ for obj in data:
                             visible: selSection < 4
 
                             Repeater {
+                                id: nodeRepeater
                                 model: currentModel()
 
                                 delegate: Item {
@@ -467,19 +468,7 @@ for obj in data:
                                         enabled: root.visible
                                     }
 
-                                    Timer {
-                                        interval: 1000 / Math.max(1, root.peakFps)
-                                        running: root.visible
-                                        repeat: true
-                                        onTriggered: {
-                                            var target = nodeMuted ? 0 : Math.min(1, peakMon.peak * nodeVolume)
-                                            if (target > displayedPeak) {
-                                                displayedPeak = target
-                                            } else if (displayedPeak > 0) {
-                                                displayedPeak = Math.max(0, displayedPeak - root.peakDecay)
-                                            }
-                                        }
-                                    }
+                                    property real currentPeak: peakMon.peak
 
                                     Rectangle {
                                         anchors.fill: parent
@@ -583,7 +572,7 @@ for obj in data:
 
                                 delegate: Item {
                                     width: parent.width
-                                    height: (configExpanded && index === selConfigDevice && inSection)
+                                    height: (configExpanded && index === selConfigDevice && inSection && selConfigDevice < configDevices.length)
                                             ? 45 + configDevices[selConfigDevice].profiles.length * 30
                                             : 45
 
@@ -651,7 +640,7 @@ for obj in data:
                                         }
 
                                         Repeater {
-                                            model: configExpanded && inSection && index === selConfigDevice
+                                            model: configExpanded && inSection && index === selConfigDevice && selConfigDevice < configDevices.length
                                                    ? configDevices[selConfigDevice].profiles
                                                    : []
 

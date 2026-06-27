@@ -23,22 +23,36 @@ FloatingWindow {
         { name: "Calendar" }
     ]
 
-    property var now: new Date()
     property var monthNames: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
     property var dayNames: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
-    function currentModelLength() {
-        if (selSection === 2) return 42
-        return 0
+    SystemClock {
+        id: clock
+        precision: SystemClock.Seconds
     }
 
-    Timer {
-        interval: 1000
-        repeat: true
-        running: root.visible
-        onTriggered: now = new Date()
-        onRunningChanged: {
-            if (running) now = new Date()
+    property var now: clock.date
+
+    property int currentModelLength: selSection === 2 ? 42 : 0
+
+    property string timezoneString: now.toString().substring(now.toString().indexOf("(") + 1, now.toString().indexOf(")"))
+
+    property int isoWeek: computeIsoWeek(now)
+
+    function computeIsoWeek(d) {
+        var date = new Date(d)
+        date.setHours(0, 0, 0, 0)
+        date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7)
+        var week1 = new Date(date.getFullYear(), 0, 4)
+        return 1 + Math.round(((date - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7)
+    }
+
+    onVisibleChanged: {
+        if (visible) {
+            mainRect.forceActiveFocus()
+            selSection = 0
+            inSection = false
+            selDevice = 0
         }
     }
 
@@ -55,7 +69,7 @@ FloatingWindow {
                     inSection = true
                     selDevice = 0
                 } else {
-                    var maxD = currentModelLength() - 1
+                    var maxD = currentModelLength - 1
                     selDevice = Math.min(selDevice + 1, Math.max(0, maxD))
                 }
                 event.accepted = true; break
@@ -67,7 +81,7 @@ FloatingWindow {
             case Qt.Key_J:
             case Qt.Key_Down:
                 if (inSection) {
-                    var maxD = currentModelLength() - 1
+                    var maxD = currentModelLength - 1
                     selDevice = Math.min(selDevice + 1, Math.max(0, maxD))
                 } else {
                     selSection = Math.min(selSection + 1, sections.length - 1)
@@ -233,13 +247,7 @@ FloatingWindow {
                                     }
 
                                     Text {
-                                        text: "Week: " + (function() {
-                                            var d = new Date(root.now)
-                                            d.setHours(0,0,0,0)
-                                            d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7)
-                                            var week1 = new Date(d.getFullYear(), 0, 4)
-                                            return 1 + Math.round(((d - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7)
-                                        })()
+                                        text: "Week: " + root.isoWeek
                                         color: Qt.alpha(Colors.foreground, 0.75)
                                         font.pixelSize: 16
                                         font.family: "JetBrainsMono Nerd Font"
@@ -247,44 +255,41 @@ FloatingWindow {
 
                                 }
                             }
+                        }
 
-                            Column {
+                        Column {
+                            width: parent.width
+                            spacing: 10
+                            visible: selSection === 1
+
+                            Item {
                                 width: parent.width
-                                spacing: 10
-                                visible: selSection === 1
+                                height: 30 * 3
 
-                                Item {
-                                    width: parent.width
-                                    height: 30 * 3
+                                Column {
+                                    anchors.fill: parent
+                                    spacing: 10
 
-                                    Column {
-                                        anchors.fill: parent
-                                        spacing: 10
+                                    Text {
+                                        text: ("  " + root.now.getHours()).slice(-2) + ":" + ("  " + root.now.getMinutes()).slice(-2) + ":" + ("  " + root.now.getSeconds()).slice(-2)
+                                        color: Colors.foreground
+                                        font.pixelSize: 24
+                                        font.family: "JetBrainsMono Nerd Font"
+                                        font.bold: true
+                                    }
 
-                                        Text {
-                                            text: ("  " + root.now.getHours()).slice(-2) + ":" + ("  " + root.now.getMinutes()).slice(-2) + ":" + ("  " + root.now.getSeconds()).slice(-2)
-                                            color: Colors.foreground
-                                            font.pixelSize: 24
-                                            font.family: "JetBrainsMono Nerd Font"
-                                            font.bold: true
-                                        }
+                                    Text {
+                                        text: "Timezone: " + root.timezoneString
+                                        color: Qt.alpha(Colors.foreground, 0.75)
+                                        font.pixelSize: 16
+                                        font.family: "JetBrainsMono Nerd Font"
+                                    }
 
-                                        Text {
-                                            text: "Timezone: " + (function() {
-                                                var s = root.now.toString()
-                                                return s.substring(s.indexOf("(") + 1, s.indexOf(")"))
-                                            })()
-                                            color: Qt.alpha(Colors.foreground, 0.75)
-                                            font.pixelSize: 16
-                                            font.family: "JetBrainsMono Nerd Font"
-                                        }
-
-                                        Text {
-                                            text: "UTC: " + root.now.toUTCString()
-                                            color: Qt.alpha(Colors.foreground, 0.75)
-                                            font.pixelSize: 16
-                                            font.family: "JetBrainsMono Nerd Font"
-                                        }
+                                    Text {
+                                        text: "UTC: " + root.now.toUTCString()
+                                        color: Qt.alpha(Colors.foreground, 0.75)
+                                        font.pixelSize: 16
+                                        font.family: "JetBrainsMono Nerd Font"
                                     }
                                 }
                             }
@@ -327,11 +332,10 @@ FloatingWindow {
                                 spacing: 0
 
                                 property var firstDay: new Date(root.now.getFullYear(), root.now.getMonth(), 1)
-                                property var startDay: new Date(firstDay)
-                                property int startDayOfWeek: startDay.getDay()
-
-                                Component.onCompleted: {
-                                    startDay.setDate(startDay.getDate() - startDayOfWeek)
+                                property var startDay: {
+                                    var d = new Date(firstDay)
+                                    d.setDate(d.getDate() - d.getDay())
+                                    return d
                                 }
 
                                 Repeater {

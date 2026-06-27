@@ -15,14 +15,25 @@ FloatingWindow {
 
     onClosed: visible = false
 
-    property ListModel wallpapers: ListModel {}
+    property string rawScanText: ""
+    property var wallpaperList: parseWallpapers(rawScanText)
     property int selected: 0
     property int columns: 4
 
     signal toggle()
 
+    function parseWallpapers(text) {
+        var model = []
+        var files = text.trim().split('\n')
+        for (var i = 0; i < files.length; i++) {
+            var f = files[i].trim()
+            if (f.length > 0) model.push({ path: f })
+        }
+        return model
+    }
+
     function scan() {
-        scanner.command = ["bash", "-c", "ls -1 " + Quickshell.env("HOME") + "/walls/*.{jpg,jpeg,png,gif,webp,bmp} 2>/dev/null"]
+        scanner.command = ["bash", "-c", "ls -1 \"$1\"/walls/*.{jpg,jpeg,png,gif,webp,bmp} 2>/dev/null", "sh", Quickshell.env("HOME")]
         scanner.running = true
     }
 
@@ -37,16 +48,7 @@ FloatingWindow {
         running: false
         stdout: StdioCollector {
             waitForEnd: true
-            onStreamFinished: {
-                root.wallpapers.clear()
-                var files = text.trim().split('\n')
-                for (var i = 0; i < files.length; i++) {
-                    var f = files[i].trim()
-                    if (f.length > 0) {
-                        root.wallpapers.append({ path: f })
-                    }
-                }
-            }
+            onStreamFinished: rawScanText = text
         }
     }
 
@@ -61,13 +63,13 @@ FloatingWindow {
                 root.selected = Math.max(0, root.selected - 1)
                 break
                 case Qt.Key_J:
-                root.selected = Math.min(root.wallpapers.count - 1, root.selected + root.columns)
+                root.selected = Math.min(wallpaperList.length - 1, root.selected + root.columns)
                 break
                 case Qt.Key_K:
                 root.selected = Math.max(0, root.selected - root.columns)
                 break
                 case Qt.Key_L:
-                root.selected = Math.min(root.wallpapers.count - 1, root.selected + 1)
+                root.selected = Math.min(wallpaperList.length - 1, root.selected + 1)
                 break
                 case Qt.Key_Return:
                 case Qt.Key_Enter:
@@ -80,8 +82,8 @@ FloatingWindow {
         }
 
         function applyWallpaper() {
-            if (root.wallpapers.count === 0) return
-            var path = root.wallpapers.get(root.selected).path
+            if (wallpaperList.length === 0) return
+            var path = wallpaperList[root.selected].path
             setter.command = [Quickshell.env("HOME") + "/.local/bin/setwall", path]
             setter.running = true
             root.visible = false
@@ -96,7 +98,7 @@ FloatingWindow {
                 id: grid
                 anchors.fill: parent
                 anchors { leftMargin: 10; rightMargin: 0; topMargin: 10; bottomMargin: 10 }
-                model: root.wallpapers
+                model: wallpaperList
                 cellWidth: 205
                 cellHeight: 140
                 clip: true
@@ -110,7 +112,7 @@ FloatingWindow {
 
                     Image {
                         anchors.fill: parent
-                        source: model.path
+                        source: modelData.path
                         sourceSize.width: 195
                         sourceSize.height: 130
                         fillMode: Image.PreserveAspectCrop

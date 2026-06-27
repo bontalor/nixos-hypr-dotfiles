@@ -1,5 +1,6 @@
 import "../../theme"
 import QtQuick
+import Quickshell
 import Quickshell.Io
 
 Item {
@@ -7,75 +8,98 @@ Item {
     width: batText.width + 20
     height: 30
 
-    property string statusText: "Bat ----"
-    property int batteryPercent: -1
-    property string batteryState: ""
-    property string activeProfile: ""
+    property string rawBatteryText: ""
+    property string rawProfileText: ""
 
-    function parseOutput(text) {
+    property var parsedBattery: parseBatteryOutput(rawBatteryText)
+    property int batteryPercent: parsedBattery.batteryPercent
+    property bool isCharging: parsedBattery.isCharging
+    property string activeProfile: rawProfileText.trim()
+
+    property string statusText: computeStatusText(batteryPercent, isCharging, activeProfile)
+
+    function parseBatteryOutput(text) {
         var pct = -1
-        var state = ""
-        var profile = ""
+        var charging = false
         var lines = text.split("\n")
-        var inProfile = false
         for (var i = 0; i < lines.length; i++) {
             var line = lines[i].trim()
-            if (line === "###PROFILE") {
-                inProfile = true
-                continue
-            }
-            if (inProfile) {
-                if (line.length > 0 && line.indexOf("###") !== 0) {
-                    profile = line
-                }
-                continue
-            }
             if (line.indexOf("percentage:") === 0) {
-                var val = line.substring(line.indexOf(":") + 1).trim()
-                pct = parseInt(val) || -1
+                var val = parseInt(line.substring(line.indexOf(":") + 1).trim())
+                pct = isNaN(val) ? -1 : val
             } else if (line.indexOf("state:") === 0) {
-                state = line.substring(line.indexOf(":") + 1).trim()
+                var st = line.substring(line.indexOf(":") + 1).trim()
+                charging = st === "charging"
             }
         }
+        return { batteryPercent: pct, isCharging: charging }
+    }
 
-        batteryPercent = pct
-        batteryState = state
-        activeProfile = profile
+    function computeStatusText(pct, charging, profile) {
+        if (pct < 0) return "Bat ----"
 
         var profileSymbol = ""
-        if (profile === "performance") profileSymbol = "\uf0e7"
-        else if (profile === "balanced") profileSymbol = "\uf0eb"
-        else if (profile === "power-saver") profileSymbol = "\uf06c"
+        var p = profile.toLowerCase()
+        if (p === "performance") profileSymbol = "\uf0e7"
+        else if (p === "balanced") profileSymbol = "\uf0eb"
+        else if (p === "power-saver" || p === "power-save" || p === "powersave") profileSymbol = "\uf06c"
 
-        var plugged = state === "charging" || state === "pending-charge" || state === "fully-charged"
-        var plugSymbol = plugged ? "\uf1e6 " : ""
+        var plugSymbol = charging ? "\uf1e6 " : ""
 
-        if (pct < 0 || !state) {
-            statusText = "Bat ----"
-        } else if (state === "charging" || state === "pending-charge") {
-            statusText = "Bat " + ("  " + pct).slice(-3) + "%+ " + plugSymbol + profileSymbol
-        } else if (state === "fully-charged") {
-            statusText = "Bat " + ("  " + pct).slice(-3) + "% " + plugSymbol + profileSymbol
-        } else {
-            statusText = "Bat " + ("  " + pct).slice(-3) + "% " + plugSymbol + profileSymbol
-        }
+        if (charging)
+            return "Bat " + ("  " + pct).slice(-3) + "%+ " + profileSymbol + plugSymbol
+        else
+            return "Bat " + ("  " + pct).slice(-3) + "% " + profileSymbol + plugSymbol
+    }
+
+    function refreshBattery() {
+        if (batProc.running) return
+        batProc.command = ["bash", "-c", "upower -i $(upower -e 2>/dev/null | grep battery | grep -v DisplayDevice | head -1) 2>/dev/null"]
+        batProc.running = true
     }
 
     function fetchStatus() {
-        fetchProc.command = ["bash", "-c", "upower -i $(upower -e 2>/dev/null | grep battery | grep -v DisplayDevice | head -1) 2>/dev/null; echo '###PROFILE'; powerprofilesctl get 2>/dev/null || cat /sys/firmware/acpi/platform_profile 2>/dev/null"]
-        fetchProc.running = true
+        if (profileProc.running) return
+        profileProc.command = ["bash", "-c",
+            "[ -r /sys/firmware/acpi/platform_profile ] && cat /sys/firmware/acpi/platform_profile 2>/dev/null || powerprofilesctl get 2>/dev/null || echo ''"]
+        profileProc.running = true
+    }
+
+    Timer {
+        id: batteryTimer
+        interval: 5000
+        repeat: true
+        running: true
+        onTriggered: refreshBattery()
+    }
+
+    Timer {
+        id: profileTimer
+        interval: 5000
+        repeat: true
+        running: true
+        onTriggered: fetchStatus()
     }
 
     Process {
-        id: fetchProc
+        id: batProc
         running: false
         stdout: StdioCollector {
             waitForEnd: true
-            onStreamFinished: parseOutput(text)
+            onStreamFinished: rawBatteryText = text
         }
     }
 
-    Component.onCompleted: fetchStatus()
+    Process {
+        id: profileProc
+        running: false
+        stdout: StdioCollector {
+            waitForEnd: true
+            onStreamFinished: rawProfileText = text
+        }
+    }
+
+    Component.onCompleted: { refreshBattery(); fetchStatus() }
 
     Process {
         id: ipcToggle
@@ -107,13 +131,6 @@ Item {
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        acceptedButtons: Qt.LeftButton | Qt.RightButton
-        onClicked: (mouse) => {
-            if (mouse.button === Qt.RightButton) {
-                // no right-click action yet
-            } else {
-                ipcToggle.running = true
-            }
-        }
+        onClicked: ipcToggle.running = true
     }
 }

@@ -1,4 +1,5 @@
 import "../theme"
+import "."
 import QtQuick
 import Quickshell
 import Quickshell.Widgets
@@ -35,7 +36,12 @@ FloatingWindow {
             (a.genericName || "").toLowerCase().includes(q) ||
             (a.comment || "").toLowerCase().includes(q)
         )
-        matches.sort(function(a, b) {
+        return fuzzySort(q, matches)
+    }
+
+    function fuzzySort(query, items) {
+        var q = query.toLowerCase()
+        return items.sort(function(a, b) {
             var aName = a.name.toLowerCase()
             var bName = b.name.toLowerCase()
             var aIdx = aName.indexOf(q)
@@ -48,7 +54,6 @@ FloatingWindow {
             if (aName > bName) return 1
             return 0
         })
-        return matches
     }
 
     property int selectedIndex: 0

@@ -78,73 +78,25 @@ Scope {
                     width: stateText.width + 20
                     height: 30
 
-                    property string displayState: "Tile"
-
-                    function updateState() {
-                        stateProc.command = ["bash", "-c",
-                            "echo '###WORKSPACE'; hyprctl activeworkspace -j 2>/dev/null; echo '###ACTIVE'; hyprctl activewindow -j 2>/dev/null; echo '###CLIENTS'; hyprctl clients -j 2>/dev/null"]
-                        stateProc.running = true
-                    }
-
-                    Process {
-                        id: stateProc
-                        running: false
-                        stdout: StdioCollector {
-                            waitForEnd: true
-                            onStreamFinished: {
-                                var sections = text.split("###")
-                                var wsData = null
-                                var activeData = null
-                                var clientsData = null
-                                for (var si = 0; si < sections.length; si++) {
-                                    var sec = sections[si].trim()
-                                    if (sec.indexOf("WORKSPACE") === 0) {
-                                        try { wsData = JSON.parse(sec.substring(9).trim()) } catch (e) {}
-                                    } else if (sec.indexOf("ACTIVE") === 0) {
-                                        try { activeData = JSON.parse(sec.substring(6).trim()) } catch (e) {}
-                                    } else if (sec.indexOf("CLIENTS") === 0) {
-                                        try { clientsData = JSON.parse(sec.substring(7).trim()) } catch (e) {}
-                                    }
-                                }
-                                if (!wsData) { layoutState.displayState = "Tile"; return }
-                                var wsId = wsData.id
-                                var lay = wsData.layout
-
-                                var full = false
-                                var maxd = false
-
-                                if (activeData && activeData.workspace && activeData.workspace.id === wsId) {
-                                    if (activeData.fullscreen === 2) full = true
-                                    else if (activeData.fullscreen === 1) maxd = true
-                                }
-
-                                if (clientsData && Array.isArray(clientsData)) {
-                                    for (var i = 0; i < clientsData.length; i++) {
-                                        var c = clientsData[i]
-                                        if (!c.workspace || c.workspace.id !== wsId) continue
-                                        if (c.fullscreen === 2 || c.fullscreenClient === 2) full = true
-                                        else if (c.fullscreen === 1 || c.fullscreenClient === 1) maxd = true
-                                    }
-                                }
-
-                                if (full) { layoutState.displayState = "Fullscreen"; return }
-                                if (maxd) { layoutState.displayState = "Maximized"; return }
-                                if (lay === "dwindle" || lay === "master") { layoutState.displayState = "Tiling"; return }
-                                layoutState.displayState = "Tiling"
-                            }
+                    property string displayState: {
+                        var ws = Hyprland.focusedWorkspace
+                        if (!ws) return "Tiling"
+                        var wsId = ws.id
+                        var toplevels = Hyprland.toplevels.values
+                        var full = false
+                        var maxd = false
+                        for (var i = 0; i < toplevels.length; i++) {
+                            var c = toplevels[i]
+                            if (!c.workspace || c.workspace.id !== wsId) continue
+                            if (c.fullscreen === 2 || c.fullscreenClient === 2) full = true
+                            else if (c.fullscreen === 1 || c.fullscreenClient === 1) maxd = true
                         }
+                        if (full) return "Fullscreen"
+                        if (maxd) return "Maximized"
+                        var lay = ws.layout
+                        if (lay === "dwindle" || lay === "master") return "Tiling"
+                        return "Tiling"
                     }
-
-                    Connections {
-                        target: Hyprland
-                        function onRawEvent(event) {
-                            if (event.name === "fullscreen" || event.name === "window" || event.name === "focusedmon" || event.name === "workspace") {
-                                layoutState.updateState()
-                            }
-                        }
-                    }
-
-                    Component.onCompleted: layoutState.updateState()
 
                     Rectangle {
                         anchors.fill: parent

@@ -18,8 +18,15 @@ FloatingWindow {
     property bool inSection: false
     property int selDevice: 0
 
-    property var allPlayers: []
-    property var currentPlayer: null
+    property bool manuallySelected: false
+    property int playerRefreshCounter: 0
+
+    property var playerTimestamps: ({})
+
+    property var currentPlayer: selectCurrentPlayer(Mpris.players.values, playerTimestamps)
+
+    property var allPlayers: allPlayersFromRaw(Mpris.players.values)
+
     property string trackTitle: ""
     property string trackArtist: ""
     property string trackAlbum: ""
@@ -29,39 +36,8 @@ FloatingWindow {
     property real trackLength: currentPlayer ? currentPlayer.length : 0
     property bool canSeek: currentPlayer ? currentPlayer.canSeek : false
     property string trackArtUrl: currentPlayer ? (currentPlayer.trackArtUrl || "") : ""
-    property bool manuallySelected: false
-    property var playerTimestamps: ({})
 
-    function fmtTime(sec) {
-        var totalSec = Math.floor(sec)
-        var m = Math.floor(totalSec / 60)
-        var s = totalSec % 60
-        return (" " + m).slice(-2) + ":" + ("0" + s).slice(-2)
-    }
-
-    function refreshPlayer() {
-        var raw = Mpris.players.values
-        var now = Date.now()
-        var activeKeys = {}
-
-        for (var i = 0; i < raw.length; i++) {
-            var p = raw[i]
-            var key = p.desktopEntry || p.identity || p.dbusName
-            activeKeys[key] = true
-            var prev = playerTimestamps[key]
-            if (!prev) {
-                playerTimestamps[key] = { trackTitle: p.trackTitle, playbackState: p.playbackState, time: now }
-            } else if (prev.trackTitle !== p.trackTitle || prev.playbackState !== p.playbackState) {
-                prev.trackTitle = p.trackTitle
-                prev.playbackState = p.playbackState
-                prev.time = now
-            }
-        }
-
-        for (var key in playerTimestamps) {
-            if (!activeKeys[key]) delete playerTimestamps[key]
-        }
-
+    function allPlayersFromRaw(raw) {
         var best = {}
         for (var i = 0; i < raw.length; i++) {
             var p = raw[i]
@@ -75,42 +51,44 @@ FloatingWindow {
                 if (newScore > curScore) best[key] = p
             }
         }
-
         var filtered = []
         for (var key in best) filtered.push(best[key])
-        allPlayers = filtered
+        return filtered
+    }
 
-        if (manuallySelected) {
-            if (currentPlayer && filtered.indexOf(currentPlayer) >= 0) return
-            manuallySelected = false
-        }
-
-        var playingPlayers = []
-        for (var i = 0; i < filtered.length; i++) {
-            if (filtered[i].playbackState === MprisPlaybackState.Playing) {
-                playingPlayers.push(filtered[i])
+    function selectCurrentPlayer(raw, timestamps) {
+        if (!manuallySelected) {
+            var playingPlayers = []
+            for (var i = 0; i < raw.length; i++) {
+                if (raw[i].playbackState === MprisPlaybackState.Playing)
+                    playingPlayers.push(raw[i])
             }
-        }
-
-        var playing = null
-        if (playingPlayers.length === 1) {
-            playing = playingPlayers[0]
-        } else if (playingPlayers.length > 1) {
-            var bestPlaying = playingPlayers[0]
-            var bestTime = 0
-            for (var i = 0; i < playingPlayers.length; i++) {
-                var key = playingPlayers[i].desktopEntry || playingPlayers[i].identity || playingPlayers[i].dbusName
-                var ts = playerTimestamps[key] ? playerTimestamps[key].time : 0
-                if (ts > bestTime) {
-                    bestTime = ts
-                    bestPlaying = playingPlayers[i]
+            var playing = null
+            if (playingPlayers.length === 1) {
+                playing = playingPlayers[0]
+            } else if (playingPlayers.length > 1) {
+                var bestPlaying = playingPlayers[0]
+                var bestTime = 0
+                for (var i = 0; i < playingPlayers.length; i++) {
+                    var key = playingPlayers[i].desktopEntry || playingPlayers[i].identity || playingPlayers[i].dbusName
+                    var ts = timestamps[key] ? timestamps[key].time : 0
+                    if (ts > bestTime) {
+                        bestTime = ts
+                        bestPlaying = playingPlayers[i]
+                    }
                 }
+                playing = bestPlaying
             }
-            playing = bestPlaying
+            return playing || currentPlayer
         }
+        return currentPlayer
+    }
 
-        if (!playing && currentPlayer) return
-        setPlayer(playing)
+    function fmtTime(sec) {
+        var totalSec = Math.floor(sec)
+        var m = Math.floor(totalSec / 60)
+        var s = totalSec % 60
+        return (" " + m).slice(-2) + ":" + ("0" + s).slice(-2)
     }
 
     Process {
@@ -131,7 +109,6 @@ FloatingWindow {
             trackTitle = ""; trackArtist = ""; trackAlbum = ""
             playbackState = MprisPlaybackState.Stopped; playerName = ""
         }
-        ipcRefresh.running = true
     }
 
     Connections {
@@ -142,21 +119,31 @@ FloatingWindow {
         function onPlaybackStateChanged() { playbackState = currentPlayer?.playbackState ?? MprisPlaybackState.Stopped; ipcRefresh.running = true }
     }
 
-    Timer {
-        id: posTimer
-        interval: 1000; repeat: true; running: currentPlayer !== null && playbackState === MprisPlaybackState.Playing
-        onTriggered: { if (currentPlayer) currentPlayer.positionChanged() }
+    Instantiator {
+        model: Mpris.players
+        delegate: Connections {
+            target: modelData
+            function onTrackTitleChanged() { updateTimestamp(modelData); root.playerRefreshCounter++ }
+            function onPlaybackStateChanged() { updateTimestamp(modelData); root.playerRefreshCounter++ }
+        }
     }
 
-    Connections {
-        target: Mpris && Mpris.players
-        function onValuesChanged() { refreshPlayer() }
+    function updateTimestamp(p) {
+        var key = p.desktopEntry || p.identity || p.dbusName
+        var prev = playerTimestamps[key]
+        var now = Date.now()
+        if (!prev) {
+            playerTimestamps[key] = { trackTitle: p.trackTitle, playbackState: p.playbackState, time: now }
+        } else if (prev.trackTitle !== p.trackTitle || prev.playbackState !== p.playbackState) {
+            prev.trackTitle = p.trackTitle
+            prev.playbackState = p.playbackState
+            prev.time = now
+        }
     }
 
     onVisibleChanged: {
         if (visible) {
             manuallySelected = false
-            refreshPlayer()
             mainRect.forceActiveFocus()
             selSection = 0
             inSection = false
@@ -201,6 +188,7 @@ FloatingWindow {
             case Qt.Key_Enter:
                 if (inSection && selDevice < allPlayers.length) {
                     setPlayer(allPlayers[selDevice])
+                    manuallySelected = true
                 } else if (!inSection) {
                     inSection = true
                     selDevice = 0

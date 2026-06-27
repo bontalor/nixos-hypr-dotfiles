@@ -4,11 +4,23 @@ import Quickshell
 import Quickshell.Hyprland
 Row {
     spacing: 10
+
+    property var activeToplevelWsIds: {
+        var ids = {}
+        var toplevels = Hyprland.toplevels.values
+        for (var i = 0; i < toplevels.length; i++) {
+            var wsId = toplevels[i].workspace?.id
+            if (wsId) ids[wsId] = true
+        }
+        return ids
+    }
+
     Repeater {
         model: 9
         Item {
-            property var ws: Hyprland.workspaces.values.find(w => w.id === index + 1)
-            property bool isActive: Hyprland.focusedWorkspace?.id === (index + 1)
+            property int wsId: index + 1
+            property bool isActive: Hyprland.focusedWorkspace?.id === wsId
+            property bool hasToplevels: activeToplevelWsIds[wsId] === true
             width: 30
             height: 30
 
@@ -23,13 +35,13 @@ Row {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: 0
-                color: Hyprland.toplevels.values.some(t => t.workspace?.id === index + 1) ? Colors.foreground : "transparent"
+                color: hasToplevels ? Colors.foreground : "transparent"
             }
 
             Text {
                 id: textItem
                 anchors.centerIn: parent
-                text: index + 1
+                text: wsId
                 font.pixelSize: 16
                 font.family: "JetBrainsMono Nerd Font"
                 color: Colors.foreground
@@ -40,7 +52,7 @@ Row {
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
-                    Hyprland.dispatch("hl.dsp.focus({ workspace = " + (index + 1) + "})")
+                    Hyprland.dispatch("hl.dsp.focus({ workspace = " + wsId + "})")
                 }
             }
         }
