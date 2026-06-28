@@ -1,0 +1,5 @@
+start lockscreen before every suspend
+use quickshell for notifications instead of mako
+figure out how to blur lockscreen
+make audio visualizer on media widget real with full spectrum instead of random
+fix battery/powerprofiles
