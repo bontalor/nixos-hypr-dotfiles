@@ -52,33 +52,18 @@ Item {
             return "Bat " + ("  " + pct).slice(-3) + "% " + profileSymbol + plugSymbol
     }
 
-    function refreshBattery() {
-        if (batProc.running) return
-        batProc.command = ["bash", "-c", "upower -i $(upower -e 2>/dev/null | grep battery | grep -v DisplayDevice | head -1) 2>/dev/null"]
-        batProc.running = true
-    }
-
-    function fetchStatus() {
-        if (profileProc.running) return
-        profileProc.command = ["bash", "-c",
-            "[ -r /sys/firmware/acpi/platform_profile ] && cat /sys/firmware/acpi/platform_profile 2>/dev/null || powerprofilesctl get 2>/dev/null || echo ''"]
-        profileProc.running = true
-    }
-
-    Timer {
-        id: batteryTimer
-        interval: 5000
-        repeat: true
-        running: true
-        onTriggered: refreshBattery()
-    }
-
-    Timer {
-        id: profileTimer
-        interval: 5000
-        repeat: true
-        running: true
-        onTriggered: fetchStatus()
+    // Event-driven refresh: triggered once at startup and on every upower
+    // event via the Bar's `refresh-battery` IPC relay. No timers.
+    function refresh() {
+        if (!batProc.running) {
+            batProc.command = ["bash", "-c", "upower -i $(upower -e 2>/dev/null | grep battery | grep -v DisplayDevice | head -1) 2>/dev/null"]
+            batProc.running = true
+        }
+        if (!profileProc.running) {
+            profileProc.command = ["bash", "-c",
+                "[ -r /sys/firmware/acpi/platform_profile ] && cat /sys/firmware/acpi/platform_profile 2>/dev/null || powerprofilesctl get 2>/dev/null || echo ''"]
+            profileProc.running = true
+        }
     }
 
     Process {
@@ -99,7 +84,7 @@ Item {
         }
     }
 
-    Component.onCompleted: { refreshBattery(); fetchStatus() }
+    Component.onCompleted: refresh()
 
     Process {
         id: ipcToggle

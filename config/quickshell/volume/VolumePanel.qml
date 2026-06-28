@@ -5,32 +5,24 @@ import Quickshell.Io
 import Quickshell.Services.Pipewire
 import Quickshell.Widgets
 
-FloatingWindow {
+Panel {
     id: root
     title: "Volume Control"
-    color: "transparent"
-    implicitWidth: 850
-    implicitHeight: 450
-    visible: false
-
-    onClosed: visible = false
-
-    PwObjectTracker {
-        id: nodeTracker
-        objects: []
-    }
-
-    property int selSection: 0
-    property bool inSection: false
-    property int selDevice: 0
-
-    property var sections: [
+    sections: [
         { name: "Playback" },
         { name: "Recording" },
         { name: "Output Devices" },
         { name: "Input Devices" },
         { name: "Configuration" }
     ]
+
+    useDefaultKeys: false
+    autoScroll: false
+
+    PwObjectTracker {
+        id: nodeTracker
+        objects: []
+    }
 
     property var allNodes: {
         var raw = Pipewire.nodes
@@ -64,7 +56,7 @@ FloatingWindow {
     property real peakDecay: 0.05
 
     Timer {
-        interval: 1000 / Math.max(1, peakFps)
+        interval: 1000 / Math.max(1, root.peakFps)
         running: root.visible
         repeat: true
         onTriggered: {
@@ -96,40 +88,36 @@ FloatingWindow {
     }
 
     function currentModel() {
-        switch (selSection) {
-        case 0: return playbackStreams
-        case 1: return recordingStreams
-        case 2: return sinkNodes
-        case 3: return sourceNodes
+        switch (root.selSection) {
+        case 0: return root.playbackStreams
+        case 1: return root.recordingStreams
+        case 2: return root.sinkNodes
+        case 3: return root.sourceNodes
         default: return []
         }
     }
 
     function changeVolume(delta) {
         var list = currentModel()
-        if (selDevice >= list.length) return
-        var node = list[selDevice]
-        if (node && node.audio) {
+        if (root.selDevice >= list.length) return
+        var node = list[root.selDevice]
+        if (node && node.audio)
             node.audio.volume = Math.max(0, Math.min(1, node.audio.volume + delta))
-        }
     }
 
     function changeDeviceVolume(idx, fraction) {
         var list = currentModel()
         if (idx >= list.length) return
         var node = list[idx]
-        if (node && node.audio) {
+        if (node && node.audio)
             node.audio.volume = Math.max(0, Math.min(1, fraction))
-        }
     }
 
     function toggleDeviceMute(idx) {
         var list = currentModel()
         if (idx >= list.length) return
         var node = list[idx]
-        if (node && node.audio) {
-            node.audio.muted = !node.audio.muted
-        }
+        if (node && node.audio) node.audio.muted = !node.audio.muted
     }
 
     function parseConfigDevices(text) {
@@ -143,11 +131,11 @@ FloatingWindow {
                 current = { id: parseInt(parts[0]), description: parts[1], currentProfile: parseInt(parts[2]), profiles: [] }
                 devices.push(current)
             } else if (line.startsWith('PROFILE:') && current) {
-                var parts = line.substring(8).split('|')
+                var p = line.substring(8).split('|')
                 current.profiles.push({
-                    index: parseInt(parts[0]),
-                    name: parts[1],
-                    description: parts[2]
+                    index: parseInt(p[0]),
+                    name: p[1],
+                    description: p[2]
                 })
             }
         }
@@ -177,28 +165,128 @@ for obj in data:
     function setConfigProfile(deviceId, profileIndex) {
         setProc.command = ["pw-cli", "s", String(deviceId), "Profile", '{ "index": ' + String(profileIndex) + ', "save": true }']
         setProc.running = true
-        configExpanded = false
-        for (var i = 0; i < configDevices.length; i++) {
-            if (configDevices[i].id === deviceId) {
-                configDevices[i].currentProfile = profileIndex
-                configDevices = configDevices.slice()
+        root.configExpanded = false
+        for (var i = 0; i < root.configDevices.length; i++) {
+            if (root.configDevices[i].id === deviceId) {
+                root.configDevices[i].currentProfile = profileIndex
+                root.configDevices = root.configDevices.slice()
                 break
             }
         }
     }
 
-    onSelDeviceChanged: if (flick && inSection && selSection < 4) flick.scrollToSelection()
-    onSelConfigDeviceChanged: if (flick && inSection && selSection === 4) flick.scrollToSelection()
-    onSelConfigProfileChanged: if (flick && inSection && selSection === 4 && configExpanded) flick.scrollToSelection()
-    onInSectionChanged: if (flick && inSection) flick.scrollToSelection()
-    onConfigExpandedChanged: if (flick && inSection && configExpanded) flick.scrollToSelection()
+    onSelDeviceChanged: root.scrollSelectionIntoView()
+    onSelConfigDeviceChanged: root.scrollSelectionIntoView()
+    onSelConfigProfileChanged: root.scrollSelectionIntoView()
+    onInSectionChanged: if (root.inSection) root.scrollSelectionIntoView()
+    onConfigExpandedChanged: if (root.inSection && root.configExpanded) root.scrollSelectionIntoView()
+
+    function scrollSelectionIntoView() {
+        if (!root.inSection) return
+        var y, h
+        if (root.selSection < 4) {
+            y = root.headerHeight + root.colSpacing + root.selDevice * (root.rowHeight + root.colSpacing)
+            h = root.rowHeight
+        } else if (root.configExpanded) {
+            y = root.headerHeight + root.colSpacing + root.selConfigDevice * (root.rowHeight + root.colSpacing) + root.rowHeight + root.selConfigProfile * 30
+            h = 30
+        } else {
+            y = root.headerHeight + root.colSpacing + root.selConfigDevice * (root.rowHeight + root.colSpacing)
+            h = root.rowHeight
+        }
+        root.flick.scrollToVisible(y, h)
+    }
+
+    onShown: {
+        refreshConfigDevices()
+        root.configExpanded = false
+    }
+
+    onKeyPressed: function(event) {
+        switch (event.key) {
+        case Qt.Key_Tab:
+            if (root.selSection === 4 && root.inSection) {
+                if (root.configExpanded) root.configExpanded = false
+                else { root.configExpanded = true; root.selConfigProfile = 0 }
+            } else if (root.selSection === 4 && !root.inSection) {
+                root.inSection = true
+            } else if (event.modifiers & Qt.ShiftModifier) {
+                if (root.inSection) root.inSection = false
+                else root.selSection = Math.max(root.selSection - 1, 0)
+            } else if (root.inSection) {
+                root.selDevice = Math.min(root.selDevice + 1, Math.max(0, root.currentModel().length - 1))
+            } else {
+                root.inSection = true
+                root.selDevice = 0
+            }
+            event.accepted = true; break
+        case Qt.Key_Backtab:
+            if (root.selSection === 4 && root.configExpanded) root.configExpanded = false
+            else if (root.inSection) root.inSection = false
+            event.accepted = true; break
+        case Qt.Key_H:
+        case Qt.Key_Left:
+            if (root.inSection && root.selSection < 4) root.changeVolume(-0.05)
+            event.accepted = true; break
+        case Qt.Key_L:
+        case Qt.Key_Right:
+            if (root.inSection && root.selSection < 4) root.changeVolume(0.05)
+            event.accepted = true; break
+        case Qt.Key_Return:
+        case Qt.Key_Enter:
+            if (root.selSection === 4 && root.inSection) {
+                if (root.configExpanded && root.selConfigDevice < root.configDevices.length) {
+                    var profiles = root.configDevices[root.selConfigDevice].profiles
+                    if (root.selConfigProfile >= 0 && root.selConfigProfile < profiles.length)
+                        root.setConfigProfile(root.configDevices[root.selConfigDevice].id, profiles[root.selConfigProfile].index)
+                } else if (!root.configExpanded && root.configDevices.length > 0) {
+                    root.configExpanded = true
+                    root.selConfigProfile = 0
+                }
+            } else if (!root.inSection) {
+                root.inSection = true
+                if (root.selSection < 4) root.selDevice = 0
+            }
+            event.accepted = true; break
+        case Qt.Key_J:
+        case Qt.Key_Down:
+            if (root.selSection === 4 && root.configExpanded && root.inSection && root.selConfigDevice < root.configDevices.length) {
+                var profiles = root.configDevices[root.selConfigDevice].profiles
+                root.selConfigProfile = Math.min(root.selConfigProfile + 1, Math.max(0, profiles.length - 1))
+            } else if (root.selSection === 4 && root.inSection) {
+                root.selConfigDevice = Math.max(0, Math.min(root.selConfigDevice + 1, Math.max(0, root.configDevices.length - 1)))
+            } else if (root.inSection && root.selSection < 4) {
+                root.selDevice = Math.min(root.selDevice + 1, Math.max(0, root.currentModel().length - 1))
+            } else {
+                root.selSection = Math.min(root.selSection + 1, root.sections.length - 1)
+            }
+            event.accepted = true; break
+        case Qt.Key_K:
+        case Qt.Key_Up:
+            if (root.selSection === 4 && root.configExpanded && root.inSection) {
+                root.selConfigProfile = Math.max(root.selConfigProfile - 1, 0)
+            } else if (root.selSection === 4 && root.inSection) {
+                root.selConfigDevice = Math.max(root.selConfigDevice - 1, 0)
+            } else if (root.inSection && root.selSection < 4) {
+                root.selDevice = Math.max(root.selDevice - 1, 0)
+            } else {
+                root.selSection = Math.max(root.selSection - 1, 0)
+            }
+            event.accepted = true; break
+        case Qt.Key_Escape:
+            if (root.selSection === 4 && root.configExpanded) root.configExpanded = false
+            else if (root.inSection) root.inSection = false
+            else root.visible = false
+            event.accepted = true; break
+        }
+    }
 
     Process {
         id: dumpProc
         running: false
         stdout: StdioCollector {
             waitForEnd: true
-            onStreamFinished: configDevices = parseConfigDevices(text)
+            onStreamFinished: root.configDevices = root.parseConfigDevices(text)
         }
     }
 
@@ -207,479 +295,261 @@ for obj in data:
         running: false
     }
 
-    onVisibleChanged: {
-        if (visible) {
-            refreshConfigDevices()
-            mainRect.forceActiveFocus()
-            selSection = 0
-            inSection = false
-            selDevice = 0
-            configExpanded = false
-        }
-    }
+    // ---- Sections 0-3: Pipewire node lists ----
+    Column {
+        width: parent.width
+        spacing: root.colSpacing
+        visible: root.selSection < 4
 
-    Shortcut {
-        sequence: "Escape"
-        onActivated: root.visible = false
-    }
+        Repeater {
+            id: nodeRepeater
+            model: root.currentModel()
 
-    Rectangle {
-        id: mainRect
-        anchors.fill: parent
-        color: "transparent"
-        focus: true
+            delegate: Item {
+                id: nodeItem
+                width: parent.width
+                height: 45
+                property real displayedPeak: 0
+                property real nodeVolume: modelData.audio?.volume ?? 1
+                property bool nodeMuted: modelData.audio?.muted ?? false
 
-        Keys.onPressed: (event) => {
-            switch (event.key) {
-            case Qt.Key_Tab:
-                if (selSection === 4 && inSection) {
-                    if (configExpanded) {
-                        configExpanded = false
-                    } else {
-                        configExpanded = true
-                        selConfigProfile = 0
+                PwNodePeakMonitor {
+                    id: peakMon
+                    node: modelData
+                    enabled: root.visible
+                }
+
+                property real currentPeak: peakMon.peak
+
+                Rectangle {
+                    anchors.fill: parent
+                    color: root.inSection && index === root.selDevice ? Qt.alpha(Colors.base01, 0.75) : "transparent"
+                }
+
+                Text {
+                    id: labelText
+                    text: modelData.description || modelData.name || "(unnamed)"
+                    anchors {
+                        left: parent.left; leftMargin: 10
+                        verticalCenter: parent.verticalCenter
                     }
-                } else if (selSection === 4 && !inSection) {
-                    inSection = true
-                } else if (event.modifiers & Qt.ShiftModifier) {
-                    if (inSection) {
-                        inSection = false
-                    } else {
-                        selSection = Math.max(selSection - 1, 0)
+                    color: Colors.foreground
+                    font.pixelSize: 16
+                    font.family: "JetBrainsMono Nerd Font"
+                    elide: Text.ElideRight
+                    width: parent.width * 0.4
+                }
+
+                Rectangle {
+                    id: volBar
+                    anchors {
+                        left: labelText.right; leftMargin: 10
+                        right: pctText.left; rightMargin: 10
+                        verticalCenter: parent.verticalCenter
                     }
-                } else if (inSection && selSection < 4) {
-                    var maxD = currentModel().length - 1
-                    selDevice = Math.min(selDevice + 1, Math.max(0, maxD))
-                } else {
-                    inSection = true
-                    if (selSection < 4) selDevice = 0
-                }
-                event.accepted = true; break
-            case Qt.Key_Backtab:
-                if (selSection === 4 && configExpanded) {
-                    configExpanded = false
-                } else if (inSection) {
-                    inSection = false
-                }
-                event.accepted = true; break
-            case Qt.Key_H:
-            case Qt.Key_Left:
-                if (inSection && selSection < 4) changeVolume(-0.05)
-                event.accepted = true; break
-            case Qt.Key_L:
-            case Qt.Key_Right:
-                if (inSection && selSection < 4) changeVolume(0.05)
-                event.accepted = true; break
-            case Qt.Key_Return:
-            case Qt.Key_Enter:
-                if (selSection === 4 && inSection) {
-                    if (configExpanded && selConfigDevice < configDevices.length) {
-                        var profiles = configDevices[selConfigDevice].profiles
-                        if (selConfigProfile >= 0 && selConfigProfile < profiles.length)
-                            setConfigProfile(configDevices[selConfigDevice].id, profiles[selConfigProfile].index)
-                    } else if (!configExpanded && configDevices.length > 0) {
-                        configExpanded = true
-                        selConfigProfile = 0
+                    height: 8
+                    color: Qt.alpha(Colors.base00, 1)
+
+                    Rectangle {
+                        width: parent.width * (modelData.audio?.volume ?? 0)
+                        height: parent.height
+                        color: (modelData.audio?.muted ?? false) ? Qt.alpha(Colors.foreground, 0.75) : Colors.base0d
                     }
-                } else if (!inSection) {
-                    inSection = true
-                    if (selSection < 4) selDevice = 0
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        preventStealing: true
+                        onPressed: (mouse) => root.changeDeviceVolume(index, Math.max(0, Math.min(1, mouse.x / width)))
+                        onMouseXChanged: (mouse) => {
+                            if (pressed) root.changeDeviceVolume(index, Math.max(0, Math.min(1, mouse.x / width)))
+                        }
+                    }
                 }
-                event.accepted = true; break
-            case Qt.Key_J:
-            case Qt.Key_Down:
-                if (selSection === 4 && configExpanded && inSection && selConfigDevice < configDevices.length) {
-                    var profiles = configDevices[selConfigDevice].profiles
-                    selConfigProfile = Math.min(selConfigProfile + 1, Math.max(0, profiles.length - 1))
-                } else if (selSection === 4 && inSection) {
-                    selConfigDevice = Math.max(0, Math.min(selConfigDevice + 1, Math.max(0, configDevices.length - 1)))
-                } else if (inSection && selSection < 4) {
-                    var maxD = currentModel().length - 1
-                    selDevice = Math.min(selDevice + 1, Math.max(0, maxD))
-                } else {
-                    selSection = Math.min(selSection + 1, sections.length - 1)
+
+                Row {
+                    id: peakRow
+                    anchors {
+                        left: labelText.right; leftMargin: 10
+                        right: pctText.left; rightMargin: 10
+                        top: volBar.bottom; topMargin: 2
+                    }
+                    height: 10
+                    spacing: 10
+                    clip: true
+
+                    Repeater {
+                        id: peakRepeater
+                        model: Math.max(1, Math.floor((peakRow.width + 10) / 20))
+
+                        delegate: Rectangle {
+                            width: 10
+                            height: 10
+                            color: index < Math.round(nodeItem.displayedPeak * peakRepeater.count)
+                                   ? Colors.foreground : Qt.alpha(Colors.base0d, 0.75)
+                        }
+                    }
                 }
-                event.accepted = true; break
-            case Qt.Key_K:
-            case Qt.Key_Up:
-                if (selSection === 4 && configExpanded && inSection) {
-                    selConfigProfile = Math.max(selConfigProfile - 1, 0)
-                } else if (selSection === 4 && inSection) {
-                    selConfigDevice = Math.max(selConfigDevice - 1, 0)
-                } else if (inSection && selSection < 4) {
-                    selDevice = Math.max(selDevice - 1, 0)
-                } else {
-                    selSection = Math.max(selSection - 1, 0)
+
+                Text {
+                    id: pctText
+                    anchors {
+                        right: parent.right; rightMargin: 10
+                        verticalCenter: parent.verticalCenter
+                    }
+                    text: (modelData.audio?.muted ?? false) ? "MUT" : ("  " + Math.round((modelData.audio?.volume ?? 0) * 100)).slice(-3) + "%"
+                    color: (modelData.audio?.muted ?? false) ? Colors.base08 : Colors.foreground
+                    font.pixelSize: 16
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.bold: (modelData.audio?.muted ?? false)
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.toggleDeviceMute(index)
+                    }
                 }
-                event.accepted = true; break
-            case Qt.Key_Escape:
-                if (selSection === 4 && configExpanded) configExpanded = false
-                event.accepted = true; break
             }
         }
 
-        Row {
-            anchors.fill: parent
-            anchors.margins: 10
-            spacing: 10
+        Text {
+            width: parent.width
+            height: 30
+            visible: root.currentModel().length === 0
+            text: "Nothing to show"
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            color: Qt.alpha(Colors.foreground, 0.75)
+            font.pixelSize: 16
+            font.family: "JetBrainsMono Nerd Font"
+        }
+    }
 
-            Rectangle {
-                width: (parent.width - parent.spacing) * 0.25
-                height: parent.height
-                color: Qt.alpha(Colors.base00, 0.75)
-                clip: true
+    // ---- Section 4: PipeWire device configuration ----
+    Column {
+        width: parent.width
+        spacing: root.colSpacing
+        visible: root.selSection === 4
+
+        Repeater {
+            model: root.configDevices
+
+            delegate: Item {
+                width: parent.width
+                height: (root.configExpanded && index === root.selConfigDevice && root.inSection && root.selConfigDevice < root.configDevices.length)
+                        ? 45 + root.configDevices[root.selConfigDevice].profiles.length * 30
+                        : 45
+
+                Rectangle {
+                    anchors.fill: parent
+                    color: ((!root.configExpanded && root.inSection && index === root.selConfigDevice)
+                            || (root.configExpanded && root.inSection && index === root.selConfigDevice))
+                           ? Qt.alpha(Colors.base01, 0.75) : "transparent"
+                }
 
                 Column {
-                    anchors.fill: parent
-                    anchors.margins: 10
-                    spacing: 10
+                    width: parent.width
+
+                    Item {
+                        width: parent.width
+                        height: 45
+
+                        Text {
+                            text: modelData.description
+                            anchors {
+                                left: parent.left; leftMargin: 10
+                                top: parent.top; topMargin: 4
+                            }
+                            color: Colors.foreground
+                            font.pixelSize: 16
+                            font.family: "JetBrainsMono Nerd Font"
+                            elide: Text.ElideRight
+                            width: parent.width - 20
+                        }
+
+                        Text {
+                            function currentProfileDesc() {
+                                for (var i = 0; i < modelData.profiles.length; i++) {
+                                    if (modelData.profiles[i].index === modelData.currentProfile)
+                                        return modelData.profiles[i].description
+                                }
+                                return ""
+                            }
+                            text: currentProfileDesc()
+                            anchors {
+                                left: parent.left; leftMargin: 10
+                                top: parent.top; topMargin: 24
+                            }
+                            color: Qt.alpha(Colors.foreground, 0.75)
+                            font.pixelSize: 16
+                            font.family: "JetBrainsMono Nerd Font"
+                            elide: Text.ElideRight
+                            width: parent.width - 20
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                if (!root.inSection) root.inSection = true
+                                if (root.configExpanded && root.selConfigDevice === index) {
+                                    root.configExpanded = false
+                                } else {
+                                    root.selConfigDevice = index
+                                    root.configExpanded = true
+                                    root.selConfigProfile = 0
+                                }
+                            }
+                        }
+                    }
 
                     Repeater {
-                        model: sections
+                        model: root.configExpanded && root.inSection && index === root.selConfigDevice && root.selConfigDevice < root.configDevices.length
+                               ? root.configDevices[root.selConfigDevice].profiles
+                               : []
 
                         delegate: Rectangle {
                             width: parent.width
                             height: 30
-                            color: selSection === index ? Qt.alpha(Colors.base01, 0.75) : "transparent"
+                            color: index === root.selConfigProfile
+                                   ? Qt.alpha(Colors.base0d, 0.75)
+                                   : Qt.alpha(Colors.base00, 0.75)
 
                             Text {
-                                id: nameText
-                                text: modelData.name
+                                text: modelData.description || modelData.name
                                 anchors {
-                                    left: parent.left; leftMargin: 10
-                                    right: parent.right; rightMargin: 10
+                                    left: parent.left; leftMargin: 30
                                     verticalCenter: parent.verticalCenter
                                 }
                                 color: Colors.foreground
                                 font.pixelSize: 16
                                 font.family: "JetBrainsMono Nerd Font"
-                                elide: Text.ElideRight
-                                leftPadding: selSection === index && inSection ? 18 : 0
-                            }
-
-                            Text {
-                                text: "\u25b6"
-                                anchors {
-                                    left: parent.left; leftMargin: 10
-                                    verticalCenter: parent.verticalCenter
-                                }
-                                color: Colors.foreground
-                                font.pixelSize: 16
-                                font.family: "JetBrainsMono Nerd Font"
-                                visible: selSection === index && inSection
                             }
 
                             MouseArea {
                                 anchors.fill: parent
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: {
-                                    selSection = index
-                                    inSection = false
-                                    mainRect.forceActiveFocus()
+                                    if (root.inSection)
+                                        root.setConfigProfile(root.configDevices[root.selConfigDevice].id, modelData.index)
                                 }
                             }
                         }
                     }
                 }
             }
+        }
 
-            Rectangle {
-                width: (parent.width - parent.spacing) * 0.75
-                height: parent.height
-                color: Qt.alpha(Colors.base00, 0.75)
-
-                Flickable {
-                    id: flick
-                    anchors.fill: parent
-                    anchors.margins: 10
-                    contentHeight: contentCol.height
-                    clip: true
-
-                    function scrollToVisible(itemY, itemH) {
-                        var viewH = flick.height
-                        var maxY = Math.max(0, contentCol.height - viewH)
-                        if (itemY < flick.contentY) {
-                            flick.contentY = Math.max(0, itemY - 40)
-                        } else if (itemY + itemH > flick.contentY + viewH) {
-                            flick.contentY = Math.min(maxY, itemY + itemH - viewH + 10)
-                        }
-                    }
-
-                    function scrollToSelection() {
-                        var y, h
-                        if (selSection < 4 && inSection) {
-                            y = 40 + selDevice * 55
-                            h = 45
-                        } else if (selSection === 4 && inSection) {
-                            if (configExpanded) {
-                                y = 40 + selConfigDevice * 55 + 45 + selConfigProfile * 30
-                                h = 30
-                            } else {
-                                y = 40 + selConfigDevice * 55
-                                h = 45
-                            }
-                        }
-                        if (y !== undefined) flick.scrollToVisible(y, h)
-                    }
-
-                    Column {
-                        id: contentCol
-                        width: parent.width
-                        spacing: 10
-
-                        Rectangle {
-                            width: parent.width
-                            height: 30
-                            color: Qt.alpha(Colors.base0d, 0.75)
-
-                            Text {
-                                text: sections[selSection]?.name ?? ""
-                                anchors {
-                                    left: parent.left; leftMargin: 10
-                                    verticalCenter: parent.verticalCenter
-                                }
-                                color: Colors.foreground
-                                font.pixelSize: 16
-                                font.family: "JetBrainsMono Nerd Font"
-                                font.bold: true
-                            }
-                        }
-
-                        Column {
-                            width: parent.width
-                            spacing: 10
-                            visible: selSection < 4
-
-                            Repeater {
-                                id: nodeRepeater
-                                model: currentModel()
-
-                                delegate: Item {
-                                    id: nodeItem
-                                    width: parent.width
-                                    height: 45
-                                    property real displayedPeak: 0
-                                    property real nodeVolume: modelData.audio?.volume ?? 1
-                                    property bool nodeMuted: modelData.audio?.muted ?? false
-
-                                    PwNodePeakMonitor {
-                                        id: peakMon
-                                        node: modelData
-                                        enabled: root.visible
-                                    }
-
-                                    property real currentPeak: peakMon.peak
-
-                                    Rectangle {
-                                        anchors.fill: parent
-                                        color: inSection && index === selDevice ? Qt.alpha(Colors.base01, 0.75) : "transparent"
-                                    }
-
-                                    Text {
-                                        id: labelText
-                                        text: modelData.description || modelData.name || "(unnamed)"
-                                        anchors {
-                                            left: parent.left; leftMargin: 10
-                                            verticalCenter: parent.verticalCenter
-                                        }
-                                        color: Colors.foreground
-                                        font.pixelSize: 16
-                                        font.family: "JetBrainsMono Nerd Font"
-                                        elide: Text.ElideRight
-                                        width: parent.width * 0.4
-                                    }
-
-                                    Rectangle {
-                                        id: volBar
-                                        anchors {
-                                            left: labelText.right; leftMargin: 10
-                                            right: pctText.left; rightMargin: 10
-                                            verticalCenter: parent.verticalCenter
-                                        }
-                                        height: 8
-                                        color: Qt.alpha(Colors.base00, 1)
-
-                                        Rectangle {
-                                            width: parent.width * (modelData.audio?.volume ?? 0)
-                                            height: parent.height
-                                            color: (modelData.audio?.muted ?? false) ? Qt.alpha(Colors.foreground, 0.75) : Colors.base0d
-                                        }
-
-                                        MouseArea {
-                                            anchors.fill: parent
-                                            cursorShape: Qt.PointingHandCursor
-                                            preventStealing: true
-                                            onPressed: (mouse) => changeDeviceVolume(index, Math.max(0, Math.min(1, mouse.x / width)))
-                                            onMouseXChanged: (mouse) => {
-                                                if (pressed) changeDeviceVolume(index, Math.max(0, Math.min(1, mouse.x / width)))
-                                            }
-                                        }
-                                    }
-
-                                    Row {
-                                        id: peakRow
-                                        anchors {
-                                            left: labelText.right; leftMargin: 10
-                                            right: pctText.left; rightMargin: 10
-                                            top: volBar.bottom; topMargin: 2
-                                        }
-                                        height: 10
-                                        spacing: 10
-                                        clip: true
-
-                                        Repeater {
-                                            id: peakRepeater
-                                            model: Math.max(1, Math.floor((peakRow.width + 10) / 20))
-
-                                            delegate: Rectangle {
-                                                width: 10
-                                                height: 10
-                                                color: index < Math.round(nodeItem.displayedPeak * peakRepeater.count)
-                                                       ? Colors.foreground : Qt.alpha(Colors.base0d, 0.75)
-                                            }
-                                        }
-                                    }
-
-                                    Text {
-                                        id: pctText
-                                        anchors {
-                                            right: parent.right; rightMargin: 10
-                                            verticalCenter: parent.verticalCenter
-                                        }
-                                        text: (modelData.audio?.muted ?? false) ? "MUT" : ("  " + Math.round((modelData.audio?.volume ?? 0) * 100)).slice(-3) + "%"
-                                        color: (modelData.audio?.muted ?? false) ? Colors.base08 : Colors.foreground
-                                        font.pixelSize: 16
-                                        font.family: "JetBrainsMono Nerd Font"
-                                        font.bold: (modelData.audio?.muted ?? false)
-
-                                        MouseArea {
-                                            anchors.fill: parent
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: toggleDeviceMute(index)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        Column {
-                            width: parent.width
-                            spacing: 10
-                            visible: selSection === 4
-
-                            Repeater {
-                                model: configDevices
-
-                                delegate: Item {
-                                    width: parent.width
-                                    height: (configExpanded && index === selConfigDevice && inSection && selConfigDevice < configDevices.length)
-                                            ? 45 + configDevices[selConfigDevice].profiles.length * 30
-                                            : 45
-
-                                    Rectangle {
-                                        anchors.fill: parent
-                                        color: (!configExpanded && inSection && index === selConfigDevice)
-                                               || (configExpanded && inSection && index === selConfigDevice)
-                                               ? Qt.alpha(Colors.base01, 0.75) : "transparent"
-                                    }
-
-                                    Column {
-                                        width: parent.width
-
-                                        Item {
-                                            width: parent.width
-                                            height: 45
-
-                                            Text {
-                                                text: modelData.description
-                                                anchors {
-                                                    left: parent.left; leftMargin: 10
-                                                    top: parent.top; topMargin: 4
-                                                }
-                                                color: Colors.foreground
-                                                font.pixelSize: 16
-                                                font.family: "JetBrainsMono Nerd Font"
-                                                elide: Text.ElideRight
-                                                width: parent.width - 20
-                                            }
-
-                                            Text {
-                                                function currentProfileDesc() {
-                                                    for (var i = 0; i < modelData.profiles.length; i++) {
-                                                        if (modelData.profiles[i].index === modelData.currentProfile)
-                                                            return modelData.profiles[i].description
-                                                    }
-                                                    return ""
-                                                }
-                                                text: currentProfileDesc()
-                                                anchors {
-                                                    left: parent.left; leftMargin: 10
-                                                    top: parent.top; topMargin: 24
-                                                }
-                                                color: Qt.alpha(Colors.foreground, 0.75)
-                                                font.pixelSize: 16
-                                                font.family: "JetBrainsMono Nerd Font"
-                                                elide: Text.ElideRight
-                                                width: parent.width - 20
-                                            }
-
-                                            MouseArea {
-                                                anchors.fill: parent
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: {
-                                                    if (!inSection) { inSection = true }
-                                                    if (configExpanded && selConfigDevice === index) {
-                                                        configExpanded = false
-                                                    } else {
-                                                        selConfigDevice = index
-                                                        configExpanded = true
-                                                        selConfigProfile = 0
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        Repeater {
-                                            model: configExpanded && inSection && index === selConfigDevice && selConfigDevice < configDevices.length
-                                                   ? configDevices[selConfigDevice].profiles
-                                                   : []
-
-                                            delegate: Rectangle {
-                                                width: parent.width
-                                                height: 30
-                                                color: index === selConfigProfile
-                                                       ? Qt.alpha(Colors.base0d, 0.75)
-                                                       : Qt.alpha(Colors.base00, 0.75)
-
-                                                Text {
-                                                    text: modelData.description || modelData.name
-                                                    anchors {
-                                                        left: parent.left; leftMargin: 30
-                                                        verticalCenter: parent.verticalCenter
-                                                    }
-                                                    color: Colors.foreground
-                                                    font.pixelSize: 16
-                                                    font.family: "JetBrainsMono Nerd Font"
-                                                }
-
-                                                MouseArea {
-                                                    anchors.fill: parent
-                                                    cursorShape: Qt.PointingHandCursor
-                                                    onClicked: {
-                                                        if (inSection) {
-                                                            setConfigProfile(configDevices[selConfigDevice].id, modelData.index)
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+        Text {
+            width: parent.width
+            height: 30
+            visible: root.configDevices.length === 0
+            text: "No PipeWire devices"
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            color: Qt.alpha(Colors.foreground, 0.75)
+            font.pixelSize: 16
+            font.family: "JetBrainsMono Nerd Font"
         }
     }
 }

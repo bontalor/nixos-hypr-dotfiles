@@ -5,45 +5,34 @@ import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 
-FloatingWindow {
+Panel {
     id: root
     title: "Weather"
-    color: "transparent"
-    implicitWidth: 850
-    implicitHeight: 450
-    visible: false
-
-    onClosed: visible = false
-
-    property int selSection: 0
-    property bool inSection: false
-    property int selDevice: 0
-
-    property var sections: [
+    sections: [
         { name: "Weather" },
         { name: "Astronomy" },
         { name: "Location" },
         { name: "Configuration" }
     ]
 
+    useDefaultKeys: false
+    autoScroll: false
+
     property bool configExpanded: false
     property int selConfigItem: 0
     property int selConfigProfile: 0
 
-    property int selCity: 0
     property bool cityEditing: false
     property string cityInputText: ""
 
     Timer {
         id: focusTimer
         interval: 0
-        onTriggered: {
-            mainRect.forceActiveFocus()
-        }
+        onTriggered: root.forceFocus()
     }
 
     function currentModelLength() {
-        switch (selSection) {
+        switch (root.selSection) {
         case 0: return WeatherModel.dataReady ? 1 : 0
         case 1: return WeatherModel.dataReady ? 1 : 0
         case 2: return WeatherModel.dataReady ? 1 : 0
@@ -52,16 +41,32 @@ FloatingWindow {
         }
     }
 
-    onVisibleChanged: {
-        if (visible) {
-            WeatherModel.fetchWeather()
-            mainRect.forceActiveFocus()
-            selSection = 0
-            inSection = false
-            selDevice = 0
-            configExpanded = false
-            cityEditing = false
+    onShown: {
+        WeatherModel.fetchWeather()
+        root.configExpanded = false
+        root.cityEditing = false
+    }
+
+    onSelDeviceChanged: root.scrollSelectionIntoView()
+    onSelConfigItemChanged: root.scrollSelectionIntoView()
+    onSelConfigProfileChanged: root.scrollSelectionIntoView()
+    onInSectionChanged: if (root.inSection) root.scrollSelectionIntoView()
+    onConfigExpandedChanged: if (root.inSection && root.configExpanded) root.scrollSelectionIntoView()
+
+    function scrollSelectionIntoView() {
+        if (!root.inSection) return
+        var y, h
+        if (root.selSection < 3) {
+            y = root.headerHeight + root.colSpacing
+            h = root.rowHeight
+        } else if (root.configExpanded) {
+            y = root.headerHeight + root.colSpacing + root.selConfigItem * (root.rowHeight + root.colSpacing) + root.rowHeight + root.selConfigProfile * 30
+            h = 30
+        } else {
+            y = root.headerHeight + root.colSpacing + root.selConfigItem * (root.rowHeight + root.colSpacing)
+            h = root.rowHeight
         }
+        root.flick.scrollToVisible(y, h)
     }
 
     readonly property var cc: {
@@ -88,699 +93,546 @@ FloatingWindow {
         return a0
     }
 
-    Shortcut {
-        sequence: "Escape"
-        onActivated: root.visible = false
+    onKeyPressed: function(event) {
+        switch (event.key) {
+        case Qt.Key_Tab:
+            if (root.selSection === 3 && root.inSection) {
+                if (root.configExpanded) root.configExpanded = false
+                else { root.configExpanded = true; root.selConfigProfile = 0 }
+            } else if (event.modifiers & Qt.ShiftModifier) {
+                if (root.inSection) root.inSection = false
+                else root.selSection = Math.max(root.selSection - 1, 0)
+            } else if (root.inSection) {
+                root.selDevice = Math.min(root.selDevice + 1, Math.max(0, root.currentModelLength() - 1))
+            } else {
+                root.inSection = true
+                root.selDevice = 0
+            }
+            event.accepted = true; break
+        case Qt.Key_Backtab:
+            if (root.selSection === 3 && root.configExpanded) root.configExpanded = false
+            else if (root.inSection) root.inSection = false
+            event.accepted = true; break
+        case Qt.Key_Return:
+        case Qt.Key_Enter:
+            if (root.selSection === 3 && root.inSection && root.configExpanded) {
+                if (root.selConfigItem === 0) {
+                    if (root.selConfigProfile === 0) {
+                        WeatherModel.customCity = ""
+                        root.configExpanded = false
+                        WeatherModel.fetchWeather()
+                    } else if (root.selConfigProfile === 1) {
+                        if (!root.cityEditing) {
+                            root.cityEditing = true
+                            root.cityInputText = WeatherModel.customCity || ""
+                        } else {
+                            WeatherModel.customCity = root.cityInputText
+                            root.cityEditing = false
+                            root.configExpanded = false
+                            WeatherModel.fetchWeather()
+                            focusTimer.running = true
+                        }
+                    }
+                } else if (root.selConfigItem === 1) {
+                    if (root.selConfigProfile === 0) WeatherModel.degreeUnit = "F"
+                    else if (root.selConfigProfile === 1) WeatherModel.degreeUnit = "C"
+                    root.configExpanded = false
+                }
+            } else if (root.selSection === 3 && root.inSection && !root.configExpanded) {
+                root.configExpanded = true
+                root.selConfigProfile = 0
+            } else if (!root.inSection) {
+                root.inSection = true
+                root.selDevice = 0
+            }
+            event.accepted = true; break
+        case Qt.Key_J:
+        case Qt.Key_Down:
+            if (root.selSection === 3 && root.configExpanded && root.inSection) {
+                var plen = root.selConfigItem === 0 ? 2 : 2
+                root.selConfigProfile = Math.min(root.selConfigProfile + 1, Math.max(0, plen - 1))
+            } else if (root.selSection === 3 && root.inSection) {
+                root.selConfigItem = Math.min(root.selConfigItem + 1, Math.max(0, 1))
+            } else if (root.inSection) {
+                root.selDevice = Math.min(root.selDevice + 1, Math.max(0, root.currentModelLength() - 1))
+            } else {
+                root.selSection = Math.min(root.selSection + 1, root.sections.length - 1)
+            }
+            event.accepted = true; break
+        case Qt.Key_K:
+        case Qt.Key_Up:
+            if (root.selSection === 3 && root.configExpanded && root.inSection) {
+                root.selConfigProfile = Math.max(root.selConfigProfile - 1, 0)
+            } else if (root.selSection === 3 && root.inSection) {
+                root.selConfigItem = Math.max(root.selConfigItem - 1, 0)
+            } else if (root.inSection) {
+                root.selDevice = Math.max(root.selDevice - 1, 0)
+            } else {
+                root.selSection = Math.max(root.selSection - 1, 0)
+            }
+            event.accepted = true; break
+        case Qt.Key_Escape:
+            if (root.cityEditing) {
+                root.cityEditing = false
+                focusTimer.running = true
+            } else if (root.selSection === 3 && root.configExpanded) {
+                root.configExpanded = false
+            } else {
+                root.visible = false
+            }
+            event.accepted = true; break
+        }
     }
 
-    Rectangle {
-        id: mainRect
-        anchors.fill: parent
-        color: "transparent"
-        focus: true
+    // ---- Section 0: Current conditions ----
+    Column {
+        width: parent.width
+        spacing: root.colSpacing
+        visible: root.selSection === 0
 
-        Keys.onPressed: (event) => {
-            switch (event.key) {
-            case Qt.Key_Tab:
-                if (selSection === 3 && inSection) {
-                    if (configExpanded) {
-                        configExpanded = false
-                    } else {
-                        configExpanded = true
-                        selConfigProfile = 0
-                    }
-                } else if (event.modifiers & Qt.ShiftModifier) {
-                    if (inSection) {
-                        inSection = false
-                    } else {
-                        selSection = Math.max(selSection - 1, 0)
-                    }
-                } else if (inSection) {
-                    var maxD = currentModelLength() - 1
-                    selDevice = Math.min(selDevice + 1, Math.max(0, maxD))
-                } else {
-                    inSection = true
-                    selDevice = 0
+        Item {
+            width: parent.width
+            height: WeatherModel.dataReady ? 30 * 10 : 30
+
+            Column {
+                anchors.fill: parent
+                spacing: 10
+
+                Text {
+                    visible: WeatherModel.dataReady
+                    text: root.cc ? WeatherCodes.icon(parseInt(root.cc.weatherCode)) + "  " + (WeatherModel.degreeUnit === "F" ? root.cc.temp_F : root.cc.temp_C) + "\u00b0" + WeatherModel.degreeUnit : ""
+                    color: Colors.foreground
+                    font.pixelSize: 32
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.bold: true
                 }
-                event.accepted = true; break
-            case Qt.Key_Backtab:
-                if (selSection === 3 && configExpanded) {
-                    configExpanded = false
-                } else if (inSection) {
-                    inSection = false
+
+                Text {
+                    visible: WeatherModel.dataReady
+                    text: root.cc ? WeatherCodes.desc(parseInt(root.cc.weatherCode)) : ""
+                    color: Colors.foreground
+                    font.pixelSize: 16
+                    font.family: "JetBrainsMono Nerd Font"
                 }
-                event.accepted = true; break
-            case Qt.Key_Return:
-            case Qt.Key_Enter:
-                if (selSection === 3 && inSection && configExpanded) {
-                    if (selConfigItem === 0) {
-                        if (selConfigProfile === 0) {
-                            WeatherModel.customCity = ""
-                            configExpanded = false
-                           WeatherModel.fetchWeather()
-                        } else if (selConfigProfile === 1) {
-                            if (!cityEditing) {
-                                cityEditing = true
-                                cityInputText = WeatherModel.customCity || ""
+
+                Text {
+                    visible: WeatherModel.dataReady
+                    text: root.cc ? "Feels like " + (WeatherModel.degreeUnit === "F" ? root.cc.FeelsLikeF : root.cc.FeelsLikeC) + "\u00b0" + WeatherModel.degreeUnit : ""
+                    color: Colors.foreground
+                    font.pixelSize: 16
+                    font.family: "JetBrainsMono Nerd Font"
+                }
+
+                Text {
+                    visible: WeatherModel.dataReady
+                    text: root.cc ? "Humidity: " + root.cc.humidity + "%" : ""
+                    color: Colors.foreground
+                    font.pixelSize: 16
+                    font.family: "JetBrainsMono Nerd Font"
+                }
+
+                Text {
+                    visible: WeatherModel.dataReady
+                    text: root.cc ? "Wind: " + root.cc.windspeedKmph + " km/h " + root.cc.winddir16Point : ""
+                    color: Colors.foreground
+                    font.pixelSize: 16
+                    font.family: "JetBrainsMono Nerd Font"
+                }
+
+                Text {
+                    visible: WeatherModel.dataReady
+                    text: root.cc ? "UV Index: " + root.cc.uvIndex : ""
+                    color: Colors.foreground
+                    font.pixelSize: 16
+                    font.family: "JetBrainsMono Nerd Font"
+                }
+
+                Text {
+                    visible: WeatherModel.dataReady
+                    text: root.cc ? "Pressure: " + root.cc.pressure + " mb" : ""
+                    color: Colors.foreground
+                    font.pixelSize: 16
+                    font.family: "JetBrainsMono Nerd Font"
+                }
+
+                Text {
+                    visible: WeatherModel.dataReady
+                    text: root.cc ? "Visibility: " + root.cc.visibility + " km" : ""
+                    color: Colors.foreground
+                    font.pixelSize: 16
+                    font.family: "JetBrainsMono Nerd Font"
+                }
+
+                Text {
+                    visible: WeatherModel.dataReady
+                    text: root.cc ? "Cloud cover: " + root.cc.cloudcover + "%" : ""
+                    color: Colors.foreground
+                    font.pixelSize: 16
+                    font.family: "JetBrainsMono Nerd Font"
+                }
+
+                Text {
+                    visible: !WeatherModel.dataReady
+                    text: "Fetching weather data..."
+                    color: Colors.foreground
+                    font.pixelSize: 16
+                    font.family: "JetBrainsMono Nerd Font"
+                }
+            }
+        }
+    }
+
+    // ---- Section 1: Astronomy ----
+    Column {
+        width: parent.width
+        spacing: root.colSpacing
+        visible: root.selSection === 1
+
+        Item {
+            width: parent.width
+            height: WeatherModel.dataReady ? 30 * 6 : 30
+
+            Column {
+                anchors.fill: parent
+                spacing: 10
+
+                Text {
+                    visible: WeatherModel.dataReady
+                    text: WeatherModel.dataReady ? WeatherModel.moonIcon + "  " + WeatherModel.moonPhase : ""
+                    color: Colors.foreground
+                    font.pixelSize: 32
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.bold: true
+                }
+
+                Text {
+                    visible: WeatherModel.dataReady
+                    text: WeatherModel.dataReady ? "Illumination: " + WeatherModel.moonIllumination + "%" : ""
+                    color: Colors.foreground
+                    font.pixelSize: 16
+                    font.family: "JetBrainsMono Nerd Font"
+                }
+
+                Text {
+                    visible: WeatherModel.dataReady && root.astro !== null
+                    text: root.astro ? "Moonrise: " + root.astro.moonrise : ""
+                    color: Colors.foreground
+                    font.pixelSize: 16
+                    font.family: "JetBrainsMono Nerd Font"
+                }
+
+                Text {
+                    visible: WeatherModel.dataReady && root.astro !== null
+                    text: root.astro ? "Moonset: " + root.astro.moonset : ""
+                    color: Colors.foreground
+                    font.pixelSize: 16
+                    font.family: "JetBrainsMono Nerd Font"
+                }
+
+                Text {
+                    visible: WeatherModel.dataReady
+                    text: WeatherModel.dataReady ? "Next full moon: " + WeatherModel.nextFullMoon : ""
+                    color: Colors.foreground
+                    font.pixelSize: 16
+                    font.family: "JetBrainsMono Nerd Font"
+                }
+
+                Text {
+                    visible: !WeatherModel.dataReady
+                    text: "Fetching astronomy data..."
+                    color: Colors.foreground
+                    font.pixelSize: 16
+                    font.family: "JetBrainsMono Nerd Font"
+                }
+            }
+        }
+    }
+
+    // ---- Section 2: Location ----
+    Column {
+        width: parent.width
+        spacing: root.colSpacing
+        visible: root.selSection === 2
+
+        Item {
+            width: parent.width
+            height: WeatherModel.dataReady ? 30 * 3 : 30
+
+            Column {
+                anchors.fill: parent
+                spacing: 10
+
+                Text {
+                    visible: WeatherModel.dataReady
+                    text: root.area ? root.area.areaName[0].value : ""
+                    color: Colors.foreground
+                    font.pixelSize: 16
+                    font.family: "JetBrainsMono Nerd Font"
+                }
+
+                Text {
+                    visible: WeatherModel.dataReady
+                    text: root.area ? root.area.region[0].value + ", " + root.area.country[0].value : ""
+                    color: Colors.foreground
+                    font.pixelSize: 16
+                    font.family: "JetBrainsMono Nerd Font"
+                }
+
+                Text {
+                    visible: WeatherModel.dataReady
+                    text: "Using: " + (WeatherModel.customCity || "Auto (IP)")
+                    color: Colors.foreground
+                    font.pixelSize: 16
+                    font.family: "JetBrainsMono Nerd Font"
+                }
+
+                Text {
+                    visible: !WeatherModel.dataReady
+                    text: "Fetching location data..."
+                    color: Colors.foreground
+                    font.pixelSize: 16
+                    font.family: "JetBrainsMono Nerd Font"
+                }
+            }
+        }
+    }
+
+    // ---- Section 3: Configuration ----
+    Column {
+        width: parent.width
+        spacing: root.colSpacing
+        visible: root.selSection === 3
+
+        Item {
+            width: parent.width
+            height: (root.configExpanded && 0 === root.selConfigItem && root.inSection)
+                    ? 45 + 2 * 30
+                    : 45
+
+            Rectangle {
+                anchors.fill: parent
+                color: ((!root.configExpanded && root.inSection && 0 === root.selConfigItem)
+                        || (root.configExpanded && root.inSection && 0 === root.selConfigItem))
+                       ? Qt.alpha(Colors.base01, 0.75) : "transparent"
+            }
+
+            Column {
+                width: parent.width
+
+                Item {
+                    width: parent.width
+                    height: 45
+
+                    Text {
+                        text: "City: " + (WeatherModel.customCity || "Auto")
+                        anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
+                        color: Colors.foreground
+                        font.pixelSize: 16
+                        font.family: "JetBrainsMono Nerd Font"
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (!root.inSection) root.inSection = true
+                            if (root.configExpanded && 0 === root.selConfigItem) {
+                                root.configExpanded = false
                             } else {
-                                WeatherModel.customCity = cityInputText
-                                cityEditing = false
-                                configExpanded = false
-                               WeatherModel.fetchWeather()
-                                mainRect.forceActiveFocus()
+                                root.selConfigItem = 0
+                                root.configExpanded = true
+                                root.selConfigProfile = 0
                             }
                         }
-                    } else if (selConfigItem === 1) {
-                        if (selConfigProfile === 0) WeatherModel.degreeUnit = "F"
-                        else if (selConfigProfile === 1) WeatherModel.degreeUnit = "C"
-                        configExpanded = false
                     }
-                } else if (selSection === 3 && inSection && !configExpanded) {
-                    configExpanded = true
-                    selConfigProfile = 0
-                } else if (!inSection) {
-                    inSection = true
-                    selDevice = 0
                 }
-                event.accepted = true; break
-            case Qt.Key_J:
-            case Qt.Key_Down:
-                if (selSection === 3 && configExpanded && inSection) {
-                    var plen = selConfigItem === 0 ? 2 : 2
-                    selConfigProfile = Math.min(selConfigProfile + 1, Math.max(0, plen - 1))
-                } else if (selSection === 3 && inSection) {
-                    selConfigItem = Math.min(selConfigItem + 1, Math.max(0, 1))
-                } else if (inSection) {
-                    var maxD = currentModelLength() - 1
-                    selDevice = Math.min(selDevice + 1, Math.max(0, maxD))
-                } else {
-                    selSection = Math.min(selSection + 1, sections.length - 1)
+
+                Column {
+                    width: parent.width
+                    height: visible ? 2 * 30 : 0
+                    visible: root.configExpanded && root.inSection && 0 === root.selConfigItem
+
+                    Rectangle {
+                        width: parent.width
+                        height: 30
+                        color: 0 === root.selConfigProfile
+                                ? Qt.alpha(Colors.base0d, 0.75)
+                                : Qt.alpha(Colors.base00, 0.75)
+
+                        Text {
+                            text: "Auto (IP)"
+                            anchors { left: parent.left; leftMargin: 30; verticalCenter: parent.verticalCenter }
+                            color: Colors.foreground
+                            font.pixelSize: 16
+                            font.family: "JetBrainsMono Nerd Font"
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                if (root.inSection) {
+                                    WeatherModel.customCity = ""
+                                    root.configExpanded = false
+                                    WeatherModel.fetchWeather()
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        width: parent.width
+                        height: 30
+                        color: !root.cityEditing && 1 === root.selConfigProfile
+                                ? Qt.alpha(Colors.base0d, 0.75)
+                                : Qt.alpha(Colors.base00, 0.75)
+
+                        Text {
+                            text: "Custom..."
+                            anchors { left: parent.left; leftMargin: 30; right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
+                            color: Colors.foreground
+                            font.pixelSize: 16
+                            font.family: "JetBrainsMono Nerd Font"
+                            visible: !root.cityEditing
+                        }
+
+                        TextInput {
+                            visible: root.cityEditing
+                            anchors { left: parent.left; leftMargin: 30; right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
+                            color: Colors.foreground
+                            font.pixelSize: 16
+                            font.family: "JetBrainsMono Nerd Font"
+                            text: root.cityInputText
+                            focus: root.cityEditing
+                            onAccepted: {
+                                WeatherModel.customCity = text
+                                root.cityEditing = false
+                                root.configExpanded = false
+                                WeatherModel.fetchWeather()
+                                focusTimer.running = true
+                            }
+                            Keys.onPressed: (event) => {
+                                if (event.key === Qt.Key_Escape) {
+                                    root.cityEditing = false
+                                    focusTimer.running = true
+                                    event.accepted = true
+                                }
+                            }
+                        }
+
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                if (root.inSection && !root.cityEditing) {
+                                    root.cityEditing = true
+                                    root.cityInputText = WeatherModel.customCity || ""
+                                }
+                            }
+                        }
+                    }
                 }
-                event.accepted = true; break
-            case Qt.Key_K:
-            case Qt.Key_Up:
-                if (selSection === 3 && configExpanded && inSection) {
-                    selConfigProfile = Math.max(selConfigProfile - 1, 0)
-                } else if (selSection === 3 && inSection) {
-                    selConfigItem = Math.max(selConfigItem - 1, 0)
-                } else if (inSection) {
-                    selDevice = Math.max(selDevice - 1, 0)
-                } else {
-                    selSection = Math.max(selSection - 1, 0)
-                }
-                event.accepted = true; break
-            case Qt.Key_Escape:
-                if (cityEditing) {
-                    cityEditing = false
-                    mainRect.forceActiveFocus()
-                } else if (selSection === 3 && configExpanded) {
-                    configExpanded = false
-                } else {
-                    root.visible = false
-                }
-                event.accepted = true; break
             }
         }
 
-        Row {
-            anchors.fill: parent
-            anchors.margins: 10
-            spacing: 10
+        Item {
+            width: parent.width
+            height: (root.configExpanded && 1 === root.selConfigItem && root.inSection)
+                    ? 45 + 2 * 30
+                    : 45
 
             Rectangle {
-                width: (parent.width - parent.spacing) * 0.25
-                height: parent.height
-                color: Qt.alpha(Colors.base00, 0.75)
-                clip: true
+                anchors.fill: parent
+                color: ((!root.configExpanded && root.inSection && 1 === root.selConfigItem)
+                        || (root.configExpanded && root.inSection && 1 === root.selConfigItem))
+                       ? Qt.alpha(Colors.base01, 0.75) : "transparent"
+            }
 
-                Column {
-                    anchors.fill: parent
-                    anchors.margins: 10
-                    spacing: 10
+            Column {
+                width: parent.width
 
-                    Repeater {
-                        model: sections
+                Item {
+                    width: parent.width
+                    height: 45
 
-                        delegate: Rectangle {
-                            width: parent.width
-                            height: 30
-                            color: selSection === index ? Qt.alpha(Colors.base01, 0.75) : "transparent"
+                    Text {
+                        text: "Unit: \u00b0" + WeatherModel.degreeUnit
+                        anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
+                        color: Colors.foreground
+                        font.pixelSize: 16
+                        font.family: "JetBrainsMono Nerd Font"
+                    }
 
-                            Text {
-                                text: modelData.name
-                                anchors {
-                                    left: parent.left; leftMargin: 10
-                                    right: parent.right; rightMargin: 10
-                                    verticalCenter: parent.verticalCenter
-                                }
-                                color: Colors.foreground
-                                font.pixelSize: 16
-                                font.family: "JetBrainsMono Nerd Font"
-                                elide: Text.ElideRight
-                                leftPadding: selSection === index && inSection ? 18 : 0
-                            }
-
-                            Text {
-                                text: "\u25b6"
-                                anchors {
-                                    left: parent.left; leftMargin: 10
-                                    verticalCenter: parent.verticalCenter
-                                }
-                                color: Colors.foreground
-                                font.pixelSize: 16
-                                font.family: "JetBrainsMono Nerd Font"
-                                visible: selSection === index && inSection
-                            }
-
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    selSection = index
-                                    inSection = false
-                                    configExpanded = false
-                                    mainRect.forceActiveFocus()
-                                }
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (!root.inSection) root.inSection = true
+                            if (root.configExpanded && 1 === root.selConfigItem) {
+                                root.configExpanded = false
+                            } else {
+                                root.selConfigItem = 1
+                                root.configExpanded = true
+                                root.selConfigProfile = 0
                             }
                         }
                     }
                 }
-            }
 
-            Rectangle {
-                width: (parent.width - parent.spacing) * 0.75
-                height: parent.height
-                color: Qt.alpha(Colors.base00, 0.75)
+                Column {
+                    width: parent.width
+                    height: visible ? 2 * 30 : 0
+                    visible: root.configExpanded && root.inSection && 1 === root.selConfigItem
 
-                Flickable {
-                    id: flick
-                    anchors.fill: parent
-                    anchors.margins: 10
-                    contentHeight: contentCol.height
-                    clip: true
-
-                    function scrollToVisible(itemY, itemH) {
-                        var viewH = flick.height
-                        var maxY = Math.max(0, contentCol.height - viewH)
-                        if (itemY < flick.contentY) {
-                            flick.contentY = Math.max(0, itemY - 40)
-                        } else if (itemY + itemH > flick.contentY + viewH) {
-                            flick.contentY = Math.min(maxY, itemY + itemH - viewH + 10)
-                        }
-                    }
-
-                    function scrollToSelection() {
-                        var y, h
-                        if (selSection < 3 && inSection) {
-                            y = 40 + selDevice * 55
-                            h = 45
-                        } else if (selSection === 3 && inSection) {
-                            if (configExpanded) {
-                                y = 40 + selConfigItem * 55 + 45 + selConfigProfile * 30
-                                h = 30
-                            } else {
-                                y = 40 + selConfigItem * 55
-                                h = 45
-                            }
-                        }
-                        if (y !== undefined) flick.scrollToVisible(y, h)
-                    }
-
-                    Column {
-                        id: contentCol
+                    Rectangle {
                         width: parent.width
-                        spacing: 10
+                        height: 30
+                        color: 0 === root.selConfigProfile
+                                ? Qt.alpha(Colors.base0d, 0.75)
+                                : Qt.alpha(Colors.base00, 0.75)
 
-                        Rectangle {
-                            width: parent.width
-                            height: 30
-                            color: Qt.alpha(Colors.base0d, 0.75)
-
-                            Text {
-                                text: sections[selSection]?.name ?? ""
-                                anchors {
-                                    left: parent.left; leftMargin: 10
-                                    verticalCenter: parent.verticalCenter
-                                }
-                                color: Colors.foreground
-                                font.pixelSize: 16
-                                font.family: "JetBrainsMono Nerd Font"
-                            }
+                        Text {
+                            text: "Fahrenheit"
+                            anchors { left: parent.left; leftMargin: 30; verticalCenter: parent.verticalCenter }
+                            color: Colors.foreground
+                            font.pixelSize: 16
+                            font.family: "JetBrainsMono Nerd Font"
                         }
 
-                        Column {
-                            width: parent.width
-                            spacing: 10
-                            visible: selSection === 0
-
-                            Item {
-                                width: parent.width
-                                height: WeatherModel.dataReady ? 30 * 10 : 30
-
-                                Column {
-                                    anchors.fill: parent
-                                    spacing: 10
-
-                                    Text {
-                                        visible: WeatherModel.dataReady
-                                        text: cc ? WeatherCodes.icon(parseInt(cc.weatherCode)) + "  " + (WeatherModel.degreeUnit === "F" ? cc.temp_F : cc.temp_C) + "\u00b0" + WeatherModel.degreeUnit : ""
-                                        color: Colors.foreground
-                                        font.pixelSize: 32
-                                        font.family: "JetBrainsMono Nerd Font"
-                                        font.bold: true
-                                    }
-
-                                    Text {
-                                        visible: WeatherModel.dataReady
-                                        text: cc ? WeatherCodes.desc(parseInt(cc.weatherCode)) : ""
-                                        color: Colors.foreground
-                                        font.pixelSize: 16
-                                        font.family: "JetBrainsMono Nerd Font"
-                                    }
-
-                                    Text {
-                                        visible: WeatherModel.dataReady
-                                        text: cc ? "Feels like " + (WeatherModel.degreeUnit === "F" ? cc.FeelsLikeF : cc.FeelsLikeC) + "\u00b0" + WeatherModel.degreeUnit : ""
-                                        color: Colors.foreground
-                                        font.pixelSize: 16
-                                        font.family: "JetBrainsMono Nerd Font"
-                                    }
-
-                                    Text {
-                                        visible: WeatherModel.dataReady
-                                        text: cc ? "Humidity: " + cc.humidity + "%" : ""
-                                        color: Colors.foreground
-                                        font.pixelSize: 16
-                                        font.family: "JetBrainsMono Nerd Font"
-                                    }
-
-                                    Text {
-                                        visible: WeatherModel.dataReady
-                                        text: cc ? "Wind: " + cc.windspeedKmph + " km/h " + cc.winddir16Point : ""
-                                        color: Colors.foreground
-                                        font.pixelSize: 16
-                                        font.family: "JetBrainsMono Nerd Font"
-                                    }
-
-                                    Text {
-                                        visible: WeatherModel.dataReady
-                                        text: cc ? "UV Index: " + cc.uvIndex : ""
-                                        color: Colors.foreground
-                                        font.pixelSize: 16
-                                        font.family: "JetBrainsMono Nerd Font"
-                                    }
-
-                                    Text {
-                                        visible: WeatherModel.dataReady
-                                        text: cc ? "Pressure: " + cc.pressure + " mb" : ""
-                                        color: Colors.foreground
-                                        font.pixelSize: 16
-                                        font.family: "JetBrainsMono Nerd Font"
-                                    }
-
-                                    Text {
-                                        visible: WeatherModel.dataReady
-                                        text: cc ? "Visibility: " + cc.visibility + " km" : ""
-                                        color: Colors.foreground
-                                        font.pixelSize: 16
-                                        font.family: "JetBrainsMono Nerd Font"
-                                    }
-
-                                    Text {
-                                        visible: WeatherModel.dataReady
-                                        text: cc ? "Cloud cover: " + cc.cloudcover + "%" : ""
-                                        color: Colors.foreground
-                                        font.pixelSize: 16
-                                        font.family: "JetBrainsMono Nerd Font"
-                                    }
-
-                                    Text {
-                                        visible: !WeatherModel.dataReady
-                                        text: "Fetching weather data..."
-                                        color: Colors.foreground
-                                        font.pixelSize: 16
-                                        font.family: "JetBrainsMono Nerd Font"
-                                    }
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                if (root.inSection) {
+                                    WeatherModel.degreeUnit = "F"
+                                    root.configExpanded = false
                                 }
                             }
                         }
+                    }
 
-                        Column {
-                            width: parent.width
-                            spacing: 10
-                            visible: selSection === 1
+                    Rectangle {
+                        width: parent.width
+                        height: 30
+                        color: 1 === root.selConfigProfile
+                                ? Qt.alpha(Colors.base0d, 0.75)
+                                : Qt.alpha(Colors.base00, 0.75)
 
-                            Item {
-                                width: parent.width
-                                height: WeatherModel.dataReady ? 30 * 6 : 30
-
-                                Column {
-                                    anchors.fill: parent
-                                    spacing: 10
-
-                                    Text {
-                                        visible: WeatherModel.dataReady
-                                        text: WeatherModel.dataReady ? WeatherModel.moonIcon + "  " + WeatherModel.moonPhase : ""
-                                        color: Colors.foreground
-                                        font.pixelSize: 32
-                                        font.family: "JetBrainsMono Nerd Font"
-                                        font.bold: true
-
-                                    }
-
-                                    Text {
-                                        visible: WeatherModel.dataReady
-                                        text: WeatherModel.dataReady ? "Illumination: " + WeatherModel.moonIllumination + "%" : ""
-                                        color: Colors.foreground
-                                        font.pixelSize: 16
-                                        font.family: "JetBrainsMono Nerd Font"
-                                    }
-
-                                    Text {
-                                        visible: WeatherModel.dataReady && astro !== null
-                                        text: astro ? "Moonrise: " + astro.moonrise : ""
-                                        color: Colors.foreground
-                                        font.pixelSize: 16
-                                        font.family: "JetBrainsMono Nerd Font"
-                                    }
-
-                                    Text {
-                                        visible: WeatherModel.dataReady && astro !== null
-                                        text: astro ? "Moonset: " + astro.moonset : ""
-                                        color: Colors.foreground
-                                        font.pixelSize: 16
-                                        font.family: "JetBrainsMono Nerd Font"
-                                    }
-
-                                    Text {
-                                        visible: WeatherModel.dataReady
-                                        text: WeatherModel.dataReady ? "Next full moon: " + WeatherModel.nextFullMoon : ""
-                                        color: Colors.foreground
-                                        font.pixelSize: 16
-                                        font.family: "JetBrainsMono Nerd Font"
-                                    }
-
-                                    Text {
-                                        visible: !WeatherModel.dataReady
-                                        text: "Fetching astronomy data..."
-                                        color: Colors.foreground
-                                        font.pixelSize: 16
-                                        font.family: "JetBrainsMono Nerd Font"
-                                    }
-                                }
-                            }
+                        Text {
+                            text: "Celsius"
+                            anchors { left: parent.left; leftMargin: 30; verticalCenter: parent.verticalCenter }
+                            color: Colors.foreground
+                            font.pixelSize: 16
+                            font.family: "JetBrainsMono Nerd Font"
                         }
 
-                        Column {
-                            width: parent.width
-                            spacing: 10
-                            visible: selSection === 2
-
-                            Item {
-                                width: parent.width
-                                height: WeatherModel.dataReady ? 30 * 3 : 30
-
-                                Column {
-                                    anchors.fill: parent
-                                    spacing: 10
-
-                                    Text {
-                                        visible: WeatherModel.dataReady
-                                        text: area ? area.areaName[0].value : ""
-                                        color: Colors.foreground
-                                        font.pixelSize: 16
-                                        font.family: "JetBrainsMono Nerd Font"
-                                    }
-
-                                    Text {
-                                        visible: WeatherModel.dataReady
-                                        text: area ? area.region[0].value + ", " + area.country[0].value : ""
-                                        color: Colors.foreground
-                                        font.pixelSize: 16
-                                        font.family: "JetBrainsMono Nerd Font"
-                                    }
-
-                                    Text {
-                                        visible: WeatherModel.dataReady
-                                        text: "Using: " + (WeatherModel.customCity || "Auto (IP)")
-                                        color: Colors.foreground
-                                        font.pixelSize: 16
-                                        font.family: "JetBrainsMono Nerd Font"
-                                    }
-
-                                    Text {
-                                        visible: !WeatherModel.dataReady
-                                        text: "Fetching location data..."
-                                        color: Colors.foreground
-                                        font.pixelSize: 16
-                                        font.family: "JetBrainsMono Nerd Font"
-                                    }
-                                }
-                            }
-                        }
-
-                        Column {
-                            width: parent.width
-                            spacing: 10
-                            visible: selSection === 3
-
-                            Item {
-                                width: parent.width
-                                height: (configExpanded && 0 === selConfigItem && inSection)
-                                        ? 45 + 2 * 30
-                                        : 45
-
-                                Rectangle {
-                                    anchors.fill: parent
-                                    color: (!configExpanded && inSection && 0 === selConfigItem)
-                                           || (configExpanded && inSection && 0 === selConfigItem)
-                                           ? Qt.alpha(Colors.base01, 0.75) : "transparent"
-                                }
-
-                                Column {
-                                    width: parent.width
-
-                                    Item {
-                                        width: parent.width
-                                        height: 45
-
-                                        Text {
-                                            text: "City: " + (WeatherModel.customCity || "Auto")
-                                            anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
-                                            color: Colors.foreground
-                                            font.pixelSize: 16
-                                            font.family: "JetBrainsMono Nerd Font"
-                                        }
-
-                                        MouseArea {
-                                            anchors.fill: parent
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: {
-                                                if (!inSection) { inSection = true }
-                                                if (configExpanded && 0 === selConfigItem) {
-                                                    configExpanded = false
-                                                } else {
-                                                    selConfigItem = 0
-                                                    configExpanded = true
-                                                    selConfigProfile = 0
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    Column {
-                                        width: parent.width
-                                        height: visible ? 2 * 30 : 0
-                                        visible: configExpanded && inSection && 0 === selConfigItem
-
-                                        Rectangle {
-                                            width: parent.width
-                                            height: 30
-                                            color: 0 === selConfigProfile
-                                                    ? Qt.alpha(Colors.base0d, 0.75)
-                                                    : Qt.alpha(Colors.base00, 0.75)
-
-                                            Text {
-                                                text: "Auto (IP)"
-                                                anchors { left: parent.left; leftMargin: 30; verticalCenter: parent.verticalCenter }
-                                                color: Colors.foreground
-                                                font.pixelSize: 16
-                                                font.family: "JetBrainsMono Nerd Font"
-                                            }
-
-                                            MouseArea {
-                                                anchors.fill: parent
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: {
-                                                    if (inSection) {
-                                                        WeatherModel.customCity = ""
-                                                        configExpanded = false
-                                                       WeatherModel.fetchWeather()
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        Rectangle {
-                                            width: parent.width
-                                            height: 30
-                                            color: !cityEditing && 1 === selConfigProfile
-                                                    ? Qt.alpha(Colors.base0d, 0.75)
-                                                    : Qt.alpha(Colors.base00, 0.75)
-
-                                            Text {
-                                                text: "Custom..."
-                                                anchors { left: parent.left; leftMargin: 30; right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
-                                                color: Colors.foreground
-                                                font.pixelSize: 16
-                                                font.family: "JetBrainsMono Nerd Font"
-                                                visible: !cityEditing
-                                            }
-
-                                            TextInput {
-                                                visible: cityEditing
-                                                anchors { left: parent.left; leftMargin: 30; right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
-                                                color: Colors.foreground
-                                                font.pixelSize: 16
-                                                font.family: "JetBrainsMono Nerd Font"
-                                                text: cityInputText
-                                                focus: cityEditing
-                                                onAccepted: {
-                                                    WeatherModel.customCity = text
-                                                    cityEditing = false
-                                                    configExpanded = false
-                                                   WeatherModel.fetchWeather()
-                                                    mainRect.forceActiveFocus()
-                                                }
-                                                Keys.onPressed: (event) => {
-                                                    if (event.key === Qt.Key_Escape) {
-                                                        cityEditing = false
-                                                        mainRect.forceActiveFocus()
-                                                        event.accepted = true
-                                                    }
-                                                }
-                                            }
-
-                                            MouseArea {
-                                                anchors.fill: parent
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: {
-                                                    if (inSection) {
-                                                        if (!cityEditing) {
-                                                            cityEditing = true
-                                                            cityInputText = WeatherModel.customCity || ""
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            Item {
-                                width: parent.width
-                                height: (configExpanded && 1 === selConfigItem && inSection)
-                                        ? 45 + 2 * 30
-                                        : 45
-
-                                Rectangle {
-                                    anchors.fill: parent
-                                    color: (!configExpanded && inSection && 1 === selConfigItem)
-                                           || (configExpanded && inSection && 1 === selConfigItem)
-                                           ? Qt.alpha(Colors.base01, 0.75) : "transparent"
-                                }
-
-                                Column {
-                                    width: parent.width
-
-                                    Item {
-                                        width: parent.width
-                                        height: 45
-
-                                        Text {
-                                            text: "Unit: \u00b0" + WeatherModel.degreeUnit
-                                            anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
-                                            color: Colors.foreground
-                                            font.pixelSize: 16
-                                            font.family: "JetBrainsMono Nerd Font"
-                                        }
-
-                                        MouseArea {
-                                            anchors.fill: parent
-                                            cursorShape: Qt.PointingHandCursor
-                                            onClicked: {
-                                                if (!inSection) { inSection = true }
-                                                if (configExpanded && 1 === selConfigItem) {
-                                                    configExpanded = false
-                                                } else {
-                                                    selConfigItem = 1
-                                                    configExpanded = true
-                                                    selConfigProfile = 0
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    Column {
-                                        width: parent.width
-                                        height: visible ? 2 * 30 : 0
-                                        visible: configExpanded && inSection && 1 === selConfigItem
-
-                                        Rectangle {
-                                            width: parent.width
-                                            height: 30
-                                            color: 0 === selConfigProfile
-                                                    ? Qt.alpha(Colors.base0d, 0.75)
-                                                    : Qt.alpha(Colors.base00, 0.75)
-
-                                            Text {
-                                                text: "Fahrenheit"
-                                                anchors { left: parent.left; leftMargin: 30; verticalCenter: parent.verticalCenter }
-                                                color: Colors.foreground
-                                                font.pixelSize: 16
-                                                font.family: "JetBrainsMono Nerd Font"
-                                            }
-
-                                            MouseArea {
-                                                anchors.fill: parent
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: {
-                                                    if (inSection) {
-                                                        WeatherModel.degreeUnit = "F"
-                                                        configExpanded = false
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        Rectangle {
-                                            width: parent.width
-                                            height: 30
-                                            color: 1 === selConfigProfile
-                                                    ? Qt.alpha(Colors.base0d, 0.75)
-                                                    : Qt.alpha(Colors.base00, 0.75)
-
-                                            Text {
-                                                text: "Celsius"
-                                                anchors { left: parent.left; leftMargin: 30; verticalCenter: parent.verticalCenter }
-                                                color: Colors.foreground
-                                                font.pixelSize: 16
-                                                font.family: "JetBrainsMono Nerd Font"
-                                            }
-
-                                            MouseArea {
-                                                anchors.fill: parent
-                                                cursorShape: Qt.PointingHandCursor
-                                                onClicked: {
-                                                    if (inSection) {
-                                                        WeatherModel.degreeUnit = "C"
-                                                        configExpanded = false
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                if (root.inSection) {
+                                    WeatherModel.degreeUnit = "C"
+                                    root.configExpanded = false
                                 }
                             }
                         }

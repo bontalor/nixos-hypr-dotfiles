@@ -7,32 +7,34 @@ import Quickshell.Hyprland
 import QtQuick
 
 Scope {
-    QtObject {
-        id: ipcSignals
-        signal refreshNetwork()
-        signal refreshBattery()
-        signal refreshMedia()
-    }
+    id: barRoot
+
+    signal refreshNetwork()
+    signal refreshBattery()
 
     IpcHandler {
         target: "refresh-network"
-        function refresh(): void { ipcSignals.refreshNetwork() }
+        function refresh(): void { barRoot.refreshNetwork() }
     }
 
     IpcHandler {
         target: "refresh-battery"
-        function refresh(): void { ipcSignals.refreshBattery() }
+        function refresh(): void { barRoot.refreshBattery() }
     }
 
-    IpcHandler {
-        target: "refresh-media"
-        function refresh(): void { ipcSignals.refreshMedia() }
+    // Long-lived event streams. Each monitor shells out to `qs ipc call` on
+    // every event line; the matching IpcHandler above re-emits it as a QML
+    // signal that the per-screen widgets react to. No polling timers anywhere.
+    // (Media & volume widgets are fully event-driven via Quickshell's Mpris /
+    // Pipewire services, so no media refresh relay is needed.)
+    Process {
+        running: true
+        command: ["bash", "-c", "nmcli device monitor 2>/dev/null | while IFS= read -r line; do case \"$line\" in *\": connected\"|*\": disconnected\") qs ipc call refresh-network refresh; qs ipc call refresh-network-panel refresh ;; esac; done"]
     }
 
     Process {
-        id: networkMonitor
-        command: ["bash", "-c", "nmcli device monitor 2>/dev/null | while IFS= read -r line; do case \"$line\" in *\": connected\"|*\": disconnected\") qs ipc call refresh-network refresh; qs ipc call refresh-network-panel refresh ;; esac; done"]
         running: true
+        command: ["bash", "-c", "upower --monitor 2>/dev/null | while IFS= read -r _; do qs ipc call refresh-battery refresh; done"]
     }
 
     Variants {
@@ -131,10 +133,6 @@ Scope {
                     anchors.right: clockWidget.left
                     anchors.rightMargin: 10
                     anchors.verticalCenter: clockWidget.verticalCenter
-                    Connections {
-                        target: ipcSignals
-                        function onRefreshMedia(): void { mediaWidget.refreshPlayer() }
-                    }
                 }
 
                 Item {
@@ -193,7 +191,7 @@ Scope {
                     NetworkWidget {
                         id: networkWidget
                         Connections {
-                            target: ipcSignals
+                            target: barRoot
                             function onRefreshNetwork(): void { networkWidget.fetchStatus() }
                         }
                     }
@@ -205,8 +203,8 @@ Scope {
                     BatteryWidget {
                         id: batteryWidget
                         Connections {
-                            target: ipcSignals
-                            function onRefreshBattery(): void { batteryWidget.fetchStatus() }
+                            target: barRoot
+                            function onRefreshBattery(): void { batteryWidget.refresh() }
                         }
                     }
                 }

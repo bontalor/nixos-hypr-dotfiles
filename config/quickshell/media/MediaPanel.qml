@@ -19,23 +19,51 @@ FloatingWindow {
     property int selDevice: 0
 
     property bool manuallySelected: false
+    property var manualPlayer: null
     property int playerRefreshCounter: 0
 
     property var playerTimestamps: ({})
 
-    property var currentPlayer: selectCurrentPlayer(Mpris.players.values, playerTimestamps)
+    // Re-evaluate on player add/remove OR any playbackState/trackTitle change
+    // (playerRefreshCounter bumps on each via the Instantiator below).
+    property var currentPlayer: {
+        void root.playerRefreshCounter
+        if (root.manuallySelected && root.manualPlayer) return root.manualPlayer
+        return selectCurrentPlayer(Mpris.players.values, root.playerTimestamps)
+    }
 
     property var allPlayers: allPlayersFromRaw(Mpris.players.values)
 
-    property string trackTitle: ""
-    property string trackArtist: ""
-    property string trackAlbum: ""
-    property int playbackState: MprisPlaybackState.Stopped
-    property string playerName: ""
-    property real trackPosition: currentPlayer ? currentPlayer.position : 0
-    property real trackLength: currentPlayer ? currentPlayer.length : 0
-    property bool canSeek: currentPlayer ? currentPlayer.canSeek : false
-    property string trackArtUrl: currentPlayer ? (currentPlayer.trackArtUrl || "") : ""
+    property string trackTitle: currentPlayer?.trackTitle ?? ""
+    property string trackArtist: currentPlayer?.trackArtist ?? ""
+    property string trackAlbum: currentPlayer?.trackAlbum ?? ""
+    property int playbackState: currentPlayer?.playbackState ?? MprisPlaybackState.Stopped
+    property string playerName: currentPlayer?.identity ?? ""
+    property real trackLength: currentPlayer?.length ?? 0
+    property bool canSeek: currentPlayer?.canSeek ?? false
+    property string trackArtUrl: currentPlayer?.trackArtUrl ?? ""
+
+    // Mpris `position` updates only at DBus event boundaries (Seeked,
+    // Pause/Resume, etc.), so it freezes between events. We sample the
+    // real `position` whenever it changes and tick the displayed value
+    // once per second while the panel is open & playback is active.
+    property real mprisPosition: currentPlayer?.position ?? 0
+    property real trackPosition: mprisPosition + extraTickSeconds
+    property real extraTickSeconds: 0
+
+    onMprisPositionChanged: {
+        // Player reported a new truth: discard accumulated ticks & resync.
+        extraTickSeconds = 0
+    }
+
+    Timer {
+        interval: 1000
+        repeat: true
+        running: root.visible
+                 && root.playbackState === MprisPlaybackState.Playing
+                 && root.trackLength > 0
+        onTriggered: root.extraTickSeconds += 1
+    }
 
     function allPlayersFromRaw(raw) {
         var best = {}
@@ -79,9 +107,9 @@ FloatingWindow {
                 }
                 playing = bestPlaying
             }
-            return playing || currentPlayer
+            return playing || (raw.length > 0 ? raw[0] : null)
         }
-        return currentPlayer
+        return root.manualPlayer || (raw.length > 0 ? raw[0] : null)
     }
 
     function fmtTime(sec) {
@@ -91,32 +119,9 @@ FloatingWindow {
         return (" " + m).slice(-2) + ":" + ("0" + s).slice(-2)
     }
 
-    Process {
-        id: ipcRefresh
-        command: ["qs", "ipc", "call", "refresh-media", "refresh"]
-        running: false
-    }
-
     function setPlayer(player) {
-        currentPlayer = player
-        if (player) {
-            trackTitle = player.trackTitle ?? ""
-            trackArtist = player.trackArtist ?? ""
-            trackAlbum = player.trackAlbum ?? ""
-            playbackState = player.playbackState
-            playerName = player.identity ?? ""
-        } else {
-            trackTitle = ""; trackArtist = ""; trackAlbum = ""
-            playbackState = MprisPlaybackState.Stopped; playerName = ""
-        }
-    }
-
-    Connections {
-        target: currentPlayer
-        function onTrackTitleChanged() { trackTitle = currentPlayer?.trackTitle ?? ""; ipcRefresh.running = true }
-        function onTrackArtistChanged() { trackArtist = currentPlayer?.trackArtist ?? ""; ipcRefresh.running = true }
-        function onTrackAlbumChanged() { trackAlbum = currentPlayer?.trackAlbum ?? ""; ipcRefresh.running = true }
-        function onPlaybackStateChanged() { playbackState = currentPlayer?.playbackState ?? MprisPlaybackState.Stopped; ipcRefresh.running = true }
+        manualPlayer = player
+        manuallySelected = true
     }
 
     Instantiator {

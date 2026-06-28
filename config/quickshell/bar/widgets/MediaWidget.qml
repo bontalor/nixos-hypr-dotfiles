@@ -14,7 +14,13 @@ Item {
     property int playerRefreshCounter: 0
     property var playerTimestamps: ({})
 
-    property var currentPlayer: selectCurrentPlayer(Mpris.players.values, playerTimestamps)
+    // Re-evaluate whenever players are added/removed OR when any player's
+    // playbackState/trackTitle changes (playerRefreshCounter bumps on each
+    // such event via the Instantiator below).
+    property var currentPlayer: {
+        void root.playerRefreshCounter
+        return selectCurrentPlayer(Mpris.players.values, root.playerTimestamps)
+    }
 
     property string trackTitle: currentPlayer ? (currentPlayer.trackTitle ?? "") : ""
     property string trackArtist: currentPlayer ? (currentPlayer.trackArtist ?? "") : ""
@@ -22,8 +28,14 @@ Item {
 
     property int maxChars: 8
 
-    property string displayText: ""
-    property string scrollText: ""
+    // Reactive to currentPlayer's trackTitle/trackArtist. The previous
+    // imperative onCurrentPlayerChanged approach missed same-player track
+    // switches because QML doesn't emit notify when a `var` property is
+    // reassigned to the same QObject.
+    property string displayText: currentPlayer
+        ? (trackArtist ? trackArtist + " - " + trackTitle : trackTitle)
+        : ""
+    property string scrollText: displayText ? displayText + " " + displayText : ""
     property int scrollPos: 0
 
     property var peakNode: findPeakNode(Pipewire.nodes)
@@ -70,7 +82,9 @@ Item {
             }
             playing = bestPlaying
         }
-        return playing
+        // Prefer a playing player, but fall back to the first available so a
+        // paused track still shows in the bar.
+        return playing || (filtered.length > 0 ? filtered[0] : null)
     }
 
     function findPeakNode(nodes) {
@@ -104,19 +118,6 @@ Item {
             function onTrackTitleChanged() { root.updateTimestamp(modelData); root.playerRefreshCounter++ }
             function onTrackArtistChanged() { root.playerRefreshCounter++ }
         }
-    }
-
-    onCurrentPlayerChanged: {
-        scrollPos = 0
-        if (currentPlayer) {
-            displayText = trackArtist ? trackArtist + " - " + trackTitle : trackTitle
-            scrollText = displayText + " " + displayText
-        } else {
-            displayText = ""
-            scrollText = ""
-        }
-        if (playbackState === MprisPlaybackState.Playing) startScroll()
-        else { scrollPos = 0; scrollTimer.running = false }
     }
 
     onPlaybackStateChanged: {

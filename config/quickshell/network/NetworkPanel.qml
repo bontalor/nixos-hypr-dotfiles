@@ -3,38 +3,22 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 
-FloatingWindow {
+Panel {
     id: root
     title: "Network Control"
-    color: "transparent"
-    implicitWidth: 850
-    implicitHeight: 450
-    visible: false
-
-    onClosed: visible = false
-
-    IpcHandler {
-        target: "refresh-network-panel"
-        function refresh(): void {
-            if (root.visible) runFetch(true)
-        }
-    }
-
-    property int selSection: 0
-    property bool inSection: false
-    property int selDevice: 0
-
-    property var sections: [
+    sections: [
         { name: "Wi-Fi" },
         { name: "Ethernet" },
         { name: "Configuration" },
         { name: "NetworkManager" }
     ]
 
-    property string rawText: ""
-    property bool includeWifi: true
-    property bool replaceNetworks: true
+    IpcHandler {
+        target: "refresh-network-panel"
+        function refresh(): void { if (root.visible) root.runFetch(true) }
+    }
 
+    property string rawText: ""
     property var parsedData: parseAll(rawText)
 
     property var wifiNetworks: parsedData.wifiNetworks
@@ -44,9 +28,33 @@ FloatingWindow {
     property string connectivityState: parsedData.connectivityState
     property string connectivityLevel: parsedData.connectivityLevel
     property var savedConnections: parsedData.savedConnections
+
     property string connectingSsid: ""
     property string disconnectingSsid: ""
     property string pendingEthDevice: ""
+
+    currentModelLength: function() {
+        switch (root.selSection) {
+        case 0: return root.wifiEnabled ? root.wifiNetworks.length : 0
+        case 1: return root.ethernetDevices.length
+        case 2: return 2
+        case 3: return 2
+        default: return 0
+        }
+    }
+
+    onShown: runFetch(true)
+    onDeviceActivated: function(idx) {
+        switch (root.selSection) {
+        case 0: toggleWifiNetwork(idx); break
+        case 1: toggleEthernet(idx); break
+        case 2: if (idx === 0) setWifiEnabled(!root.wifiEnabled); break
+        case 3:
+            if (idx === 0) checkConnectivity()
+            else if (idx === 1) launchNmtui()
+            break
+        }
+    }
 
     function parseAll(text) {
         var wifis = [], eths = [], savedCons = []
@@ -113,9 +121,8 @@ FloatingWindow {
                 body = sec.substring(6).trim()
                 if (body) {
                     var conns = body.split("\n")
-                    for (var ci = 0; ci < conns.length; ci++) {
+                    for (var ci = 0; ci < conns.length; ci++)
                         if (conns[ci]) savedCons.push(conns[ci])
-                    }
                 }
             } else if (sec.indexOf("ACTIVE\n") === 0) {
                 body = sec.substring(7).trim()
@@ -139,9 +146,8 @@ FloatingWindow {
     }
 
     function hasSavedConnection(ssid) {
-        for (var ci = 0; ci < savedConnections.length; ci++) {
+        for (var ci = 0; ci < savedConnections.length; ci++)
             if (savedConnections[ci] === ssid) return true
-        }
         return false
     }
 
@@ -194,25 +200,22 @@ FloatingWindow {
 
     function connectToNetwork(ssid) {
         connectingSsid = ssid
-        if (hasSavedConnection(ssid)) {
-            actionProc.command = ["nmcli", "connection", "up", ssid]
-        } else {
-            actionProc.command = ["nmcli", "device", "wifi", "connect", ssid]
-        }
+        actionProc.command = hasSavedConnection(ssid)
+            ? ["nmcli", "connection", "up", ssid]
+            : ["nmcli", "device", "wifi", "connect", ssid]
         actionProc.running = true
     }
 
     function disconnectWifi() {
-        if (wifiDeviceName) {
-            for (var i = 0; i < wifiNetworks.length; i++) {
-                if (wifiNetworks[i].active) {
-                    disconnectingSsid = wifiNetworks[i].ssid
-                    break
-                }
+        if (!wifiDeviceName) return
+        for (var i = 0; i < wifiNetworks.length; i++) {
+            if (wifiNetworks[i].active) {
+                disconnectingSsid = wifiNetworks[i].ssid
+                break
             }
-            actionProc.command = ["nmcli", "device", "disconnect", wifiDeviceName]
-            actionProc.running = true
         }
+        actionProc.command = ["nmcli", "device", "disconnect", wifiDeviceName]
+        actionProc.running = true
     }
 
     function toggleEthernet(idx) {
@@ -220,13 +223,10 @@ FloatingWindow {
         if (idx >= list.length) return
         var dev = list[idx]
         pendingEthDevice = dev.name
-        if (dev.state === "connected") {
-            actionProc.command = ["nmcli", "device", "disconnect", dev.name]
-            actionProc.running = true
-        } else {
-            actionProc.command = ["nmcli", "device", "connect", dev.name]
-            actionProc.running = true
-        }
+        actionProc.command = dev.state === "connected"
+            ? ["nmcli", "device", "disconnect", dev.name]
+            : ["nmcli", "device", "connect", dev.name]
+        actionProc.running = true
     }
 
     function checkConnectivity() {
@@ -237,16 +237,6 @@ FloatingWindow {
     function launchNmtui() {
         actionProc.command = ["foot", "-e", "nmtui"]
         actionProc.running = true
-    }
-
-    function currentModelLength() {
-        switch (selSection) {
-        case 0: return wifiEnabled ? wifiNetworks.length : 0
-        case 1: return ethernetDevices.length
-        case 2: return 2
-        case 3: return 2
-        default: return 0
-        }
     }
 
     function toggleWifiNetwork(idx) {
@@ -262,547 +252,326 @@ FloatingWindow {
         }
     }
 
-    onSelDeviceChanged: if (flick && inSection && selSection < 2) flick.scrollToSelection()
-    onInSectionChanged: if (flick && inSection) flick.scrollToSelection()
+    // ---- Section 0: Wi-Fi list ----
+    Column {
+        width: parent.width
+        spacing: root.colSpacing
+        visible: root.selSection === 0
 
-    onVisibleChanged: {
-        if (visible) {
-            runFetch(true)
-            mainRect.forceActiveFocus()
-            selSection = 0
-            inSection = false
-            selDevice = 0
-        }
-    }
-
-    Shortcut {
-        sequence: "Escape"
-        onActivated: root.visible = false
-    }
-
-    Rectangle {
-        id: mainRect
-        anchors.fill: parent
-        color: "transparent"
-        focus: true
-
-        Keys.onPressed: (event) => {
-            switch (event.key) {
-            case Qt.Key_Tab:
-                if (event.modifiers & Qt.ShiftModifier) {
-                    if (inSection) {
-                        inSection = false
-                    } else {
-                        selSection = Math.max(selSection - 1, 0)
-                    }
-                } else if (inSection) {
-                    var maxD = currentModelLength() - 1
-                    selDevice = Math.min(selDevice + 1, Math.max(0, maxD))
-                } else {
-                    inSection = true
-                    if (selSection < 2) selDevice = 0
-                }
-                event.accepted = true; break
-            case Qt.Key_Backtab:
-                if (inSection) {
-                    inSection = false
-                }
-                event.accepted = true; break
-            case Qt.Key_H:
-            case Qt.Key_Left:
-                event.accepted = true; break
-            case Qt.Key_L:
-            case Qt.Key_Right:
-                event.accepted = true; break
-            case Qt.Key_Return:
-            case Qt.Key_Enter:
-                if (selSection === 0 && inSection) {
-                    toggleWifiNetwork(selDevice)
-                } else if (selSection === 1 && inSection) {
-                    toggleEthernet(selDevice)
-                } else if (selSection === 2 && inSection) {
-                    if (selDevice === 0) {
-                        setWifiEnabled(!wifiEnabled)
-                    }
-                } else if (selSection === 3 && inSection) {
-                    if (selDevice === 0) {
-                        checkConnectivity()
-                    } else if (selDevice === 1) {
-                        launchNmtui()
-                    }
-                } else if (!inSection) {
-                    inSection = true
-                    if (selSection < 2) selDevice = 0
-                }
-                event.accepted = true; break
-            case Qt.Key_J:
-            case Qt.Key_Down:
-                if (inSection) {
-                    var maxD = currentModelLength() - 1
-                    selDevice = Math.min(selDevice + 1, Math.max(0, maxD))
-                } else {
-                    selSection = Math.min(selSection + 1, sections.length - 1)
-                }
-                event.accepted = true; break
-            case Qt.Key_K:
-            case Qt.Key_Up:
-                if (inSection) {
-                    selDevice = Math.max(selDevice - 1, 0)
-                } else {
-                    selSection = Math.max(selSection - 1, 0)
-                }
-                event.accepted = true; break
-            case Qt.Key_Escape:
-                event.accepted = true; break
-            }
+        Text {
+            width: parent.width
+            height: 30
+            visible: !root.wifiEnabled
+            text: "Wi-Fi is turned off"
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            color: Qt.alpha(Colors.foreground, 0.75)
+            font.pixelSize: 16
+            font.family: "JetBrainsMono Nerd Font"
         }
 
-        Row {
-            anchors.fill: parent
-            anchors.margins: 10
-            spacing: 10
+        Repeater {
+            model: root.wifiNetworks
+            visible: root.wifiEnabled
 
-            Rectangle {
-                width: (parent.width - parent.spacing) * 0.25
-                height: parent.height
-                color: Qt.alpha(Colors.base00, 0.75)
-                clip: true
+            delegate: Item {
+                id: wifiItem
+                width: parent.width
+                height: 45
+                property int wifiSignal: modelData.signal || 0
 
-                Column {
+                Rectangle {
                     anchors.fill: parent
-                    anchors.margins: 10
+                    color: root.inSection && index === root.selDevice ? Qt.alpha(Colors.base01, 0.75) : "transparent"
+                }
+
+                Text {
+                    id: wifiLabel
+                    text: modelData.ssid
+                    anchors {
+                        left: parent.left; leftMargin: 10
+                        verticalCenter: parent.verticalCenter
+                    }
+                    color: Colors.foreground
+                    font.pixelSize: 16
+                    font.family: "JetBrainsMono Nerd Font"
+                    elide: Text.ElideRight
+                    width: parent.width * 0.45
+                }
+
+                Row {
+                    anchors {
+                        left: wifiLabel.right; leftMargin: 10
+                        verticalCenter: parent.verticalCenter
+                    }
+                    height: 10
                     spacing: 10
 
                     Repeater {
-                        model: sections
-
+                        model: 4
                         delegate: Rectangle {
-                            width: parent.width
-                            height: 30
-                            color: selSection === index ? Qt.alpha(Colors.base01, 0.75) : "transparent"
-
-                            Text {
-                                id: nameText
-                                text: modelData.name
-                                anchors {
-                                    left: parent.left; leftMargin: 10
-                                    right: parent.right; rightMargin: 10
-                                    verticalCenter: parent.verticalCenter
-                                }
-                                color: Colors.foreground
-                                font.pixelSize: 16
-                                font.family: "JetBrainsMono Nerd Font"
-                                elide: Text.ElideRight
-                                leftPadding: selSection === index && inSection ? 18 : 0
-                            }
-
-                            Text {
-                                text: "\u25b6"
-                                anchors {
-                                    left: parent.left; leftMargin: 10
-                                    verticalCenter: parent.verticalCenter
-                                }
-                                color: Colors.foreground
-                                font.pixelSize: 16
-                                font.family: "JetBrainsMono Nerd Font"
-                                visible: selSection === index && inSection
-                            }
-
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    selSection = index
-                                    inSection = false
-                                    mainRect.forceActiveFocus()
-                                }
-                            }
+                            width: 10
+                            height: 10
+                            color: index < Math.round(wifiItem.wifiSignal / 25)
+                                   ? Colors.foreground : Qt.alpha(Colors.base0d, 0.75)
                         }
                     }
                 }
+
+                Text {
+                    anchors {
+                        right: parent.right; rightMargin: 10
+                        verticalCenter: parent.verticalCenter
+                    }
+                    text: root.connectingSsid === modelData.ssid
+                        ? "Connecting..." : root.disconnectingSsid === modelData.ssid
+                        ? "Disconnecting..." : modelData.active ? "Connected" : "Off"
+                    color: modelData.active ? Colors.base0b : Qt.alpha(Colors.foreground, 0.75)
+                    font.pixelSize: 16
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.bold: modelData.active
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        if (!root.inSection) { root.inSection = true; root.selDevice = index }
+                        root.toggleWifiNetwork(index)
+                    }
+                }
+            }
+        }
+
+        Text {
+            width: parent.width
+            height: 30
+            visible: root.wifiEnabled && root.wifiNetworks.length === 0
+            text: "No Wi-Fi networks found"
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            color: Qt.alpha(Colors.foreground, 0.75)
+            font.pixelSize: 16
+            font.family: "JetBrainsMono Nerd Font"
+        }
+    }
+
+    // ---- Section 1: Ethernet ----
+    Column {
+        width: parent.width
+        spacing: root.colSpacing
+        visible: root.selSection === 1
+
+        Repeater {
+            model: root.ethernetDevices
+
+            delegate: Item {
+                width: parent.width
+                height: 45
+
+                Rectangle {
+                    anchors.fill: parent
+                    color: root.inSection && index === root.selDevice ? Qt.alpha(Colors.base01, 0.75) : "transparent"
+                }
+
+                Text {
+                    id: ethLabel
+                    text: modelData.name || "(unnamed)"
+                    anchors {
+                        left: parent.left; leftMargin: 10
+                        verticalCenter: parent.verticalCenter
+                    }
+                    color: Colors.foreground
+                    font.pixelSize: 16
+                    font.family: "JetBrainsMono Nerd Font"
+                    elide: Text.ElideRight
+                    width: parent.width * 0.45
+                }
+
+                Text {
+                    text: modelData.connection || (modelData.state === "connected" ? "Connected" : "Disconnected")
+                    anchors {
+                        left: ethLabel.right; leftMargin: 10
+                        right: ethStatus.left; rightMargin: 10
+                        verticalCenter: parent.verticalCenter
+                    }
+                    color: modelData.state === "connected" ? Colors.foreground : Qt.alpha(Colors.foreground, 0.75)
+                    font.pixelSize: 16
+                    font.family: "JetBrainsMono Nerd Font"
+                    elide: Text.ElideRight
+                }
+
+                Text {
+                    id: ethStatus
+                    anchors {
+                        right: parent.right; rightMargin: 10
+                        verticalCenter: parent.verticalCenter
+                    }
+                    text: root.pendingEthDevice === modelData.name
+                        ? (modelData.state === "connected" ? "Disconnecting..." : "Connecting...")
+                        : modelData.state === "connected" ? "Connected" : "Off"
+                    color: modelData.state === "connected" ? Colors.base0b : Colors.foreground
+                    font.pixelSize: 16
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.bold: modelData.state === "connected"
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        if (!root.inSection) { root.inSection = true; root.selDevice = index }
+                        root.toggleEthernet(index)
+                    }
+                }
+            }
+        }
+
+        Text {
+            width: parent.width
+            height: 30
+            visible: root.ethernetDevices.length === 0
+            text: "No Ethernet devices"
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            color: Qt.alpha(Colors.foreground, 0.75)
+            font.pixelSize: 16
+            font.family: "JetBrainsMono Nerd Font"
+        }
+    }
+
+    // ---- Section 2: Configuration ----
+    Column {
+        width: parent.width
+        spacing: root.colSpacing
+        visible: root.selSection === 2
+
+        Text {
+            text: "Wi-Fi"
+            width: parent.width
+            height: 20
+            leftPadding: 10
+            color: Qt.alpha(Colors.foreground, 0.75)
+            font.pixelSize: 16
+            font.family: "JetBrainsMono Nerd Font"
+            font.bold: true
+        }
+
+        Rectangle {
+            width: parent.width
+            height: 45
+            color: root.inSection && 0 === root.selDevice ? Qt.alpha(Colors.base01, 0.75) : "transparent"
+
+            Text {
+                text: "Wi-Fi: " + (root.wifiEnabled ? "On" : "Off")
+                anchors {
+                    left: parent.left; leftMargin: 10
+                    verticalCenter: parent.verticalCenter
+                }
+                color: Colors.foreground
+                font.pixelSize: 16
+                font.family: "JetBrainsMono Nerd Font"
             }
 
-            Rectangle {
-                width: (parent.width - parent.spacing) * 0.75
-                height: parent.height
-                color: Qt.alpha(Colors.base00, 0.75)
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                    if (!root.inSection) { root.inSection = true; root.selDevice = 0 }
+                    root.setWifiEnabled(!root.wifiEnabled)
+                }
+            }
+        }
 
-                Flickable {
-                    id: flick
-                    anchors.fill: parent
-                    anchors.margins: 10
-                    contentHeight: contentCol.height
-                    clip: true
+        Text {
+            text: "Ethernet"
+            width: parent.width
+            height: 20
+            leftPadding: 10
+            color: Qt.alpha(Colors.foreground, 0.75)
+            font.pixelSize: 16
+            font.family: "JetBrainsMono Nerd Font"
+            font.bold: true
+        }
 
-                    function scrollToVisible(itemY, itemH) {
-                        var viewH = flick.height
-                        var maxY = Math.max(0, contentCol.height - viewH)
-                        if (itemY < flick.contentY) {
-                            flick.contentY = Math.max(0, itemY - 40)
-                        } else if (itemY + itemH > flick.contentY + viewH) {
-                            flick.contentY = Math.min(maxY, itemY + itemH - viewH + 10)
-                        }
+        Rectangle {
+            width: parent.width
+            height: 45
+            color: root.inSection && 2 === root.selDevice ? Qt.alpha(Colors.base01, 0.75) : "transparent"
+
+            Text {
+                text: {
+                    var connected = false
+                    for (var ei = 0; ei < root.ethernetDevices.length; ei++) {
+                        if (root.ethernetDevices[ei].state === "connected") { connected = true; break }
                     }
+                    return "Ethernet: " + (connected ? "Connected" : "Disconnected")
+                }
+                anchors {
+                    left: parent.left; leftMargin: 10
+                    verticalCenter: parent.verticalCenter
+                }
+                color: Colors.foreground
+                font.pixelSize: 16
+                font.family: "JetBrainsMono Nerd Font"
+            }
+        }
+    }
 
-                    function scrollToSelection() {
-                        var y, h
-                        if (inSection) {
-                            y = 40 + selDevice * 55
-                            h = 45
-                        }
-                        if (y !== undefined) flick.scrollToVisible(y, h)
-                    }
+    // ---- Section 3: NetworkManager ----
+    Column {
+        width: parent.width
+        spacing: root.colSpacing
+        visible: root.selSection === 3
 
-                    Column {
-                        id: contentCol
-                        width: parent.width
-                        spacing: 10
+        Rectangle {
+            width: parent.width
+            height: 45
+            color: root.inSection && 0 === root.selDevice ? Qt.alpha(Colors.base01, 0.75) : "transparent"
 
-                        Rectangle {
-                            width: parent.width
-                            height: 30
-                            color: Qt.alpha(Colors.base0d, 0.75)
+            Text {
+                text: "Connectivity: " + (root.connectivityLevel || root.connectivityState || "--")
+                anchors {
+                    left: parent.left; leftMargin: 10
+                    verticalCenter: parent.verticalCenter
+                }
+                color: Colors.foreground
+                font.pixelSize: 16
+                font.family: "JetBrainsMono Nerd Font"
+            }
 
-                            Text {
-                                text: sections[selSection]?.name ?? ""
-                                anchors {
-                                    left: parent.left; leftMargin: 10
-                                    verticalCenter: parent.verticalCenter
-                                }
-                                color: Colors.foreground
-                                font.pixelSize: 16
-                                font.family: "JetBrainsMono Nerd Font"
-                                font.bold: true
-                            }
-                        }
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                    if (!root.inSection) { root.inSection = true; root.selDevice = 0 }
+                    root.checkConnectivity()
+                }
+            }
+        }
 
-                        Column {
-                            width: parent.width
-                            spacing: 10
-                            visible: selSection === 0
+        Rectangle {
+            width: parent.width
+            height: 45
+            color: root.inSection && 1 === root.selDevice ? Qt.alpha(Colors.base01, 0.75) : "transparent"
 
-                            Text {
-                                width: parent.width
-                                height: 30
-                                visible: !wifiEnabled
-                                text: "Wi-Fi is turned off"
-                                horizontalAlignment: Text.AlignHCenter
-                                verticalAlignment: Text.AlignVCenter
-                                color: Qt.alpha(Colors.foreground, 0.75)
-                                font.pixelSize: 16
-                                font.family: "JetBrainsMono Nerd Font"
-                            }
+            Text {
+                text: "nmtui"
+                anchors {
+                    left: parent.left; leftMargin: 10
+                    verticalCenter: parent.verticalCenter
+                }
+                color: Colors.foreground
+                font.pixelSize: 16
+                font.family: "JetBrainsMono Nerd Font"
+            }
 
-                            Repeater {
-                                model: wifiNetworks
-                                visible: wifiEnabled
-
-                                delegate: Item {
-                                    id: wifiItem
-                                    width: parent.width
-                                    height: 45
-                                    property int wifiSignal: modelData.signal || 0
-
-                                    Rectangle {
-                                        anchors.fill: parent
-                                        color: inSection && index === selDevice ? Qt.alpha(Colors.base01, 0.75) : "transparent"
-                                    }
-
-                                    Text {
-                                        id: wifiLabel
-                                        text: modelData.ssid
-                                        anchors {
-                                            left: parent.left; leftMargin: 10
-                                            verticalCenter: parent.verticalCenter
-                                        }
-                                        color: Colors.foreground
-                                        font.pixelSize: 16
-                                        font.family: "JetBrainsMono Nerd Font"
-                                        elide: Text.ElideRight
-                                        width: parent.width * 0.45
-                                    }
-
-                                    Row {
-                                        id: signalRow
-                                        anchors {
-                                            left: wifiLabel.right; leftMargin: 10
-                                            verticalCenter: parent.verticalCenter
-                                        }
-                                        height: 10
-                                        spacing: 10
-
-                                        Repeater {
-                                            id: signalRepeater
-                                            model: 4
-
-                                            delegate: Rectangle {
-                                                width: 10
-                                                height: 10
-                                                color: index < Math.round(wifiItem.wifiSignal / 25)
-                                                       ? Colors.foreground : Qt.alpha(Colors.base0d, 0.75)
-                                            }
-                                        }
-                                    }
-
-                                    Text {
-                                        id: wifiStatus
-                                        anchors {
-                                            right: parent.right; rightMargin: 10
-                                            verticalCenter: parent.verticalCenter
-                                        }
-                                        text: connectingSsid === modelData.ssid
-                                            ? "Connecting..." : disconnectingSsid === modelData.ssid
-                                            ? "Disconnecting..." : modelData.active ? "Connected" : "Off"
-                                        color: modelData.active ? Colors.base0b : Qt.alpha(Colors.foreground, 0.75)
-                                        font.pixelSize: 16
-                                        font.family: "JetBrainsMono Nerd Font"
-                                        font.bold: modelData.active
-                                    }
-
-                                    MouseArea {
-                                        anchors.fill: parent
-                                        cursorShape: Qt.PointingHandCursor
-                                        onClicked: {
-                                            if (!inSection) { inSection = true; selDevice = index }
-                                            toggleWifiNetwork(index)
-                                        }
-                                    }
-                                }
-                            }
-
-                            Text {
-                                width: parent.width
-                                height: 30
-                                visible: wifiEnabled && wifiNetworks.length === 0
-                                text: "No Wi-Fi networks found"
-                                horizontalAlignment: Text.AlignHCenter
-                                verticalAlignment: Text.AlignVCenter
-                                color: Qt.alpha(Colors.foreground, 0.75)
-                                font.pixelSize: 16
-                                font.family: "JetBrainsMono Nerd Font"
-                            }
-                        }
-
-                        Column {
-                            width: parent.width
-                            spacing: 10
-                            visible: selSection === 1
-
-                            Repeater {
-                                model: ethernetDevices
-
-                                delegate: Item {
-                                    id: ethItem
-                                    width: parent.width
-                                    height: 45
-
-                                    Rectangle {
-                                        anchors.fill: parent
-                                        color: inSection && index === selDevice ? Qt.alpha(Colors.base01, 0.75) : "transparent"
-                                    }
-
-                                    Text {
-                                        id: ethLabel
-                                        text: modelData.name || "(unnamed)"
-                                        anchors {
-                                            left: parent.left; leftMargin: 10
-                                            verticalCenter: parent.verticalCenter
-                                        }
-                                        color: Colors.foreground
-                                        font.pixelSize: 16
-                                        font.family: "JetBrainsMono Nerd Font"
-                                        elide: Text.ElideRight
-                                        width: parent.width * 0.45
-                                    }
-
-                                    Text {
-                                        id: ethAddr
-                                        text: modelData.connection || (modelData.state === "connected" ? "Connected" : "Disconnected")
-                                        anchors {
-                                            left: ethLabel.right; leftMargin: 10
-                                            right: ethStatus.left; rightMargin: 10
-                                            verticalCenter: parent.verticalCenter
-                                        }
-                                        color: modelData.state === "connected" ? Colors.foreground : Qt.alpha(Colors.foreground, 0.75)
-                                        font.pixelSize: 16
-                                        font.family: "JetBrainsMono Nerd Font"
-                                        elide: Text.ElideRight
-                                    }
-
-                                    Text {
-                                        id: ethStatus
-                                        anchors {
-                                            right: parent.right; rightMargin: 10
-                                            verticalCenter: parent.verticalCenter
-                                        }
-                                        text: pendingEthDevice === modelData.name
-                                            ? (modelData.state === "connected" ? "Disconnecting..." : "Connecting...")
-                                            : modelData.state === "connected" ? "Connected" : "Off"
-                                        color: modelData.state === "connected" ? Colors.base0b : Colors.foreground
-                                        font.pixelSize: 16
-                                        font.family: "JetBrainsMono Nerd Font"
-                                        font.bold: modelData.state === "connected"
-                                    }
-
-                                    MouseArea {
-                                        anchors.fill: parent
-                                        cursorShape: Qt.PointingHandCursor
-                                        onClicked: {
-                                            if (!inSection) { inSection = true; selDevice = index }
-                                            toggleEthernet(index)
-                                        }
-                                    }
-                                }
-                            }
-
-                            Text {
-                                width: parent.width
-                                height: 30
-                                visible: ethernetDevices.length === 0
-                                text: "No Ethernet devices"
-                                horizontalAlignment: Text.AlignHCenter
-                                verticalAlignment: Text.AlignVCenter
-                                color: Qt.alpha(Colors.foreground, 0.75)
-                                font.pixelSize: 16
-                                font.family: "JetBrainsMono Nerd Font"
-                            }
-                        }
-
-                        Column {
-                            width: parent.width
-                            spacing: 10
-                            visible: selSection === 2
-
-                            Text {
-                                text: "Wi-Fi"
-                                width: parent.width
-                                height: 20
-                                leftPadding: 10
-                                color: Qt.alpha(Colors.foreground, 0.75)
-                                font.pixelSize: 16
-                                font.family: "JetBrainsMono Nerd Font"
-                                font.bold: true
-                            }
-
-                            Rectangle {
-                                width: parent.width
-                                height: 45
-                                color: inSection && 0 === selDevice ? Qt.alpha(Colors.base01, 0.75) : "transparent"
-
-                                Text {
-                                    text: "Wi-Fi: " + (wifiEnabled ? "On" : "Off")
-                                    anchors {
-                                        left: parent.left; leftMargin: 10
-                                        verticalCenter: parent.verticalCenter
-                                    }
-                                    color: Colors.foreground
-                                    font.pixelSize: 16
-                                    font.family: "JetBrainsMono Nerd Font"
-                                }
-
-                                MouseArea {
-                                    anchors.fill: parent
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        if (!inSection) { inSection = true; selDevice = 0 }
-                                        setWifiEnabled(!wifiEnabled)
-                                    }
-                                }
-                            }
-
-                            Text {
-                                text: "Ethernet"
-                                width: parent.width
-                                height: 20
-                                leftPadding: 10
-                                color: Qt.alpha(Colors.foreground, 0.75)
-                                font.pixelSize: 16
-                                font.family: "JetBrainsMono Nerd Font"
-                                font.bold: true
-                            }
-
-                            Rectangle {
-                                width: parent.width
-                                height: 45
-                                color: inSection && 2 === selDevice ? Qt.alpha(Colors.base01, 0.75) : "transparent"
-
-                                Text {
-                                    text: {
-                                        var connected = false
-                                        for (var ei = 0; ei < ethernetDevices.length; ei++) {
-                                            if (ethernetDevices[ei].state === "connected") { connected = true; break }
-                                        }
-                                        return "Ethernet: " + (connected ? "Connected" : "Disconnected")
-                                    }
-                                    anchors {
-                                        left: parent.left; leftMargin: 10
-                                        verticalCenter: parent.verticalCenter
-                                    }
-                                    color: Colors.foreground
-                                    font.pixelSize: 16
-                                    font.family: "JetBrainsMono Nerd Font"
-                                }
-                            }
-                        }
-
-                        Column {
-                            width: parent.width
-                            spacing: 10
-                            visible: selSection === 3
-
-                            Rectangle {
-                                width: parent.width
-                                height: 45
-                                color: inSection && 0 === selDevice ? Qt.alpha(Colors.base01, 0.75) : "transparent"
-
-                                Text {
-                                    text: "Connectivity: " + (connectivityLevel || connectivityState || "--")
-                                    anchors {
-                                        left: parent.left; leftMargin: 10
-                                        verticalCenter: parent.verticalCenter
-                                    }
-                                    color: Colors.foreground
-                                    font.pixelSize: 16
-                                    font.family: "JetBrainsMono Nerd Font"
-                                }
-
-                                MouseArea {
-                                    anchors.fill: parent
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        if (!inSection) { inSection = true; selDevice = 0 }
-                                        checkConnectivity()
-                                    }
-                                }
-                            }
-
-                            Rectangle {
-                                width: parent.width
-                                height: 45
-                                color: inSection && 1 === selDevice ? Qt.alpha(Colors.base01, 0.75) : "transparent"
-
-                                Text {
-                                    text: "nmtui"
-                                    anchors {
-                                        left: parent.left; leftMargin: 10
-                                        verticalCenter: parent.verticalCenter
-                                    }
-                                    color: Colors.foreground
-                                    font.pixelSize: 16
-                                    font.family: "JetBrainsMono Nerd Font"
-                                }
-
-                                MouseArea {
-                                    anchors.fill: parent
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: {
-                                        if (!inSection) { inSection = true; selDevice = 1 }
-                                        launchNmtui()
-                                    }
-                                }
-                            }
-                        }
-                    }
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                    if (!root.inSection) { root.inSection = true; root.selDevice = 1 }
+                    root.launchNmtui()
                 }
             }
         }
