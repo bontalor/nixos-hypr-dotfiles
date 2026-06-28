@@ -1,5 +1,7 @@
 import "../../theme"
+import "../../util"
 import QtQuick
+import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Mpris
 import Quickshell.Services.Pipewire
@@ -11,15 +13,9 @@ Item {
     clip: true
     visible: true
 
-    property int playerRefreshCounter: 0
-    property var playerTimestamps: ({})
-
-    // Re-evaluate whenever players are added/removed OR when any player's
-    // playbackState/trackTitle changes (playerRefreshCounter bumps on each
-    // such event via the Instantiator below).
     property var currentPlayer: {
-        void root.playerRefreshCounter
-        return selectCurrentPlayer(Mpris.players.values, root.playerTimestamps)
+        void MprisSelector.refreshCounter
+        return MprisSelector.selectCurrent(MprisSelector.allPlayers())
     }
 
     property string trackTitle: currentPlayer ? (currentPlayer.trackTitle ?? "") : ""
@@ -28,10 +24,6 @@ Item {
 
     property int maxChars: 8
 
-    // Reactive to currentPlayer's trackTitle/trackArtist. The previous
-    // imperative onCurrentPlayerChanged approach missed same-player track
-    // switches because QML doesn't emit notify when a `var` property is
-    // reassigned to the same QObject.
     property string displayText: currentPlayer
         ? (trackArtist ? trackArtist + " - " + trackTitle : trackTitle)
         : ""
@@ -40,52 +32,6 @@ Item {
 
     property var peakNode: findPeakNode(Pipewire.nodes)
     property var peakLevels: [0, 0, 0, 0, 0, 0, 0, 0]
-    property int peakFps: 20
-
-    function selectCurrentPlayer(raw, timestamps) {
-        if (!raw || raw.length === 0) return null
-        var best = {}
-        for (var i = 0; i < raw.length; i++) {
-            var p = raw[i]
-            var key = p.desktopEntry || p.identity || p.dbusName
-            if (best[key] === undefined) {
-                best[key] = p
-            } else {
-                var cur = best[key]
-                var curScore = (cur.playbackState === MprisPlaybackState.Playing ? 2 : 0) + (cur.trackTitle ? 1 : 0)
-                var newScore = (p.playbackState === MprisPlaybackState.Playing ? 2 : 0) + (p.trackTitle ? 1 : 0)
-                if (newScore > curScore) best[key] = p
-            }
-        }
-        var filtered = []
-        for (var key in best) filtered.push(best[key])
-
-        var playingPlayers = []
-        for (var i = 0; i < filtered.length; i++) {
-            if (filtered[i].playbackState === MprisPlaybackState.Playing)
-                playingPlayers.push(filtered[i])
-        }
-
-        var playing = null
-        if (playingPlayers.length === 1) {
-            playing = playingPlayers[0]
-        } else if (playingPlayers.length > 1) {
-            var bestPlaying = playingPlayers[0]
-            var bestTime = 0
-            for (var i = 0; i < playingPlayers.length; i++) {
-                var key = playingPlayers[i].desktopEntry || playingPlayers[i].identity || playingPlayers[i].dbusName
-                var ts = timestamps[key] ? timestamps[key].time : 0
-                if (ts > bestTime) {
-                    bestTime = ts
-                    bestPlaying = playingPlayers[i]
-                }
-            }
-            playing = bestPlaying
-        }
-        // Prefer a playing player, but fall back to the first available so a
-        // paused track still shows in the bar.
-        return playing || (filtered.length > 0 ? filtered[0] : null)
-    }
 
     function findPeakNode(nodes) {
         if (!nodes) return null
@@ -97,29 +43,6 @@ Item {
         return null
     }
 
-    function updateTimestamp(p) {
-        var key = p.desktopEntry || p.identity || p.dbusName
-        var now = Date.now()
-        var prev = playerTimestamps[key]
-        if (!prev) {
-            playerTimestamps[key] = { trackTitle: p.trackTitle, playbackState: p.playbackState, time: now }
-        } else if (prev.trackTitle !== p.trackTitle || prev.playbackState !== p.playbackState) {
-            prev.trackTitle = p.trackTitle
-            prev.playbackState = p.playbackState
-            prev.time = now
-        }
-    }
-
-    Instantiator {
-        model: Mpris.players
-        delegate: Connections {
-            target: modelData
-            function onPlaybackStateChanged() { root.updateTimestamp(modelData); root.playerRefreshCounter++ }
-            function onTrackTitleChanged() { root.updateTimestamp(modelData); root.playerRefreshCounter++ }
-            function onTrackArtistChanged() { root.playerRefreshCounter++ }
-        }
-    }
-
     onPlaybackStateChanged: {
         if (playbackState === MprisPlaybackState.Playing) startScroll()
         else { scrollPos = 0; scrollTimer.running = false }
@@ -127,8 +50,8 @@ Item {
 
     TextMetrics {
         id: textMetrics
-        font.family: "JetBrainsMono Nerd Font"
-        font.pixelSize: 16
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontPixelSize
         text: "M".repeat(maxChars)
     }
 
@@ -139,25 +62,22 @@ Item {
     }
 
     Timer {
-        interval: 1000 / Math.max(1, peakFps)
+        interval: 1000 / Theme.peakFps
         running: root.visible && playbackState === MprisPlaybackState.Playing
         repeat: true
         onTriggered: {
             var arr = root.peakLevels.slice()
             if (peakNode) {
                 var raw = Math.min(1, peakMon.peak)
-                for (var i = 0; i < 8; i++) {
+                for (var i = 0; i < Theme.peakBands; i++) {
                     var sensitivity = 0.3 + Math.random() * 1.2
                     var decay = 0.01 + Math.random() * 0.05
                     var target = Math.min(1, raw * sensitivity * 1.2)
-                    if (target > arr[i]) {
-                        arr[i] = target
-                    } else if (arr[i] > 0) {
-                        arr[i] = Math.max(0, arr[i] - decay)
-                    }
+                    if (target > arr[i]) arr[i] = target
+                    else if (arr[i] > 0) arr[i] = Math.max(0, arr[i] - decay)
                 }
             } else {
-                for (var i = 0; i < 8; i++) arr[i] = 0
+                for (var i = 0; i < Theme.peakBands; i++) arr[i] = 0
             }
             root.peakLevels = arr
         }
@@ -185,7 +105,7 @@ Item {
             height: 30
 
             Repeater {
-                model: 8
+                model: Theme.peakBands
                 delegate: Item {
                     property int colIdx: index
                     x: colIdx * 4
@@ -193,14 +113,14 @@ Item {
                     height: parent.height
 
                     Repeater {
-                        model: 8
+                        model: Theme.peakBands
                         delegate: Rectangle {
                             required property int index
                             width: 2
                             height: 2
                             y: parent.height - 2 - index * 4
                             color: Colors.foreground
-                            opacity: index === 0 ? 1.0 : (index < Math.round(root.peakLevels[colIdx] * 8) ? 1.0 : 0.0)
+                            opacity: index === 0 ? 1.0 : (index < Math.round(root.peakLevels[colIdx] * Theme.peakBands) ? 1.0 : 0.0)
                         }
                     }
                 }
@@ -224,8 +144,8 @@ Item {
                     while (slice.length < root.maxChars) slice += " "
                     return slice
                 }
-                font.pixelSize: 16
-                font.family: "JetBrainsMono Nerd Font"
+                font.pixelSize: Theme.fontPixelSize
+                font.family: Theme.fontFamily
                 color: Colors.foreground
             }
         }
@@ -234,30 +154,18 @@ Item {
     function startScroll() {
         if (playbackState !== MprisPlaybackState.Playing) return
         if (Array.from(root.displayText).length <= root.maxChars) return
-        var ms = Date.now() % 250
-        var delay = ms === 0 ? 0 : 250 - ms
-        scrollTimer.interval = delay
-        scrollTimer.repeat = false
-        scrollTimer.running = true
+        scrollTimer.start()
     }
 
     Timer {
         id: scrollTimer
-        repeat: false
+        interval: 250
+        repeat: true
         running: false
-
         onTriggered: {
-            if (!scrollTimer.repeat) {
-                scrollTimer.interval = 250
-                scrollTimer.repeat = true
-                scrollTimer.running = true
-            }
             var clen = Array.from(root.displayText).length
-            if (root.scrollPos >= clen) {
-                root.scrollPos = 0
-            } else {
-                root.scrollPos++
-            }
+            if (root.scrollPos >= clen) root.scrollPos = 0
+            else root.scrollPos++
         }
     }
 
@@ -266,12 +174,6 @@ Item {
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: ipcToggle.running = true
-    }
-
-    Process {
-        id: ipcToggle
-        command: ["qs", "ipc", "call", "overlay", "toggle", "media"]
-        running: false
+        onClicked: Panels.toggle("media")
     }
 }

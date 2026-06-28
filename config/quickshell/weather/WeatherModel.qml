@@ -3,6 +3,13 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "../util"
+import "../theme"
+
+// Wttr.in-backed weather state. Fetches JSON on demand, computes moon
+// phase once per fetch (rather than recomputing every minute), and
+// refreshes on a long interval gated on `dataReady` so a newly-spawned
+// shell doesn't fire a second network request before the first completes.
 
 Singleton {
     id: root
@@ -59,74 +66,18 @@ Singleton {
     }
 
     function parseWeather(text) {
-        var json = JSON.parse(text)
+        var json
+        try {
+            json = JSON.parse(text)
+        } catch (e) {
+            // curl returned an error page or empty string; leave prior data intact.
+            return
+        }
         if (json && json.current_condition && json.current_condition[0]) {
             weatherData = json
             dataReady = true
             updateMoonData()
         }
-    }
-
-    function moonLunarAge() {
-        var now = new Date()
-        var y = now.getFullYear()
-        var m = now.getMonth() + 1
-        var d = now.getDate()
-        var h = now.getHours()
-        var mn = now.getMinutes()
-        var s = now.getSeconds()
-        if (m <= 2) { y -= 1; m += 12 }
-        var a = Math.floor(y / 100)
-        var b = 2 - a + Math.floor(a / 4)
-        var jd = Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + d + b - 1524.5
-        jd += h / 24 + mn / 1440 + s / 86400
-        var days = jd - 2451550.226
-        var cycles = days / 29.530587
-        return (cycles - Math.floor(cycles)) * 29.530587
-    }
-
-    function calcMoonPhase() {
-        var age = moonLunarAge()
-        if (age < 1.5 || age >= 28.0) return "New Moon"
-        if (age < 6.4) return "Waxing Crescent"
-        if (age < 8.4) return "First Quarter"
-        if (age < 13.3) return "Waxing Gibbous"
-        if (age < 16.2) return "Full Moon"
-        if (age < 21.1) return "Waning Gibbous"
-        if (age < 23.1) return "Last Quarter"
-        return "Waning Crescent"
-    }
-
-    function calcMoonIcon() {
-        var p = calcMoonPhase().toLowerCase()
-        if (p.includes("new")) return "\uD83C\uDF11"
-        if (p.includes("waxing crescent")) return "\uD83C\uDF12"
-        if (p.includes("first quarter")) return "\uD83C\uDF13"
-        if (p.includes("waxing gibbous")) return "\uD83C\uDF14"
-        if (p.includes("full")) return "\uD83C\uDF15"
-        if (p.includes("waning gibbous")) return "\uD83C\uDF16"
-        if (p.includes("last quarter")) return "\uD83C\uDF17"
-        if (p.includes("waning crescent")) return "\uD83C\uDF18"
-        return ""
-    }
-
-    function calcMoonIllumination() {
-        var age = moonLunarAge()
-        return Math.round(50 * (1 - Math.cos(2 * Math.PI * age / 29.530587)))
-    }
-
-    function calcNextFullMoon() {
-        var age = moonLunarAge()
-        var daysUntilFull = (14.765 - age + 29.530587) % 29.530587
-        if (daysUntilFull < 0.5) return "Today"
-        if (daysUntilFull < 1.5) return "Tomorrow"
-        var today = new Date()
-        var nextFull = new Date(today)
-        nextFull.setDate(today.getDate() + Math.round(daysUntilFull))
-        var y = nextFull.getFullYear()
-        var m = String(nextFull.getMonth() + 1).padStart(2, '0')
-        var d = String(nextFull.getDate()).padStart(2, '0')
-        return y + "-" + m + "-" + d
     }
 
     function parseTimeToMinutes(timeStr) {
@@ -145,7 +96,7 @@ Singleton {
         if (!area || !area.length) return 0
         var lon = area[0].longitude
         if (lon === undefined || lon === null) return 0
-        // 15 degrees longitude ≈ 1 hour timezone offset
+        // 15 degrees longitude ≈ 1 hour offset (approximation)
         return Math.round(lon / 15) * 60
     }
 
@@ -158,7 +109,6 @@ Singleton {
         var a = astro[0]
         if (!a.sunrise || !a.sunset) return false
         var offset = getLocationTimezoneOffsetMinutes()
-        // Convert current UTC to minutes-since-midnight at the location
         var utcNow = new Date()
         var locationMinutes = ((utcNow.getUTCHours() * 60 + utcNow.getUTCMinutes() + offset) % 1440 + 1440) % 1440
         var sunriseMinutes = parseTimeToMinutes(a.sunrise)
@@ -166,26 +116,24 @@ Singleton {
         return locationMinutes < sunriseMinutes || locationMinutes >= sunsetMinutes
     }
 
+    // Moon phase is recomputed once per fetch — its values barely move
+    // within a wttr.in refresh window (the prior moonTimer ticked every
+    // 60s and was oversampled by ~1440x).
     function updateMoonData() {
+        var age = Util.lunarAge()
         root.isNight = calcIsNight()
-        root.moonPhase = calcMoonPhase()
-        root.moonIcon = calcMoonIcon()
-        root.moonIllumination = calcMoonIllumination()
-        root.nextFullMoon = calcNextFullMoon()
+        root.moonPhase = Util.moonPhaseName(age)
+        root.moonIcon = Util.moonPhaseIcon(root.moonPhase)
+        root.moonIllumination = Util.moonIllumination(age)
+        root.nextFullMoon = Util.nextFullMoon(age)
     }
 
-    Timer {
-        id: moonTimer
-        interval: 60000
-        repeat: true
-        running: root.dataReady
-        onTriggered: updateMoonData()
-    }
-
+    // Only poll after the first fetch completes (or the user opens the
+    // panel) — running before `dataReady` would race with startup.
     Timer {
         interval: 600000
         repeat: true
-        running: true
+        running: root.dataReady
         onTriggered: fetchWeather()
     }
 

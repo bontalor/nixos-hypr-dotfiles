@@ -42,8 +42,8 @@ Row {
                 id: textItem
                 anchors.centerIn: parent
                 text: wsId
-                font.pixelSize: 16
-                font.family: "JetBrainsMono Nerd Font"
+                font.pixelSize: Theme.fontPixelSize
+                font.family: Theme.fontFamily
                 color: Colors.foreground
             }
             MouseArea {

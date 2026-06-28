@@ -323,7 +323,7 @@ for obj in data:
 
                 Rectangle {
                     anchors.fill: parent
-                    color: root.inSection && index === root.selDevice ? Qt.alpha(Colors.base01, 0.75) : "transparent"
+                    color: root.inSection && index === root.selDevice ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
                 }
 
                 Text {
@@ -334,8 +334,8 @@ for obj in data:
                         verticalCenter: parent.verticalCenter
                     }
                     color: Colors.foreground
-                    font.pixelSize: 16
-                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
                     elide: Text.ElideRight
                     width: parent.width * 0.4
                 }
@@ -353,7 +353,7 @@ for obj in data:
                     Rectangle {
                         width: parent.width * (modelData.audio?.volume ?? 0)
                         height: parent.height
-                        color: (modelData.audio?.muted ?? false) ? Qt.alpha(Colors.foreground, 0.75) : Colors.base0d
+                        color: (modelData.audio?.muted ?? false) ? Qt.alpha(Colors.foreground, Theme.alphaBackground) : Colors.base0d
                     }
 
                     MouseArea {
@@ -386,7 +386,7 @@ for obj in data:
                             width: 10
                             height: 10
                             color: index < Math.round(nodeItem.displayedPeak * peakRepeater.count)
-                                   ? Colors.foreground : Qt.alpha(Colors.base0d, 0.75)
+                                   ? Colors.foreground : Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
                         }
                     }
                 }
@@ -399,8 +399,8 @@ for obj in data:
                     }
                     text: (modelData.audio?.muted ?? false) ? "MUT" : ("  " + Math.round((modelData.audio?.volume ?? 0) * 100)).slice(-3) + "%"
                     color: (modelData.audio?.muted ?? false) ? Colors.base08 : Colors.foreground
-                    font.pixelSize: 16
-                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
                     font.bold: (modelData.audio?.muted ?? false)
 
                     MouseArea {
@@ -419,9 +419,9 @@ for obj in data:
             text: "Nothing to show"
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
-            color: Qt.alpha(Colors.foreground, 0.75)
-            font.pixelSize: 16
-            font.family: "JetBrainsMono Nerd Font"
+            color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
+            font.pixelSize: Theme.fontPixelSize
+            font.family: Theme.fontFamily
         }
     }
 
@@ -444,7 +444,7 @@ for obj in data:
                     anchors.fill: parent
                     color: ((!root.configExpanded && root.inSection && index === root.selConfigDevice)
                             || (root.configExpanded && root.inSection && index === root.selConfigDevice))
-                           ? Qt.alpha(Colors.base01, 0.75) : "transparent"
+                           ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
                 }
 
                 Column {
@@ -461,8 +461,8 @@ for obj in data:
                                 top: parent.top; topMargin: 4
                             }
                             color: Colors.foreground
-                            font.pixelSize: 16
-                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: Theme.fontPixelSize
+                            font.family: Theme.fontFamily
                             elide: Text.ElideRight
                             width: parent.width - 20
                         }
@@ -480,9 +480,9 @@ for obj in data:
                                 left: parent.left; leftMargin: 10
                                 top: parent.top; topMargin: 24
                             }
-                            color: Qt.alpha(Colors.foreground, 0.75)
-                            font.pixelSize: 16
-                            font.family: "JetBrainsMono Nerd Font"
+                            color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
+                            font.pixelSize: Theme.fontPixelSize
+                            font.family: Theme.fontFamily
                             elide: Text.ElideRight
                             width: parent.width - 20
                         }
@@ -512,8 +512,8 @@ for obj in data:
                             width: parent.width
                             height: 30
                             color: index === root.selConfigProfile
-                                   ? Qt.alpha(Colors.base0d, 0.75)
-                                   : Qt.alpha(Colors.base00, 0.75)
+                                   ? Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
+                                   : Qt.alpha(Colors.base00, Theme.alphaBackground)
 
                             Text {
                                 text: modelData.description || modelData.name
@@ -522,8 +522,8 @@ for obj in data:
                                     verticalCenter: parent.verticalCenter
                                 }
                                 color: Colors.foreground
-                                font.pixelSize: 16
-                                font.family: "JetBrainsMono Nerd Font"
+                                font.pixelSize: Theme.fontPixelSize
+                                font.family: Theme.fontFamily
                             }
 
                             MouseArea {
@@ -547,9 +547,9 @@ for obj in data:
             text: "No PipeWire devices"
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
-            color: Qt.alpha(Colors.foreground, 0.75)
-            font.pixelSize: 16
-            font.family: "JetBrainsMono Nerd Font"
+            color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
+            font.pixelSize: Theme.fontPixelSize
+            font.family: Theme.fontFamily
         }
     }
 }

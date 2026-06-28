@@ -25,11 +25,10 @@ Panel {
     property bool cityEditing: false
     property string cityInputText: ""
 
-    Timer {
-        id: focusTimer
-        interval: 0
-        onTriggered: root.forceFocus()
-    }
+    // Deferred-focus helper for after the city-input flow dismisses the
+    // keyboard focus. Qt.callLater is the event-loop-friendly alternative
+    // to the previous zero-interval Timer workaround.
+    function deferredFocus() { Qt.callLater(root.forceFocus) }
 
     function currentModelLength() {
         switch (root.selSection) {
@@ -96,12 +95,25 @@ Panel {
     onKeyPressed: function(event) {
         switch (event.key) {
         case Qt.Key_Tab:
-            if (root.selSection === 3 && root.inSection) {
+            // Shift+Tab always means "go back", regardless of section.
+            // Previously this branch was an `else if` after the
+            // `selSection === 3` case, so Shift+Tab inside Configuration
+            // toggled configExpanded instead of returning to the section
+            // list — leaving the user stuck.
+            if (event.modifiers & Qt.ShiftModifier) {
+                if (root.cityEditing) {
+                    root.cityEditing = false
+                    root.deferredFocus()
+                } else if (root.selSection === 3 && root.configExpanded) {
+                    root.configExpanded = false
+                } else if (root.inSection) {
+                    root.inSection = false
+                } else {
+                    root.selSection = Math.max(root.selSection - 1, 0)
+                }
+            } else if (root.selSection === 3 && root.inSection) {
                 if (root.configExpanded) root.configExpanded = false
                 else { root.configExpanded = true; root.selConfigProfile = 0 }
-            } else if (event.modifiers & Qt.ShiftModifier) {
-                if (root.inSection) root.inSection = false
-                else root.selSection = Math.max(root.selSection - 1, 0)
             } else if (root.inSection) {
                 root.selDevice = Math.min(root.selDevice + 1, Math.max(0, root.currentModelLength() - 1))
             } else {
@@ -130,7 +142,7 @@ Panel {
                             root.cityEditing = false
                             root.configExpanded = false
                             WeatherModel.fetchWeather()
-                            focusTimer.running = true
+                            root.deferredFocus()
                         }
                     }
                 } else if (root.selConfigItem === 1) {
@@ -149,8 +161,7 @@ Panel {
         case Qt.Key_J:
         case Qt.Key_Down:
             if (root.selSection === 3 && root.configExpanded && root.inSection) {
-                var plen = root.selConfigItem === 0 ? 2 : 2
-                root.selConfigProfile = Math.min(root.selConfigProfile + 1, Math.max(0, plen - 1))
+                root.selConfigProfile = Math.min(root.selConfigProfile + 1, 1)
             } else if (root.selSection === 3 && root.inSection) {
                 root.selConfigItem = Math.min(root.selConfigItem + 1, Math.max(0, 1))
             } else if (root.inSection) {
@@ -174,7 +185,7 @@ Panel {
         case Qt.Key_Escape:
             if (root.cityEditing) {
                 root.cityEditing = false
-                focusTimer.running = true
+                root.deferredFocus()
             } else if (root.selSection === 3 && root.configExpanded) {
                 root.configExpanded = false
             } else {
@@ -203,7 +214,7 @@ Panel {
                     text: root.cc ? WeatherCodes.icon(parseInt(root.cc.weatherCode)) + "  " + (WeatherModel.degreeUnit === "F" ? root.cc.temp_F : root.cc.temp_C) + "\u00b0" + WeatherModel.degreeUnit : ""
                     color: Colors.foreground
                     font.pixelSize: 32
-                    font.family: "JetBrainsMono Nerd Font"
+                    font.family: Theme.fontFamily
                     font.bold: true
                 }
 
@@ -211,72 +222,72 @@ Panel {
                     visible: WeatherModel.dataReady
                     text: root.cc ? WeatherCodes.desc(parseInt(root.cc.weatherCode)) : ""
                     color: Colors.foreground
-                    font.pixelSize: 16
-                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
                 }
 
                 Text {
                     visible: WeatherModel.dataReady
                     text: root.cc ? "Feels like " + (WeatherModel.degreeUnit === "F" ? root.cc.FeelsLikeF : root.cc.FeelsLikeC) + "\u00b0" + WeatherModel.degreeUnit : ""
                     color: Colors.foreground
-                    font.pixelSize: 16
-                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
                 }
 
                 Text {
                     visible: WeatherModel.dataReady
                     text: root.cc ? "Humidity: " + root.cc.humidity + "%" : ""
                     color: Colors.foreground
-                    font.pixelSize: 16
-                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
                 }
 
                 Text {
                     visible: WeatherModel.dataReady
                     text: root.cc ? "Wind: " + root.cc.windspeedKmph + " km/h " + root.cc.winddir16Point : ""
                     color: Colors.foreground
-                    font.pixelSize: 16
-                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
                 }
 
                 Text {
                     visible: WeatherModel.dataReady
                     text: root.cc ? "UV Index: " + root.cc.uvIndex : ""
                     color: Colors.foreground
-                    font.pixelSize: 16
-                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
                 }
 
                 Text {
                     visible: WeatherModel.dataReady
                     text: root.cc ? "Pressure: " + root.cc.pressure + " mb" : ""
                     color: Colors.foreground
-                    font.pixelSize: 16
-                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
                 }
 
                 Text {
                     visible: WeatherModel.dataReady
                     text: root.cc ? "Visibility: " + root.cc.visibility + " km" : ""
                     color: Colors.foreground
-                    font.pixelSize: 16
-                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
                 }
 
                 Text {
                     visible: WeatherModel.dataReady
                     text: root.cc ? "Cloud cover: " + root.cc.cloudcover + "%" : ""
                     color: Colors.foreground
-                    font.pixelSize: 16
-                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
                 }
 
                 Text {
                     visible: !WeatherModel.dataReady
                     text: "Fetching weather data..."
                     color: Colors.foreground
-                    font.pixelSize: 16
-                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
                 }
             }
         }
@@ -301,7 +312,7 @@ Panel {
                     text: WeatherModel.dataReady ? WeatherModel.moonIcon + "  " + WeatherModel.moonPhase : ""
                     color: Colors.foreground
                     font.pixelSize: 32
-                    font.family: "JetBrainsMono Nerd Font"
+                    font.family: Theme.fontFamily
                     font.bold: true
                 }
 
@@ -309,40 +320,40 @@ Panel {
                     visible: WeatherModel.dataReady
                     text: WeatherModel.dataReady ? "Illumination: " + WeatherModel.moonIllumination + "%" : ""
                     color: Colors.foreground
-                    font.pixelSize: 16
-                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
                 }
 
                 Text {
                     visible: WeatherModel.dataReady && root.astro !== null
                     text: root.astro ? "Moonrise: " + root.astro.moonrise : ""
                     color: Colors.foreground
-                    font.pixelSize: 16
-                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
                 }
 
                 Text {
                     visible: WeatherModel.dataReady && root.astro !== null
                     text: root.astro ? "Moonset: " + root.astro.moonset : ""
                     color: Colors.foreground
-                    font.pixelSize: 16
-                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
                 }
 
                 Text {
                     visible: WeatherModel.dataReady
                     text: WeatherModel.dataReady ? "Next full moon: " + WeatherModel.nextFullMoon : ""
                     color: Colors.foreground
-                    font.pixelSize: 16
-                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
                 }
 
                 Text {
                     visible: !WeatherModel.dataReady
                     text: "Fetching astronomy data..."
                     color: Colors.foreground
-                    font.pixelSize: 16
-                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
                 }
             }
         }
@@ -366,32 +377,32 @@ Panel {
                     visible: WeatherModel.dataReady
                     text: root.area ? root.area.areaName[0].value : ""
                     color: Colors.foreground
-                    font.pixelSize: 16
-                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
                 }
 
                 Text {
                     visible: WeatherModel.dataReady
                     text: root.area ? root.area.region[0].value + ", " + root.area.country[0].value : ""
                     color: Colors.foreground
-                    font.pixelSize: 16
-                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
                 }
 
                 Text {
                     visible: WeatherModel.dataReady
                     text: "Using: " + (WeatherModel.customCity || "Auto (IP)")
                     color: Colors.foreground
-                    font.pixelSize: 16
-                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
                 }
 
                 Text {
                     visible: !WeatherModel.dataReady
                     text: "Fetching location data..."
                     color: Colors.foreground
-                    font.pixelSize: 16
-                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
                 }
             }
         }
@@ -413,7 +424,7 @@ Panel {
                 anchors.fill: parent
                 color: ((!root.configExpanded && root.inSection && 0 === root.selConfigItem)
                         || (root.configExpanded && root.inSection && 0 === root.selConfigItem))
-                       ? Qt.alpha(Colors.base01, 0.75) : "transparent"
+                       ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
             }
 
             Column {
@@ -427,8 +438,8 @@ Panel {
                         text: "City: " + (WeatherModel.customCity || "Auto")
                         anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
                         color: Colors.foreground
-                        font.pixelSize: 16
-                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: Theme.fontPixelSize
+                        font.family: Theme.fontFamily
                     }
 
                     MouseArea {
@@ -456,15 +467,15 @@ Panel {
                         width: parent.width
                         height: 30
                         color: 0 === root.selConfigProfile
-                                ? Qt.alpha(Colors.base0d, 0.75)
-                                : Qt.alpha(Colors.base00, 0.75)
+                                ? Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
+                                : Qt.alpha(Colors.base00, Theme.alphaBackground)
 
                         Text {
                             text: "Auto (IP)"
                             anchors { left: parent.left; leftMargin: 30; verticalCenter: parent.verticalCenter }
                             color: Colors.foreground
-                            font.pixelSize: 16
-                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: Theme.fontPixelSize
+                            font.family: Theme.fontFamily
                         }
 
                         MouseArea {
@@ -484,15 +495,15 @@ Panel {
                         width: parent.width
                         height: 30
                         color: !root.cityEditing && 1 === root.selConfigProfile
-                                ? Qt.alpha(Colors.base0d, 0.75)
-                                : Qt.alpha(Colors.base00, 0.75)
+                                ? Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
+                                : Qt.alpha(Colors.base00, Theme.alphaBackground)
 
                         Text {
                             text: "Custom..."
                             anchors { left: parent.left; leftMargin: 30; right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
                             color: Colors.foreground
-                            font.pixelSize: 16
-                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: Theme.fontPixelSize
+                            font.family: Theme.fontFamily
                             visible: !root.cityEditing
                         }
 
@@ -500,8 +511,8 @@ Panel {
                             visible: root.cityEditing
                             anchors { left: parent.left; leftMargin: 30; right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
                             color: Colors.foreground
-                            font.pixelSize: 16
-                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: Theme.fontPixelSize
+                            font.family: Theme.fontFamily
                             text: root.cityInputText
                             focus: root.cityEditing
                             onAccepted: {
@@ -509,12 +520,12 @@ Panel {
                                 root.cityEditing = false
                                 root.configExpanded = false
                                 WeatherModel.fetchWeather()
-                                focusTimer.running = true
+                                root.deferredFocus()
                             }
                             Keys.onPressed: (event) => {
                                 if (event.key === Qt.Key_Escape) {
                                     root.cityEditing = false
-                                    focusTimer.running = true
+                                    root.deferredFocus()
                                     event.accepted = true
                                 }
                             }
@@ -545,7 +556,7 @@ Panel {
                 anchors.fill: parent
                 color: ((!root.configExpanded && root.inSection && 1 === root.selConfigItem)
                         || (root.configExpanded && root.inSection && 1 === root.selConfigItem))
-                       ? Qt.alpha(Colors.base01, 0.75) : "transparent"
+                       ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
             }
 
             Column {
@@ -559,8 +570,8 @@ Panel {
                         text: "Unit: \u00b0" + WeatherModel.degreeUnit
                         anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
                         color: Colors.foreground
-                        font.pixelSize: 16
-                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: Theme.fontPixelSize
+                        font.family: Theme.fontFamily
                     }
 
                     MouseArea {
@@ -588,15 +599,15 @@ Panel {
                         width: parent.width
                         height: 30
                         color: 0 === root.selConfigProfile
-                                ? Qt.alpha(Colors.base0d, 0.75)
-                                : Qt.alpha(Colors.base00, 0.75)
+                                ? Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
+                                : Qt.alpha(Colors.base00, Theme.alphaBackground)
 
                         Text {
                             text: "Fahrenheit"
                             anchors { left: parent.left; leftMargin: 30; verticalCenter: parent.verticalCenter }
                             color: Colors.foreground
-                            font.pixelSize: 16
-                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: Theme.fontPixelSize
+                            font.family: Theme.fontFamily
                         }
 
                         MouseArea {
@@ -615,15 +626,15 @@ Panel {
                         width: parent.width
                         height: 30
                         color: 1 === root.selConfigProfile
-                                ? Qt.alpha(Colors.base0d, 0.75)
-                                : Qt.alpha(Colors.base00, 0.75)
+                                ? Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
+                                : Qt.alpha(Colors.base00, Theme.alphaBackground)
 
                         Text {
                             text: "Celsius"
                             anchors { left: parent.left; leftMargin: 30; verticalCenter: parent.verticalCenter }
                             color: Colors.foreground
-                            font.pixelSize: 16
-                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: Theme.fontPixelSize
+                            font.family: Theme.fontFamily
                         }
 
                         MouseArea {

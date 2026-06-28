@@ -13,6 +13,12 @@ Item {
 
     property string distroContent: ""
 
+    FileView {
+        path: "/etc/os-release"
+        watchChanges: false
+        onLoaded: root.distroContent = text()
+    }
+
     property string logoPath: computeLogoPath(distroContent)
 
     function computeLogoPath(content) {
@@ -31,16 +37,6 @@ Item {
         return ""
     }
 
-    Process {
-        id: distroProbe
-        command: ["cat", "/etc/os-release"]
-        running: true
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: root.distroContent = text
-        }
-    }
-
     Rectangle {
         anchors.fill: parent
         color: mouseArea.containsMouse ? Qt.alpha(Colors.foreground, 0.25) : "transparent"
@@ -50,20 +46,20 @@ Item {
     Image {
         id: logoImage
         anchors.centerIn: parent
-        width: 22
-        height: 22
+        width: Theme.iconSize
+        height: Theme.iconSize
         source: root.logoPath ? "file://" + root.logoPath : ""
         fillMode: Image.PreserveAspectFit
-        sourceSize.width: 22
-        sourceSize.height: 22
+        sourceSize.width: Theme.iconSize
+        sourceSize.height: Theme.iconSize
         visible: status === Image.Ready
     }
 
     Text {
         anchors.centerIn: parent
-        text: "\uf303"
-        font.pixelSize: 22
-        font.family: "JetBrainsMono Nerd Font"
+        text: Icon.distroFallback
+        font.pixelSize: Theme.fontPixelSizeLarge
+        font.family: Theme.fontFamily
         color: Colors.foreground
         visible: logoImage.status !== Image.Ready
     }
@@ -73,12 +69,6 @@ Item {
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: launcherToggle.running = true
-    }
-
-    Process {
-        id: launcherToggle
-        command: ["qs", "ipc", "call", "overlay", "toggle", "launcher"]
-        running: false
+        onClicked: Panels.toggle("launcher")
     }
 }

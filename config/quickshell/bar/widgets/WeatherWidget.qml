@@ -2,7 +2,6 @@ import "../../theme"
 import "../../weather"
 import QtQuick
 import Quickshell
-import Quickshell.Io
 
 Item {
     id: root
@@ -21,8 +20,8 @@ Item {
         text: WeatherModel.dataReady
             ? (WeatherModel.isNight ? WeatherModel.moonIcon + " " : "") + WeatherCodes.icon(parseInt(WeatherModel.weatherData.current_condition[0].weatherCode)) + " " + (WeatherModel.degreeUnit === "F" ? WeatherModel.weatherData.current_condition[0].temp_F : WeatherModel.weatherData.current_condition[0].temp_C) + "\u00b0" + WeatherModel.degreeUnit
             : ""
-        font.pixelSize: 16
-        font.family: "JetBrainsMono Nerd Font"
+        font.pixelSize: Theme.fontPixelSize
+        font.family: Theme.fontFamily
         color: Colors.foreground
     }
 
@@ -31,12 +30,6 @@ Item {
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: ipcToggle.running = true
-    }
-
-    Process {
-        id: ipcToggle
-        command: ["qs", "ipc", "call", "overlay", "toggle", "weather"]
-        running: false
+        onClicked: Panels.toggle("weather")
     }
 }

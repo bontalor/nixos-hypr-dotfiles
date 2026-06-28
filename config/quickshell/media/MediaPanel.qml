@@ -1,4 +1,5 @@
 import "../theme"
+import "../util"
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -20,19 +21,17 @@ FloatingWindow {
 
     property bool manuallySelected: false
     property var manualPlayer: null
-    property int playerRefreshCounter: 0
 
-    property var playerTimestamps: ({})
-
-    // Re-evaluate on player add/remove OR any playbackState/trackTitle change
-    // (playerRefreshCounter bumps on each via the Instantiator below).
     property var currentPlayer: {
-        void root.playerRefreshCounter
+        void MprisSelector.refreshCounter
         if (root.manuallySelected && root.manualPlayer) return root.manualPlayer
-        return selectCurrentPlayer(Mpris.players.values, root.playerTimestamps)
+        return MprisSelector.selectCurrent(MprisSelector.allPlayers())
     }
 
-    property var allPlayers: allPlayersFromRaw(Mpris.players.values)
+    property var allPlayers: {
+        void MprisSelector.refreshCounter
+        return MprisSelector.allPlayers()
+    }
 
     property string trackTitle: currentPlayer?.trackTitle ?? ""
     property string trackArtist: currentPlayer?.trackArtist ?? ""
@@ -65,85 +64,13 @@ FloatingWindow {
         onTriggered: root.extraTickSeconds += 1
     }
 
-    function allPlayersFromRaw(raw) {
-        var best = {}
-        for (var i = 0; i < raw.length; i++) {
-            var p = raw[i]
-            var key = p.desktopEntry || p.identity || p.dbusName
-            if (best[key] === undefined) {
-                best[key] = p
-            } else {
-                var cur = best[key]
-                var curScore = (cur.playbackState === MprisPlaybackState.Playing ? 2 : 0) + (cur.trackTitle ? 1 : 0)
-                var newScore = (p.playbackState === MprisPlaybackState.Playing ? 2 : 0) + (p.trackTitle ? 1 : 0)
-                if (newScore > curScore) best[key] = p
-            }
-        }
-        var filtered = []
-        for (var key in best) filtered.push(best[key])
-        return filtered
-    }
-
-    function selectCurrentPlayer(raw, timestamps) {
-        if (!manuallySelected) {
-            var playingPlayers = []
-            for (var i = 0; i < raw.length; i++) {
-                if (raw[i].playbackState === MprisPlaybackState.Playing)
-                    playingPlayers.push(raw[i])
-            }
-            var playing = null
-            if (playingPlayers.length === 1) {
-                playing = playingPlayers[0]
-            } else if (playingPlayers.length > 1) {
-                var bestPlaying = playingPlayers[0]
-                var bestTime = 0
-                for (var i = 0; i < playingPlayers.length; i++) {
-                    var key = playingPlayers[i].desktopEntry || playingPlayers[i].identity || playingPlayers[i].dbusName
-                    var ts = timestamps[key] ? timestamps[key].time : 0
-                    if (ts > bestTime) {
-                        bestTime = ts
-                        bestPlaying = playingPlayers[i]
-                    }
-                }
-                playing = bestPlaying
-            }
-            return playing || (raw.length > 0 ? raw[0] : null)
-        }
-        return root.manualPlayer || (raw.length > 0 ? raw[0] : null)
-    }
-
     function fmtTime(sec) {
-        var totalSec = Math.floor(sec)
-        var m = Math.floor(totalSec / 60)
-        var s = totalSec % 60
-        return (" " + m).slice(-2) + ":" + ("0" + s).slice(-2)
+        return Util.fmtSeconds(sec)
     }
 
     function setPlayer(player) {
         manualPlayer = player
         manuallySelected = true
-    }
-
-    Instantiator {
-        model: Mpris.players
-        delegate: Connections {
-            target: modelData
-            function onTrackTitleChanged() { updateTimestamp(modelData); root.playerRefreshCounter++ }
-            function onPlaybackStateChanged() { updateTimestamp(modelData); root.playerRefreshCounter++ }
-        }
-    }
-
-    function updateTimestamp(p) {
-        var key = p.desktopEntry || p.identity || p.dbusName
-        var prev = playerTimestamps[key]
-        var now = Date.now()
-        if (!prev) {
-            playerTimestamps[key] = { trackTitle: p.trackTitle, playbackState: p.playbackState, time: now }
-        } else if (prev.trackTitle !== p.trackTitle || prev.playbackState !== p.playbackState) {
-            prev.trackTitle = p.trackTitle
-            prev.playbackState = p.playbackState
-            prev.time = now
-        }
     }
 
     onVisibleChanged: {
@@ -229,7 +156,7 @@ FloatingWindow {
             Rectangle {
                 width: (parent.width - parent.spacing) * 0.25
                 height: parent.height
-                color: Qt.alpha(Colors.base00, 0.75)
+                color: Qt.alpha(Colors.base00, Theme.alphaBackground)
                 clip: true
 
                 Column {
@@ -240,7 +167,7 @@ FloatingWindow {
                     Rectangle {
                         width: parent.width
                         height: 30
-                        color: Qt.alpha(Colors.base0d, 0.75)
+                        color: Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
 
                         Text {
                             text: "Sources"
@@ -249,8 +176,8 @@ FloatingWindow {
                                 verticalCenter: parent.verticalCenter
                             }
                             color: Colors.foreground
-                            font.pixelSize: 16
-                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: Theme.fontPixelSize
+                            font.family: Theme.fontFamily
                             font.bold: true
                         }
                     }
@@ -262,7 +189,7 @@ FloatingWindow {
                             width: parent.width
                             height: 30
                             color: allPlayers[index] === root.currentPlayer
-                                   ? Qt.alpha(Colors.base01, 0.75)
+                                   ? Qt.alpha(Colors.base01, Theme.alphaSelected)
                                    : "transparent"
 
                             Text {
@@ -273,8 +200,8 @@ FloatingWindow {
                                     verticalCenter: parent.verticalCenter
                                 }
                                 color: Colors.foreground
-                                font.pixelSize: 16
-                                font.family: "JetBrainsMono Nerd Font"
+                                font.pixelSize: Theme.fontPixelSize
+                                font.family: Theme.fontFamily
                                 elide: Text.ElideRight
                                 leftPadding: selSection === index && inSection ? 18 : 0
                             }
@@ -286,8 +213,8 @@ FloatingWindow {
                                     verticalCenter: parent.verticalCenter
                                 }
                                 color: Colors.foreground
-                                font.pixelSize: 16
-                                font.family: "JetBrainsMono Nerd Font"
+                                font.pixelSize: Theme.fontPixelSize
+                                font.family: Theme.fontFamily
                                 visible: selSection === index && inSection
                             }
 
@@ -310,7 +237,7 @@ FloatingWindow {
             Rectangle {
                 width: (parent.width - parent.spacing) * 0.75
                 height: parent.height
-                color: Qt.alpha(Colors.base00, 0.75)
+                color: Qt.alpha(Colors.base00, Theme.alphaBackground)
 
                 Item {
                     anchors {
@@ -332,7 +259,7 @@ FloatingWindow {
                         Rectangle {
                             width: parent.width
                             height: 30
-                            color: Qt.alpha(Colors.base0d, 0.75)
+                            color: Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
 
                             Text {
                                 text: currentPlayer ? (currentPlayer.identity ?? "Now Playing") : "No Source Selected"
@@ -341,8 +268,8 @@ FloatingWindow {
                                     verticalCenter: parent.verticalCenter
                                 }
                                 color: Colors.foreground
-                                font.pixelSize: 16
-                                font.family: "JetBrainsMono Nerd Font"
+                                font.pixelSize: Theme.fontPixelSize
+                                font.family: Theme.fontFamily
                                 font.bold: true
                             }
                         }
@@ -356,8 +283,8 @@ FloatingWindow {
                                 width: parent.width
                                 text: root.trackTitle || "No Track"
                                 color: Colors.foreground
-                                font.pixelSize: 16
-                                font.family: "JetBrainsMono Nerd Font"
+                                font.pixelSize: Theme.fontPixelSize
+                                font.family: Theme.fontFamily
                                 horizontalAlignment: Text.AlignHCenter
                                 wrapMode: Text.WordWrap
                             }
@@ -366,8 +293,8 @@ FloatingWindow {
                                 width: parent.width
                                 text: root.trackArtist || ""
                                 color: Colors.foreground
-                                font.pixelSize: 16
-                                font.family: "JetBrainsMono Nerd Font"
+                                font.pixelSize: Theme.fontPixelSize
+                                font.family: Theme.fontFamily
                                 horizontalAlignment: Text.AlignHCenter
                                 wrapMode: Text.WordWrap
                                 visible: text !== ""
@@ -401,9 +328,9 @@ FloatingWindow {
                     Text {
                         anchors.centerIn: parent
                         text: "No media playing"
-                        color: Qt.alpha(Colors.foreground, 0.75)
-                        font.pixelSize: 16
-                        font.family: "JetBrainsMono Nerd Font"
+                        color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
+                        font.pixelSize: Theme.fontPixelSize
+                        font.family: Theme.fontFamily
                         visible: currentPlayer === null
                     }
 
@@ -424,9 +351,9 @@ FloatingWindow {
                             Text {
                                 id: elapsedText
                                 text: fmtTime(root.trackPosition)
-                                color: Qt.alpha(Colors.foreground, 0.75)
-                                font.pixelSize: 16
-                                font.family: "JetBrainsMono Nerd Font"
+                                color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
+                                font.pixelSize: Theme.fontPixelSize
+                                font.family: Theme.fontFamily
                                 width: 47
                                 horizontalAlignment: Text.AlignRight
                                 anchors { left: parent.left; verticalCenter: parent.verticalCenter }
@@ -435,7 +362,7 @@ FloatingWindow {
                             Rectangle {
                                 anchors { left: elapsedText.right; leftMargin: 9; right: remainingText.left; rightMargin: 9; verticalCenter: parent.verticalCenter }
                                 height: 10
-                                color: Qt.alpha(Colors.foreground, 0.75)
+                                color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
 
                                 Rectangle {
                                     height: parent.height
@@ -460,9 +387,9 @@ FloatingWindow {
                             Text {
                                 id: remainingText
                                 text: fmtTime(root.trackLength)
-                                color: Qt.alpha(Colors.foreground, 0.75)
-                                font.pixelSize: 16
-                                font.family: "JetBrainsMono Nerd Font"
+                                color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
+                                font.pixelSize: Theme.fontPixelSize
+                                font.family: Theme.fontFamily
                                 width: 47
                                 horizontalAlignment: Text.AlignLeft
                                 anchors { right: parent.right; verticalCenter: parent.verticalCenter }
@@ -477,7 +404,7 @@ FloatingWindow {
 
                             Rectangle {
                                 width: 45; height: 45
-                                color: Qt.alpha(Colors.base0d, 0.75)
+                                color: Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
 
                                 Canvas {
                                     id: prevBtnIcon
@@ -519,7 +446,7 @@ FloatingWindow {
 
                             Rectangle {
                                 width: 45; height: 45
-                                color: Qt.alpha(Colors.base0d, 0.75)
+                                color: Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
 
                                 Canvas {
                                     id: playPauseBtnIcon
@@ -563,7 +490,7 @@ FloatingWindow {
 
                             Rectangle {
                                 width: 45; height: 45
-                                color: Qt.alpha(Colors.base0d, 0.75)
+                                color: Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
 
                                 Canvas {
                                     id: nextBtnIcon

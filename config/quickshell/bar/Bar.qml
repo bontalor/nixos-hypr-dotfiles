@@ -2,40 +2,14 @@ import "../theme"
 import "./widgets"
 import Quickshell
 import Quickshell.Wayland
-import Quickshell.Io
 import Quickshell.Hyprland
 import QtQuick
 
 Scope {
     id: barRoot
 
-    signal refreshNetwork()
-    signal refreshBattery()
-
-    IpcHandler {
-        target: "refresh-network"
-        function refresh(): void { barRoot.refreshNetwork() }
-    }
-
-    IpcHandler {
-        target: "refresh-battery"
-        function refresh(): void { barRoot.refreshBattery() }
-    }
-
-    // Long-lived event streams. Each monitor shells out to `qs ipc call` on
-    // every event line; the matching IpcHandler above re-emits it as a QML
-    // signal that the per-screen widgets react to. No polling timers anywhere.
-    // (Media & volume widgets are fully event-driven via Quickshell's Mpris /
-    // Pipewire services, so no media refresh relay is needed.)
-    Process {
-        running: true
-        command: ["bash", "-c", "nmcli device monitor 2>/dev/null | while IFS= read -r line; do case \"$line\" in *\": connected\"|*\": disconnected\") qs ipc call refresh-network refresh; qs ipc call refresh-network-panel refresh ;; esac; done"]
-    }
-
-    Process {
-        running: true
-        command: ["bash", "-c", "upower --monitor 2>/dev/null | while IFS= read -r _; do qs ipc call refresh-battery refresh; done"]
-    }
+    // Network + battery state comes from NetworkModel / BatteryModel
+    // (D-Bus-backed live properties). No monitor loops, no self-IPC.
 
     Variants {
         model: Quickshell.screens;
@@ -101,8 +75,6 @@ Scope {
                         }
                         if (full) return "Fullscreen"
                         if (maxd) return "Maximized"
-                        var lay = ws.layout
-                        if (lay === "dwindle" || lay === "master") return "Tiling"
                         return "Tiling"
                     }
 
@@ -115,8 +87,8 @@ Scope {
                         id: stateText
                         anchors.centerIn: parent
                         text: layoutState.displayState
-                        font.pixelSize: 16
-                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: Theme.fontPixelSize
+                        font.family: Theme.fontFamily
                         color: Colors.foreground
                     }
 
@@ -150,8 +122,8 @@ Scope {
                         id: clockText
                         anchors.centerIn: parent
                         text: Time.time
-                        font.pixelSize: 16
-                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: Theme.fontPixelSize
+                        font.family: Theme.fontFamily
                         color: Colors.foreground
                     }
 
@@ -160,13 +132,7 @@ Scope {
                         anchors.fill: parent
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: clockToggle.running = true
-                    }
-
-                    Process {
-                        id: clockToggle
-                        command: ["qs", "ipc", "call", "overlay", "toggle", "datetime"]
-                        running: false
+                        onClicked: Panels.toggle("datetime")
                     }
                 }
 
@@ -190,10 +156,6 @@ Scope {
 
                     NetworkWidget {
                         id: networkWidget
-                        Connections {
-                            target: barRoot
-                            function onRefreshNetwork(): void { networkWidget.fetchStatus() }
-                        }
                     }
 
                     VolumeWidget {
@@ -202,10 +164,6 @@ Scope {
 
                     BatteryWidget {
                         id: batteryWidget
-                        Connections {
-                            target: barRoot
-                            function onRefreshBattery(): void { batteryWidget.refresh() }
-                        }
                     }
                 }
             }
@@ -216,7 +174,7 @@ Scope {
                 y: 30
                 width: parent.width - 10
                 height: 10
-                color: Qt.alpha("#000000", 0.75)
+                color: Qt.alpha("#000000", Theme.alphaBackground)
                 z: 0
             }
             Rectangle {
@@ -225,7 +183,7 @@ Scope {
                 y: 10
                 width: 10
                 height: 20
-                color: Qt.alpha("#000000", 0.75)
+                color: Qt.alpha("#000000", Theme.alphaBackground)
                 z: 0
             }
         }

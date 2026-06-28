@@ -1,4 +1,5 @@
 import "../theme"
+import "../util"
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -24,19 +25,19 @@ Panel {
 
     property var now: clock.date
 
+    // Precompute once per month so the calendar grid doesn't re-allocate
+    // 42 Date objects on every second tick. Only `now`'s month/year
+    // gate this binding — the rest of the panel clock ticks at 1Hz but
+    // these arrays stay frozen.
+    property int _year: now.getFullYear()
+    property int _month: now.getMonth()
+    property var cellDates: Util.monthCells(_year, _month)
+    property int isoWeek: Util.isoWeek(now)
+    property int doy: Util.dayOfYear(now)
+
     property string timezoneString: {
         var s = root.now.toString()
         return s.substring(s.indexOf("(") + 1, s.indexOf(")"))
-    }
-
-    property int isoWeek: computeIsoWeek(root.now)
-
-    function computeIsoWeek(d) {
-        var date = new Date(d)
-        date.setHours(0, 0, 0, 0)
-        date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7)
-        var week1 = new Date(date.getFullYear(), 0, 4)
-        return 1 + Math.round(((date - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7)
     }
 
     currentModelLength: function() { return root.selSection === 2 ? 42 : 0 }
@@ -67,22 +68,22 @@ Panel {
                 Text {
                     text: root.dayNames[root.now.getDay()] + ", " + root.monthNames[root.now.getMonth()] + " " + root.now.getDate() + ", " + root.now.getFullYear()
                     color: Colors.foreground
-                    font.pixelSize: 16
-                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
                 }
 
                 Text {
-                    text: "Day of year: " + Math.floor((root.now - new Date(root.now.getFullYear(), 0, 0)) / 86400000)
-                    color: Qt.alpha(Colors.foreground, 0.75)
-                    font.pixelSize: 16
-                    font.family: "JetBrainsMono Nerd Font"
+                    text: "Day of year: " + root.doy
+                    color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
                 }
 
                 Text {
                     text: "Week: " + root.isoWeek
-                    color: Qt.alpha(Colors.foreground, 0.75)
-                    font.pixelSize: 16
-                    font.family: "JetBrainsMono Nerd Font"
+                    color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
                 }
             }
         }
@@ -103,25 +104,25 @@ Panel {
                 spacing: 10
 
                 Text {
-                    text: ("  " + root.now.getHours()).slice(-2) + ":" + ("  " + root.now.getMinutes()).slice(-2) + ":" + ("  " + root.now.getSeconds()).slice(-2)
+                    text: Util.zeroPad(root.now.getHours()) + ":" + Util.zeroPad(root.now.getMinutes()) + ":" + Util.zeroPad(root.now.getSeconds())
                     color: Colors.foreground
                     font.pixelSize: 24
-                    font.family: "JetBrainsMono Nerd Font"
+                    font.family: Theme.fontFamily
                     font.bold: true
                 }
 
                 Text {
                     text: "Timezone: " + root.timezoneString
-                    color: Qt.alpha(Colors.foreground, 0.75)
-                    font.pixelSize: 16
-                    font.family: "JetBrainsMono Nerd Font"
+                    color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
                 }
 
                 Text {
                     text: "UTC: " + root.now.toUTCString()
-                    color: Qt.alpha(Colors.foreground, 0.75)
-                    font.pixelSize: 16
-                    font.family: "JetBrainsMono Nerd Font"
+                    color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
                 }
             }
         }
@@ -150,9 +151,9 @@ Panel {
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                         text: modelData
-                        color: Qt.alpha(Colors.foreground, 0.75)
-                        font.pixelSize: 16
-                        font.family: "JetBrainsMono Nerd Font"
+                        color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
+                        font.pixelSize: Theme.fontPixelSize
+                        font.family: Theme.fontFamily
                     }
                 }
             }
@@ -164,41 +165,32 @@ Panel {
             columns: 7
             spacing: 0
 
-            property var firstDay: new Date(root.now.getFullYear(), root.now.getMonth(), 1)
-            property var startDay: {
-                var d = new Date(firstDay)
-                d.setDate(d.getDate() - d.getDay())
-                return d
-            }
-
             Repeater {
-                model: 42
+                model: root.cellDates
 
                 delegate: Rectangle {
+                    required property var modelData
+                    required property int index
                     width: calendarGrid.width / 7
                     height: calendarGrid.width / 7
                     color: {
-                        var d = new Date(calendarGrid.startDay)
-                        d.setDate(d.getDate() + index)
-                        var today = d.getDate() === root.now.getDate() && d.getMonth() === root.now.getMonth() && d.getFullYear() === root.now.getFullYear()
-                        if (root.inSection && root.selDevice === index) return Qt.alpha(Colors.base01, 0.75)
-                        if (today) return Qt.alpha(Colors.base0d, 0.75)
+                        if (root.inSection && root.selDevice === index)
+                            return Qt.alpha(Colors.base01, Theme.alphaSelected)
+                        var today = modelData.getDate() === root.now.getDate()
+                                 && modelData.getMonth() === root._month
+                                 && modelData.getFullYear() === root._year
+                        if (today) return Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
                         return "transparent"
                     }
 
                     Text {
                         anchors.centerIn: parent
-                        property var cellDate: {
-                            var d = new Date(calendarGrid.startDay)
-                            d.setDate(d.getDate() + index)
-                            return d
-                        }
-                        text: cellDate.getDate()
-                        color: cellDate.getMonth() !== root.now.getMonth()
-                               ? Qt.alpha(Colors.foreground, 0.75)
+                        text: modelData.getDate()
+                        color: modelData.getMonth() !== root._month
+                               ? Qt.alpha(Colors.foreground, Theme.alphaBackground)
                                : Colors.foreground
-                        font.pixelSize: 16
-                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: Theme.fontPixelSize
+                        font.family: Theme.fontFamily
                     }
 
                     MouseArea {

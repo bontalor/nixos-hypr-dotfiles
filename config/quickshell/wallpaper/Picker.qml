@@ -1,5 +1,6 @@
 import "../theme"
 import QtQuick
+import Qt.labs.folderlistmodel
 import Quickshell
 import Quickshell.Io
 
@@ -8,49 +9,48 @@ FloatingWindow {
     title: "Wallpaper Picker"
     color: "transparent"
 
-    implicitWidth: 850
-    implicitHeight: 450
+    implicitWidth: Theme.panelWidth
+    implicitHeight: Theme.panelHeight
 
     visible: false
 
     onClosed: visible = false
 
-    property string rawScanText: ""
-    property var wallpaperList: parseWallpapers(rawScanText)
     property int selected: 0
     property int columns: 4
 
-    signal toggle()
-
-    function parseWallpapers(text) {
-        var model = []
-        var files = text.trim().split('\n')
-        for (var i = 0; i < files.length; i++) {
-            var f = files[i].trim()
-            if (f.length > 0) model.push({ path: f })
+    // Cache the wallpaper list once per scan instead of rescanning the
+    // directory every time the picker is opened. FolderListModel watches
+    // the folder natively and re-fires `status` whenever something
+    // changes — no shell-out / `ls`.
+    property var wallpaperList: []
+    function syncFromModel() {
+        var list = []
+        // Note: Qt 6.11 FolderListModel only exposes `filePath` (local
+        // path string), not `fileURL` — using the wrong role silently
+        // returns undefined.
+        for (var i = 0; i < wallpaperModel.count; i++) {
+            var p = wallpaperModel.get(i, "filePath")
+            if (!p) continue
+            list.push({ path: p })
         }
-        return model
+        root.wallpaperList = list
     }
 
-    function scan() {
-        scanner.command = ["bash", "-c", "ls -1 \"$1\"/walls/*.{jpg,jpeg,png,gif,webp,bmp} 2>/dev/null", "sh", Quickshell.env("HOME")]
-        scanner.running = true
+    FolderListModel {
+        id: wallpaperModel
+        folder: "file://" + Quickshell.env("HOME") + "/walls"
+        nameFilters: ["*.jpg", "*.jpeg", "*.png", "*.gif", "*.webp", "*.bmp"]
+        sortField: FolderListModel.Name
+        showDirs: false
+        showOnlyReadable: true
+        onStatusChanged: if (status === FolderListModel.Ready) root.syncFromModel()
+        onCountChanged: if (status === FolderListModel.Ready) root.syncFromModel()
     }
 
-    Component.onCompleted: scan()
+    property alias wallpaperDir: wallpaperModel
 
-    onVisibleChanged: {
-        if (visible) scan()
-    }
-
-    Process {
-        id: scanner
-        running: false
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: rawScanText = text
-        }
-    }
+    onVisibleChanged: if (visible) selected = 0
 
     Rectangle {
         anchors.fill: parent
@@ -91,14 +91,14 @@ FloatingWindow {
 
         Rectangle {
             anchors.fill: parent
-            anchors.margins: 10
-            color: Qt.alpha(Colors.base00, 0.75)
+            anchors.margins: Theme.margin
+            color: Qt.alpha(Colors.base00, Theme.alphaBackground)
 
             GridView {
                 id: grid
                 anchors.fill: parent
-                anchors { leftMargin: 10; rightMargin: 0; topMargin: 10; bottomMargin: 10 }
-                model: wallpaperList
+                anchors { leftMargin: Theme.margin; rightMargin: 0; topMargin: Theme.margin; bottomMargin: Theme.margin }
+                model: root.wallpaperList
                 cellWidth: 205
                 cellHeight: 140
                 clip: true
@@ -106,6 +106,9 @@ FloatingWindow {
                 highlightRangeMode: GridView.StrictlyEnforceRange
                 snapMode: GridView.SnapToRow
 
+                // Off-screen thumbnails are dropped from Qt's image cache to
+                // avoid retaining hundreds of decoded bitmaps when the
+                // user has a large walls directory.
                 delegate: Item {
                     width: grid.cellWidth - 10
                     height: grid.cellHeight - 10
@@ -117,7 +120,7 @@ FloatingWindow {
                         sourceSize.height: 130
                         fillMode: Image.PreserveAspectCrop
                         asynchronous: true
-                        cache: true
+                        cache: false
                         smooth: true
                     }
 

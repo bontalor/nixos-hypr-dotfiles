@@ -11,11 +11,25 @@ Rectangle {
 
     property string wallpaperPath: ""
 
+    // Inline helper — the lockscreen runs as its own config root via
+    // `quickshell -p lockscreen/shell.qml`, so the shared ../util singleton
+    // isn't reachable. Keeping the lone function local avoids entangling
+    // the lockscreen with the rest of the shell.
     function ordinal(n) {
-        var s = ["th","st","nd","rd"]
+        var s = ["th", "st", "nd", "rd"]
         var v = n % 100
-        return n + (s[(v-20)%10] || s[v] || s[0])
+        return n + (s[(v - 20) % 10] || s[v] || s[0])
     }
+
+    // Same shape as PowerActions.lockActions, kept local for config-root
+    // isolation. The lockscreen's actions never overlap with anything else
+    // (no Lock on the lockscreen), so a duplicated 4-item list is fine.
+    property var lockActions: [
+        { name: "Logout",    icon: "system-log-out",  command: ["sh", "-c", "loginctl kill-session \"${XDG_SESSION_ID:-$(loginctl list-sessions --no-legend | head -n1 | awk '{print $1}')}\""] },
+        { name: "Suspend",   icon: "system-suspend",  command: ["systemctl", "suspend"] },
+        { name: "Reboot",    icon: "system-reboot",   command: ["systemctl", "reboot"] },
+        { name: "Power Off", icon: "system-shutdown", command: ["systemctl", "poweroff"] }
+    ]
 
     FileView {
         id: wallpaperFile
@@ -64,7 +78,7 @@ Rectangle {
                     anchors.centerIn: parent
                     color: Colors.foreground
                     font.pixelSize: 32
-                    font.family: "JetBrainsMono Nerd Font"
+                    font.family: Theme.fontFamily
                     font.bold: true
 
                     text: {
@@ -81,16 +95,16 @@ Rectangle {
                 height: 20
                 Text {
                     anchors.centerIn: parent
-                    color: Qt.alpha(Colors.foreground, 0.75)
-                    font.pixelSize: 16
-                    font.family: "JetBrainsMono Nerd Font"
+                    color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
                     text: root.formattedDate
                 }
             }
             Rectangle {
                 width: parent.width
                 height: 30
-                color: Qt.alpha(Colors.background, 0.75)
+                color: Qt.alpha(Colors.background, Theme.alphaBackground)
                 clip: true
                 TextInput {
                     id: passwordBox
@@ -102,9 +116,9 @@ Rectangle {
                         rightMargin: 10
                     }
                     color: Colors.foreground
-                    font.pixelSize: 16
+                    font.pixelSize: Theme.fontPixelSize
                     font.letterSpacing: 10
-                    font.family: "JetBrainsMono Nerd Font"
+                    font.family: Theme.fontFamily
                     focus: true
                     echoMode: TextInput.Password
                     inputMethodHints: Qt.ImhSensitiveData
@@ -116,9 +130,9 @@ Rectangle {
                             verticalCenter: parent.verticalCenter
                             leftMargin: 10
                         }
-                        color: Qt.alpha(Colors.foreground, 0.75)
-                        font.pixelSize: 16
-                        font.family: "JetBrainsMono Nerd Font"
+                        color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
+                        font.pixelSize: Theme.fontPixelSize
+                        font.family: Theme.fontFamily
                         text: "Enter password..."
                         visible: parent.text.length === 0 && !parent.focus
                     }
@@ -136,12 +150,7 @@ Rectangle {
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: 45
                 Repeater {
-                    model: [
-                        { name: "Logout", icon: "system-log-out", command: ["sh", "-c", "loginctl kill-session \"${XDG_SESSION_ID:-$(loginctl list-sessions --no-legend | head -n1 | awk '{print $1}')}\""] },
-                        { name: "Suspend", icon: "system-suspend", command: ["systemctl", "suspend"] },
-                        { name: "Reboot", icon: "system-reboot", command: ["systemctl", "reboot"] },
-                        { name: "Power Off", icon: "system-shutdown", command: ["systemctl", "poweroff"] }
-                    ]
+                    model: root.lockActions
                     delegate: Column {
                         spacing: 4
                         width: 60
@@ -149,7 +158,7 @@ Rectangle {
                             width: 45
                             height: 45
                             anchors.horizontalCenter: parent.horizontalCenter
-                            color: btnMouse.containsMouse ? Qt.alpha(Colors.base08, 0.75) : Qt.alpha(Colors.background, 0.75)
+                            color: btnMouse.containsMouse ? Qt.alpha(Colors.base08, Theme.alphaBackground) : Qt.alpha(Colors.background, Theme.alphaBackground)
                             IconImage {
                                 anchors.centerIn: parent
                                 source: modelData?.icon ? Quickshell.iconPath(modelData.icon, false) : ""
@@ -172,8 +181,8 @@ Rectangle {
                             horizontalAlignment: Text.AlignHCenter
                             text: modelData?.name ?? ""
                             color: Colors.foreground
-                            font.pixelSize: 16
-                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: Theme.fontPixelSize
+                            font.family: Theme.fontFamily
                         }
                     }
                 }
@@ -186,8 +195,8 @@ Rectangle {
                     visible: context.showFailure
                     text: "Incorrect password"
                     color: Colors.base08
-                    font.pixelSize: 16
-                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
                 }
             }
         }
@@ -198,7 +207,7 @@ Rectangle {
         y: parent.height - 20
         width: parent.width - 30
         height: 10
-        color: Qt.alpha("#000000", 0.75)
+        color: Qt.alpha("#000000", Theme.alphaBackground)
     }
     Rectangle {
         id: shadowRight
@@ -206,6 +215,6 @@ Rectangle {
         y: 20
         width: 10
         height: parent.height - 40
-        color: Qt.alpha("#000000", 0.75)
+        color: Qt.alpha("#000000", Theme.alphaBackground)
     }
 }

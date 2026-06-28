@@ -1,95 +1,31 @@
 import "../../theme"
+import "../../models"
 import QtQuick
-import Quickshell
-import Quickshell.Io
 
 Item {
     id: root
     width: batText.width + 20
     height: 30
 
-    property string rawBatteryText: ""
-    property string rawProfileText: ""
-
-    property var parsedBattery: parseBatteryOutput(rawBatteryText)
-    property int batteryPercent: parsedBattery.batteryPercent
-    property bool isCharging: parsedBattery.isCharging
-    property string activeProfile: rawProfileText.trim()
+    property int batteryPercent: BatteryModel.percentage
+    property bool isCharging: BatteryModel.charging
+    property string activeProfile: BatteryModel.activeProfile
 
     property string statusText: computeStatusText(batteryPercent, isCharging, activeProfile)
-
-    function parseBatteryOutput(text) {
-        var pct = -1
-        var charging = false
-        var lines = text.split("\n")
-        for (var i = 0; i < lines.length; i++) {
-            var line = lines[i].trim()
-            if (line.indexOf("percentage:") === 0) {
-                var val = parseInt(line.substring(line.indexOf(":") + 1).trim())
-                pct = isNaN(val) ? -1 : val
-            } else if (line.indexOf("state:") === 0) {
-                var st = line.substring(line.indexOf(":") + 1).trim()
-                charging = st === "charging"
-            }
-        }
-        return { batteryPercent: pct, isCharging: charging }
-    }
 
     function computeStatusText(pct, charging, profile) {
         if (pct < 0) return "Bat ----"
 
         var profileSymbol = ""
-        var p = profile.toLowerCase()
-        if (p === "performance") profileSymbol = "\uf0e7"
-        else if (p === "balanced") profileSymbol = "\uf0eb"
-        else if (p === "power-saver" || p === "power-save" || p === "powersave") profileSymbol = "\uf06c"
+        var p = (profile || "").toLowerCase()
+        if (p === "performance") profileSymbol = Icon.bolt
+        else if (p === "balanced") profileSymbol = Icon.balance
+        else if (p === "power-saver" || p === "power-save" || p === "powersave") profileSymbol = Icon.leaf
 
-        var plugSymbol = charging ? "\uf1e6 " : ""
+        var plugSymbol = charging ? Icon.plug + " " : ""
+        var pctStr = String(pct).padStart(3, " ")
 
-        if (charging)
-            return "Bat " + ("  " + pct).slice(-3) + "%+ " + profileSymbol + plugSymbol
-        else
-            return "Bat " + ("  " + pct).slice(-3) + "% " + profileSymbol + plugSymbol
-    }
-
-    // Event-driven refresh: triggered once at startup and on every upower
-    // event via the Bar's `refresh-battery` IPC relay. No timers.
-    function refresh() {
-        if (!batProc.running) {
-            batProc.command = ["bash", "-c", "upower -i $(upower -e 2>/dev/null | grep battery | grep -v DisplayDevice | head -1) 2>/dev/null"]
-            batProc.running = true
-        }
-        if (!profileProc.running) {
-            profileProc.command = ["bash", "-c",
-                "[ -r /sys/firmware/acpi/platform_profile ] && cat /sys/firmware/acpi/platform_profile 2>/dev/null || powerprofilesctl get 2>/dev/null || echo ''"]
-            profileProc.running = true
-        }
-    }
-
-    Process {
-        id: batProc
-        running: false
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: rawBatteryText = text
-        }
-    }
-
-    Process {
-        id: profileProc
-        running: false
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: rawProfileText = text
-        }
-    }
-
-    Component.onCompleted: refresh()
-
-    Process {
-        id: ipcToggle
-        command: ["qs", "ipc", "call", "overlay", "toggle", "battery"]
-        running: false
+        return "Bat " + pctStr + "% " + profileSymbol + " " + plugSymbol
     }
 
     Rectangle {
@@ -101,12 +37,12 @@ Item {
         id: batText
         anchors.centerIn: parent
         text: root.statusText
-        font.pixelSize: 16
-        font.family: "JetBrainsMono Nerd Font"
+        font.pixelSize: Theme.fontPixelSize
+        font.family: Theme.fontFamily
         color: {
             if (batteryPercent < 0) return Colors.foreground
-            if (batteryPercent <= 15) return Colors.base08
-            if (batteryPercent <= 25) return Colors.base09
+            if (batteryPercent <= Theme.batteryCritical) return Colors.base08
+            if (batteryPercent <= Theme.batteryWarning) return Colors.base09
             return Colors.foreground
         }
     }
@@ -116,6 +52,6 @@ Item {
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: ipcToggle.running = true
+        onClicked: Panels.toggle("battery")
     }
 }

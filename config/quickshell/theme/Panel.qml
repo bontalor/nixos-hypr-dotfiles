@@ -146,7 +146,7 @@ FloatingWindow {
             Rectangle {
                 width: (parent.width - parent.spacing) * 0.25
                 height: parent.height
-                color: Qt.alpha(Colors.base00, 0.75)
+                color: Qt.alpha(Colors.base00, Theme.alphaBackground)
                 clip: true
 
                 Column {
@@ -159,7 +159,7 @@ FloatingWindow {
                         delegate: Rectangle {
                             width: parent.width
                             height: root.headerHeight
-                            color: root.selSection === index ? Qt.alpha(Colors.base01, 0.75) : "transparent"
+                            color: root.selSection === index ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
 
                             Text {
                                 text: modelData.name
@@ -169,8 +169,8 @@ FloatingWindow {
                                     verticalCenter: parent.verticalCenter
                                 }
                                 color: Colors.foreground
-                                font.pixelSize: 16
-                                font.family: "JetBrainsMono Nerd Font"
+                                font.pixelSize: Theme.fontPixelSize
+                                font.family: Theme.fontFamily
                                 elide: Text.ElideRight
                                 leftPadding: (root.selSection === index && root.inSection) ? 18 : 0
                             }
@@ -182,8 +182,8 @@ FloatingWindow {
                                     verticalCenter: parent.verticalCenter
                                 }
                                 color: Colors.foreground
-                                font.pixelSize: 16
-                                font.family: "JetBrainsMono Nerd Font"
+                                font.pixelSize: Theme.fontPixelSize
+                                font.family: Theme.fontFamily
                                 visible: root.selSection === index && root.inSection
                             }
 
@@ -204,7 +204,7 @@ FloatingWindow {
             Rectangle {
                 width: (parent.width - parent.spacing) * 0.75
                 height: parent.height
-                color: Qt.alpha(Colors.base00, 0.75)
+                color: Qt.alpha(Colors.base00, Theme.alphaBackground)
 
                 Flickable {
                     id: flick
@@ -214,10 +214,13 @@ FloatingWindow {
                     clip: true
 
                     function scrollToVisible(itemY, itemH) {
+                        // The Flickable is inset by root.colSpacing inside
+                        // its surrounding panel Rectangle, so flush rows read
+                        // as colSpacing-gap from the visible panel edge.
                         var viewH = flick.height
                         var maxY = Math.max(0, contentCol.height - viewH)
-                        if (itemY < flick.contentY) flick.contentY = Math.max(0, itemY - 40)
-                        else if (itemY + itemH > flick.contentY + viewH) flick.contentY = Math.min(maxY, itemY + itemH - viewH + 10)
+                        if (itemY < flick.contentY) flick.contentY = Math.max(0, itemY)
+                        else if (itemY + itemH > flick.contentY + viewH) flick.contentY = Math.min(maxY, itemY + itemH - viewH)
                     }
 
                     function scrollToSelection() {
@@ -233,7 +236,7 @@ FloatingWindow {
                         Rectangle {
                             width: parent.width
                             height: root.headerHeight
-                            color: Qt.alpha(Colors.base0d, 0.75)
+                            color: Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
 
                             Text {
                                 text: root.sections[root.selSection]?.name ?? ""
@@ -242,8 +245,8 @@ FloatingWindow {
                                     verticalCenter: parent.verticalCenter
                                 }
                                 color: Colors.foreground
-                                font.pixelSize: 16
-                                font.family: "JetBrainsMono Nerd Font"
+                                font.pixelSize: Theme.fontPixelSize
+                                font.family: Theme.fontFamily
                                 font.bold: true
                             }
                         }

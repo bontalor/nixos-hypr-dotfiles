@@ -1,6 +1,6 @@
 import "../../theme"
 import QtQuick
-import Quickshell.Io
+import Quickshell
 import Quickshell.Services.Pipewire
 
 Item {
@@ -15,12 +15,6 @@ Item {
     property real volume: Pipewire.defaultAudioSink?.audio.volume ?? 0
     property bool muted: Pipewire.defaultAudioSink?.audio.muted ?? false
 
-    Process {
-        id: ipcToggle
-        command: ["qs", "ipc", "call", "overlay", "toggle", "volume"]
-        running: false
-    }
-
     Rectangle {
         anchors.fill: parent
         color: mouseArea.containsMouse ? Qt.alpha(Colors.foreground, 0.25) : "transparent"
@@ -34,8 +28,8 @@ Item {
             if (root.muted) return "Vol  Mut"
             return "Vol " + ("  " + Math.round(root.volume * 100)).slice(-3) + "%"
         }
-        font.pixelSize: 16
-        font.family: "JetBrainsMono Nerd Font"
+        font.pixelSize: Theme.fontPixelSize
+        font.family: Theme.fontFamily
         color: Colors.foreground
     }
 
@@ -51,7 +45,7 @@ Item {
                     Pipewire.defaultAudioSink.audio.muted = !Pipewire.defaultAudioSink.audio.muted
                 }
             } else {
-                ipcToggle.running = true
+                Panels.toggle("volume")
             }
         }
         onWheel: (wheel) => {
