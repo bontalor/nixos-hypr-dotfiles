@@ -73,6 +73,10 @@ FloatingWindow {
         }
     }
 
+    onSelectedIndexChanged: {
+        if (resultFlick) resultFlick.scrollToSelected()
+    }
+
     Rectangle {
         anchors.fill: parent
         color: "transparent"
@@ -85,7 +89,8 @@ FloatingWindow {
             Rectangle {
                 width: parent.width
                 height: 30
-                color: Qt.alpha(Colors.base00, 1)
+                color: Qt.alpha(Colors.base00, 0.75)
+                clip: true
 
                 TextInput {
                     id: searchText
@@ -121,43 +126,70 @@ FloatingWindow {
                 }
             }
 
-            Column {
+            Rectangle {
                 width: parent.width
-                spacing: 10
+                height: parent.height - 40
+                color: Qt.alpha(Colors.base00, 0.75)
 
-                Repeater {
-                    model: filteredActions
+                Flickable {
+                    id: resultFlick
+                    anchors.fill: parent
+                    anchors.margins: 10
+                    contentHeight: resultCol.height
+                    clip: true
 
-                    delegate: Rectangle {
-                        width: parent.width
-                        height: 30
-                        color: index === selectedIndex ? Qt.alpha(Colors.base01, 0.75) : "transparent"
-
-                        Row {
-                            anchors.verticalCenter: parent.verticalCenter
-                            anchors.left: parent.left
-                            anchors.leftMargin: 10
-                            spacing: 10
-
-                            IconImage {
-                                anchors.verticalCenter: parent.verticalCenter
-                                source: modelData?.icon ? Quickshell.iconPath(modelData.icon, false) : ""
-                                width: 22; height: 22
-                                visible: source.toString() !== ""
-                            }
-
-                            Text {
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: modelData?.name ?? ""
-                                color: Colors.foreground
-                                font.pixelSize: 16
-                                font.family: "JetBrainsMono Nerd Font"
-                            }
+                    function scrollToSelected() {
+                        var y = selectedIndex * 40
+                        var h = 30
+                        var viewH = resultFlick.height
+                        var maxY = Math.max(0, resultCol.height - viewH)
+                        if (y < resultFlick.contentY) {
+                            resultFlick.contentY = Math.max(0, y - 10)
+                        } else if (y + h > resultFlick.contentY + viewH) {
+                            resultFlick.contentY = Math.min(maxY, y + h - viewH + 10)
                         }
+                    }
 
-                        MouseArea {
-                            anchors.fill: parent
-                            onClicked: { selectedIndex = index; executeSelected() }
+                    Column {
+                        id: resultCol
+                        width: parent.width
+                        spacing: 10
+
+                        Repeater {
+                            model: filteredActions
+
+                            delegate: Rectangle {
+                                width: parent.width
+                                height: 30
+                                color: index === selectedIndex ? Qt.alpha(Colors.base01, 0.75) : "transparent"
+
+                                Row {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 10
+                                    spacing: 10
+
+                                    IconImage {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        source: modelData?.icon ? Quickshell.iconPath(modelData.icon, false) : ""
+                                        width: 22; height: 22
+                                        visible: source.toString() !== ""
+                                    }
+
+                                    Text {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        text: modelData?.name ?? ""
+                                        color: Colors.foreground
+                                        font.pixelSize: 16
+                                        font.family: "JetBrainsMono Nerd Font"
+                                    }
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: { selectedIndex = index; executeSelected() }
+                                }
+                            }
                         }
                     }
                 }
