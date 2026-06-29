@@ -62,7 +62,7 @@ Item {
     }
 
     Timer {
-        interval: 1000 / Theme.peakFps
+        interval: 1500 / Theme.peakFps
         running: root.visible && playbackState === MprisPlaybackState.Playing
         repeat: true
         onTriggered: {
