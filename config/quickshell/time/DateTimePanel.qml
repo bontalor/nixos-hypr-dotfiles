@@ -15,8 +15,6 @@ Panel {
 
     autoScroll: false
 
-    property var monthNames: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
-    property var dayNames: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
     SystemClock {
         id: clock
@@ -68,7 +66,7 @@ Panel {
                 spacing: 10
 
                 Text {
-                    text: root.dayNames[root.now.getDay()] + ", " + root.monthNames[root.now.getMonth()] + " " + root.now.getDate() + ", " + root.now.getFullYear()
+                    text: Qt.formatDateTime(root.now, "dddd, MMMM d, yyyy")
                     color: Colors.foreground
                     font.pixelSize: Theme.fontPixelSize
                     font.family: Theme.fontFamily
@@ -106,7 +104,7 @@ Panel {
                 spacing: 10
 
                 Text {
-                    text: Util.zeroPad(root.now.getHours()) + ":" + Util.zeroPad(root.now.getMinutes()) + ":" + Util.zeroPad(root.now.getSeconds())
+                    text: Qt.formatDateTime(root.now, "HH:mm:ss")
                     color: Colors.foreground
                     font.pixelSize: 24
                     font.family: Theme.fontFamily

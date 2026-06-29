@@ -65,14 +65,6 @@ Singleton {
         return zeroPad(m) + ":" + zeroPad(ss)
     }
 
-    // 12-hour "hh:mm:ss" — used by lockscreen + datetime panel.
-    function fmtClock12(d) {
-        var h = d.getHours()
-        var ampm = h >= 12 ? "PM" : "AM"
-        var hh = h % 12; if (hh === 0) hh = 12
-        return zeroPad(hh) + ":" + zeroPad(d.getMinutes()) + ":" + zeroPad(d.getSeconds()) + " " + ampm
-    }
-
     // --- Lunar / moon math ---
     // Synodic (mean) month in days. Constant of the Brown-style algorithm.
     property real _synodicMonth: 29.530587

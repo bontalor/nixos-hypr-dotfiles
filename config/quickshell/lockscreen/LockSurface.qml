@@ -56,12 +56,15 @@ Rectangle {
         return Qt.formatDateTime(d, "dddd, MMMM ") + root.ordinal(d.getDate()) + Qt.formatDateTime(d, ", yyyy")
     }
 
+    property int panelWidth: 850
+    property int panelHeight: 450
+
     Rectangle {
         id: panel
-        x: 10
-        y: 10
-        width: parent.width - 30
-        height: parent.height - 30
+        x: (parent.width - panelWidth) / 2
+        y: (parent.height - panelHeight) / 2
+        width: panelWidth - 10
+        height: panelHeight - 10
         color: Qt.alpha(Colors.background, 0.76)
         Column {
             anchors.centerIn: parent
@@ -81,13 +84,7 @@ Rectangle {
                     font.family: Theme.fontFamily
                     font.bold: true
 
-                    text: {
-                        var d = clock.date
-                        var h = d.getHours().toString().padStart(2, "0")
-                        var m = d.getMinutes().toString().padStart(2, "0")
-                        var s = d.getSeconds().toString().padStart(2, "0")
-                        return h + ":" + m + ":" + s
-                    }
+                    text: Qt.formatDateTime(clock.date, "HH:mm:ss")
                 }
             }
             Item {
@@ -203,18 +200,18 @@ Rectangle {
     }
     Rectangle {
         id: shadowBottom
-        x: 20
-        y: parent.height - 20
-        width: parent.width - 30
+        x: panel.x + 10
+        y: panel.y + panel.height
+        width: panel.width - 10
         height: 10
         color: Qt.alpha("#000000", Theme.alphaBackground)
     }
     Rectangle {
         id: shadowRight
-        x: parent.width - 20
-        y: 20
+        x: panel.x + panel.width
+        y: panel.y + 10
         width: 10
-        height: parent.height - 40
+        height: panel.height
         color: Qt.alpha("#000000", Theme.alphaBackground)
     }
 }
