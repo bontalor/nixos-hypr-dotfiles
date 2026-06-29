@@ -16,7 +16,7 @@ PanelWindow {
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.namespace: "quickshell:osd"
     WlrLayershell.anchors { bottom: true; left: true; right: true }
-    WlrLayershell.margins { bottom: 20 }
+    WlrLayershell.margins { bottom: 10 }
 
     color: "transparent"
     implicitHeight: 80
