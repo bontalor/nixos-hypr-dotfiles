@@ -143,6 +143,28 @@ Rectangle {
                     }
                 }
             }
+            Item {
+                width: parent.width
+                height: 20
+                visible: context.fingerprintEnabled
+                Row {
+                    anchors.centerIn: parent
+                    spacing: 6
+                    IconImage {
+                        source: Quickshell.iconPath("fingerprint", false)
+                        width: 14; height: 14
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: source.toString() !== ""
+                    }
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: context.fingerprintHint
+                        color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
+                        font.pixelSize: Theme.fontPixelSize
+                        font.family: Theme.fontFamily
+                    }
+                }
+            }
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: 45
