@@ -2,9 +2,7 @@ import "../theme"
 import "../models"
 import "."
 import QtQuick
-import Quickshell
 import Quickshell.Io
-import Quickshell.Widgets
 
 SearchPanel {
     id: root
@@ -26,12 +24,12 @@ SearchPanel {
     }
 
     rowDelegate: SearchRow {
-        IconImage {
+        Text {
             anchors.verticalCenter: parent.verticalCenter
-            source: modelData?.icon ? Quickshell.iconPath(modelData.icon, false) : ""
-            width: Theme.iconSize
-            height: Theme.iconSize
-            visible: source.toString() !== ""
+            text: modelData?.glyph ?? ""
+            color: Colors.foreground
+            font.family: Theme.fontFamily
+            font.pixelSize: Theme.iconSize
         }
         Text {
             anchors.verticalCenter: parent.verticalCenter

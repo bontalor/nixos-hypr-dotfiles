@@ -13,10 +13,10 @@ import Quickshell
 
 Singleton {
     property var actions: [
-        { name: "Lock",       icon: "system-lock-screen", command: ["quickshell", "-p", Quickshell.shellDir + "/lockscreen/shell.qml"] },
-        { name: "Logout",     icon: "system-log-out",     command: ["loginctl", "terminate-user", Quickshell.env("USER")] },
-        { name: "Suspend",    icon: "system-suspend",     command: ["systemctl", "suspend"] },
-        { name: "Reboot",     icon: "system-reboot",      command: ["systemctl", "reboot"] },
-        { name: "Power Off",  icon: "system-shutdown",    command: ["systemctl", "poweroff"] }
+        { name: "Lock",       glyph: "\uf023", command: ["quickshell", "-p", Quickshell.shellDir + "/lockscreen/shell.qml"] },
+        { name: "Logout",     glyph: "\uf2f5", command: ["loginctl", "terminate-user", Quickshell.env("USER")] },
+        { name: "Suspend",    glyph: "\uf186", command: ["systemctl", "suspend"] },
+        { name: "Reboot",     glyph: "\uf2f9", command: ["systemctl", "reboot"] },
+        { name: "Power Off",  glyph: "\uf011", command: ["systemctl", "poweroff"] }
     ]
 }

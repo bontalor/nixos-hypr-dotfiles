@@ -2,7 +2,6 @@ import "./theme"
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import Quickshell.Widgets
 import Quickshell.Wayland
 Rectangle {
     id: root
@@ -21,14 +20,14 @@ Rectangle {
         return n + (s[(v - 20) % 10] || s[v] || s[0])
     }
 
-    // Same shape as PowerActions.lockActions, kept local for config-root
+    // Same shape as PowerActions.actions, kept local for config-root
     // isolation. The lockscreen's actions never overlap with anything else
     // (no Lock on the lockscreen), so a duplicated 4-item list is fine.
     property var lockActions: [
-        { name: "Logout",    icon: "system-log-out",  command: ["sh", "-c", "loginctl kill-session \"${XDG_SESSION_ID:-$(loginctl list-sessions --no-legend | head -n1 | awk '{print $1}')}\""] },
-        { name: "Suspend",   icon: "system-suspend",  command: ["systemctl", "suspend"] },
-        { name: "Reboot",    icon: "system-reboot",   command: ["systemctl", "reboot"] },
-        { name: "Power Off", icon: "system-shutdown", command: ["systemctl", "poweroff"] }
+        { name: "Logout",    glyph: "\uf2f5", command: ["sh", "-c", "loginctl kill-session \"${XDG_SESSION_ID:-$(loginctl list-sessions --no-legend | head -n1 | awk '{print $1}')}\""] },
+        { name: "Suspend",   glyph: "\uf186", command: ["systemctl", "suspend"] },
+        { name: "Reboot",    glyph: "\uf2f9", command: ["systemctl", "reboot"] },
+        { name: "Power Off", glyph: "\uf011", command: ["systemctl", "poweroff"] }
     ]
 
     FileView {
@@ -151,9 +150,10 @@ Rectangle {
                     }
                 }
                 // 30×30 fingerprint readiness indicator. Matches the password
-                // box background; the glyph (fa-fingerprint, U+EE40) is tinted
-                // foreground. Presence = reader armed; hidden when fprintd is
-                // unusable, in which case the row above collapses the gap too.
+                // box background; the glyph (nf-md-fingerprint, U+F0237) is
+                // tinted foreground. Presence = reader armed; hidden when
+                // fprintd is unusable, in which case the row above collapses
+                // the gap too.
                 Rectangle {
                     width: context.fingerprintEnabled ? 30 : 0
                     height: 30
@@ -161,7 +161,7 @@ Rectangle {
                     color: Qt.alpha(Colors.background, Theme.alphaBackground)
                     Text {
                         anchors.centerIn: parent
-                        text: "\uee40"
+                        text: "\u{F0237}"
                         color: Colors.foreground
                         font.family: Theme.fontFamily
                         font.pixelSize: 22
@@ -181,11 +181,12 @@ Rectangle {
                             height: 45
                             anchors.horizontalCenter: parent.horizontalCenter
                             color: btnMouse.containsMouse ? Qt.alpha(Colors.base08, Theme.alphaBackground) : Qt.alpha(Colors.background, Theme.alphaBackground)
-                            IconImage {
+                            Text {
                                 anchors.centerIn: parent
-                                source: modelData?.icon ? Quickshell.iconPath(modelData.icon, false) : ""
-                                width: 22; height: 22
-                                visible: source.toString() !== ""
+                                text: modelData?.glyph ?? ""
+                                color: Colors.foreground
+                                font.family: Theme.fontFamily
+                                font.pixelSize: 22
                             }
                             MouseArea {
                                 id: btnMouse
