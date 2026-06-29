@@ -11,101 +11,102 @@ Panel {
         { name: "Power Profiles" }
     ]
 
-    // Live D-Bus-backed state from BatteryModel.
-    property int batteryPercent: BatteryModel.percentage
-    property string batteryState: {
-        if (!BatteryModel.displayDevice) return ""
-        switch (BatteryModel.displayDevice.state) {
-        case UPowerDeviceState.Charging:        return "charging"
-        case UPowerDeviceState.Discharging:     return "discharging"
-        case UPowerDeviceState.FullyCharged:    return "fully-charged"
-        case UPowerDeviceState.Empty:           return "empty"
-        case UPowerDeviceState.PendingCharge:  return "pending-charge"
-        case UPowerDeviceState.PendingDischarge: return "pending-discharge"
-        default: return "unknown"
-        }
-    }
-    property string batteryModel: BatteryModel.displayDevice ? (BatteryModel.displayDevice.model || "") : ""
-
     property var powerProfiles: BatteryModel.profiles
-    property string activeProfile: BatteryModel.activeProfile
     property bool profileDaemonAvailable: BatteryModel.profileIndex >= 0
 
     currentModelLength: function() {
         switch (root.selSection) {
-        case 0: return root.batteryPercent >= 0 ? 1 : 0
+        case 0: return BatteryModel.batteryDevices.length
         case 1: return root.powerProfiles.count
         default: return 0
         }
     }
 
     onDeviceActivated: function(idx) {
-        if (root.selSection === 1) {
+        if (root.selSection === 0) {
+            var dev = BatteryModel.batteryDevices[idx]
+            if (dev) BatteryModel.selectDevice(dev.nativePath)
+        } else if (root.selSection === 1) {
             var entry = root.powerProfiles.get(idx)
             if (entry) BatteryModel.setProfile(entry.enumVal)
         }
     }
 
-    // ---- Section 0: Battery summary ----
+    // ---- Section 0: Battery list ----
     Column {
         width: parent.width
         spacing: root.colSpacing
         visible: root.selSection === 0
 
-        Rectangle {
+        Text {
             width: parent.width
-            height: root.rowHeight + (root.batteryPercent >= 0 ? 30 * 2 : 0)
-            color: root.inSection && 0 === root.selDevice ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
+            height: Theme.searchRowHeight
+            visible: BatteryModel.batteryDevices.length === 0
+            text: "No batteries detected"
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+            color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
+            font.pixelSize: Theme.fontPixelSize
+            font.family: Theme.fontFamily
+        }
 
-            Column {
-                anchors { left: parent.left; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
-                spacing: 2
+        Repeater {
+            model: BatteryModel.batteryDevices
 
-                Text {
-                    text: root.batteryModel || "Battery"
-                    color: Colors.foreground
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
-                    font.bold: true
-                    visible: root.batteryPercent >= 0
+            delegate: Item {
+                width: parent.width
+                height: root.rowHeight
+                required property var modelData
+                required property int index
+
+                property bool isActive: BatteryModel.activeDevice === modelData
+                property int pct: Math.round(modelData.percentage * 100)
+
+                Rectangle {
+                    anchors.fill: parent
+                    color: root.inSection && index === root.selDevice ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
                 }
 
                 Text {
-                    visible: root.batteryPercent >= 0
+                    id: devName
+                    text: BatteryModel.deviceName(modelData)
+                    anchors { left: parent.left; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
+                    color: isActive ? Colors.base0b : Colors.foreground
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
+                    font.bold: isActive
+                }
+
+                Text {
+                    text: pct + "%"
+                    anchors { left: devName.right; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
+                    color: pct <= Theme.batteryCritical ? Colors.base08
+                        : pct <= Theme.batteryWarning ? Colors.base09
+                        : Colors.foreground
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
+                    font.bold: true
+                }
+
+                Text {
                     text: {
-                        var plugged = BatteryModel.charging || batteryState === "fully-charged" || batteryState === "pending-charge"
-                        var prefix = plugged ? Icon.plug + " " : ""
-                        var s = root.batteryState
-                            ? root.batteryState.charAt(0).toUpperCase() + root.batteryState.slice(1)
-                            : ""
-                        return prefix + s
+                        var s = BatteryModel.stateText(modelData)
+                        return s ? s.charAt(0).toUpperCase() + s.slice(1) : ""
                     }
-                    color: BatteryModel.charging
-                        ? Colors.base0b
-                        : (root.batteryPercent <= Theme.batteryCritical ? Colors.base08 : Qt.alpha(Colors.foreground, Theme.alphaBackground))
+                    anchors { right: parent.right; rightMargin: Theme.margin; verticalCenter: parent.verticalCenter }
+                    color: modelData.state === UPowerDeviceState.Charging ? Colors.base0b
+                        : Qt.alpha(Colors.foreground, Theme.alphaBackground)
                     font.pixelSize: Theme.fontPixelSize
                     font.family: Theme.fontFamily
                 }
 
-                Text {
-                    visible: root.batteryPercent >= 0
-                    text: root.batteryPercent + "%"
-                    color: {
-                        if (root.batteryPercent <= Theme.batteryCritical) return Colors.base08
-                        if (root.batteryPercent <= Theme.batteryWarning) return Colors.base09
-                        return Colors.foreground
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        if (!root.inSection) { root.inSection = true; root.selDevice = index }
+                        BatteryModel.selectDevice(modelData.nativePath)
                     }
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
-                    font.bold: true
-                }
-
-                Text {
-                    visible: root.batteryPercent < 0
-                    text: "No battery detected"
-                    color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
                 }
             }
         }
