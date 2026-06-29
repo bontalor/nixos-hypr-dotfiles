@@ -21,10 +21,10 @@ Singleton {
     property int colSpacing: 10
 
     // Popups (notifications, OSD) — same aspect ratio as the panels,
-    // at 1/4 the size. The `+ 10` on each accounts for the drop-shadow
-    // pair that extends 10px right and 10px below the visible rectangle.
-    property int popupWidth: Math.round(panelWidth / 4)        // 212
-    property int popupHeight: Math.round(panelHeight / 4)      // 112
+    // at 1/4 the size. The `+ 10` accounts for the drop-shadow pair
+    // extending right/below.
+    property int popupWidth: 250
+    property int popupHeight: 100
 
     // Two-pane scaffold (see theme/Panel.qml)
     property int rowHeight: 45
