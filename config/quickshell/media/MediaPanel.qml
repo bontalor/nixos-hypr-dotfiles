@@ -47,22 +47,7 @@ FloatingWindow {
     // real `position` whenever it changes and tick the displayed value
     // once per second while the panel is open & playback is active.
     property real mprisPosition: currentPlayer?.position ?? 0
-    property real trackPosition: mprisPosition + extraTickSeconds
-    property real extraTickSeconds: 0
-
-    onMprisPositionChanged: {
-        // Player reported a new truth: discard accumulated ticks & resync.
-        extraTickSeconds = 0
-    }
-
-    Timer {
-        interval: 1000
-        repeat: true
-        running: root.visible
-                 && root.playbackState === MprisPlaybackState.Playing
-                 && root.trackLength > 0
-        onTriggered: root.extraTickSeconds += 1
-    }
+    property real trackPosition: mprisPosition
 
     function fmtTime(sec) {
         return Util.fmtSeconds(sec)
