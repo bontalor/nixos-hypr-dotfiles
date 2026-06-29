@@ -159,7 +159,7 @@ Panel {
                             width: 10
                             height: 10
                             color: index < Math.round(wifiItem.wifiSignal / 25)
-                                   ? Colors.foreground : Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
+                                   ? Colors.foreground : Qt.alpha(Colors.foreground, 0.25)
                         }
                     }
                 }

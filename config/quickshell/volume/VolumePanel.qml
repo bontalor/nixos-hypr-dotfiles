@@ -386,7 +386,7 @@ for obj in data:
                             width: 10
                             height: 10
                             color: index < Math.round(nodeItem.displayedPeak * peakRepeater.count)
-                                   ? Colors.foreground : Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
+                                   ? Colors.foreground : Qt.alpha(Colors.foreground, 0.25)
                         }
                     }
                 }

@@ -45,7 +45,11 @@ Item {
 
     onPlaybackStateChanged: {
         if (playbackState === MprisPlaybackState.Playing) startScroll()
-        else { scrollPos = 0; scrollTimer.running = false }
+        else {
+            scrollPos = 0
+            scrollTimer.running = false
+            root.peakLevels = [0, 0, 0, 0, 0, 0, 0, 0]
+        }
     }
 
     TextMetrics {

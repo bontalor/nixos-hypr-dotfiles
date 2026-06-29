@@ -42,12 +42,14 @@ FloatingWindow {
     property bool canSeek: currentPlayer?.canSeek ?? false
     property string trackArtUrl: currentPlayer?.trackArtUrl ?? ""
 
-    // Mpris `position` updates only at DBus event boundaries (Seeked,
-    // Pause/Resume, etc.), so it freezes between events. We sample the
-    // real `position` whenever it changes and tick the displayed value
-    // once per second while the panel is open & playback is active.
-    property real mprisPosition: currentPlayer?.position ?? 0
-    property real trackPosition: mprisPosition
+    // Quickshell's Mpris service already interpolates `position` using
+    // wall-clock time in C++ (positionMs = lastDbusPosition + elapsed*rate),
+    // so reading `currentPlayer.position` always returns the exact current
+    // position — but the `positionChanged` signal only fires on real DBus
+    // events (seeks). The FrameAnimation below re-emits it every frame so
+    // the binding re-reads the interpolated value, keeping the progress
+    // bar perfectly synced with no drift.
+    property real trackPosition: currentPlayer?.position ?? 0
 
     function fmtTime(sec) {
         return Util.fmtSeconds(sec)
@@ -71,6 +73,18 @@ FloatingWindow {
     Shortcut {
         sequence: "Escape"
         onActivated: root.visible = false
+    }
+
+    // Re-emit `positionChanged` every second so the `trackPosition` binding
+    // re-reads the wall-clock-interpolated value from Quickshell's C++
+    // MprisPlayer. The signal only fires on real DBus events (seeks)
+    // otherwise, so without this nudge the binding goes stale between
+    // events. A 1s Timer matches the elapsed-time text granularity.
+    Timer {
+        interval: 1000
+        running: root.visible && root.playbackState === MprisPlaybackState.Playing
+        repeat: true
+        onTriggered: if (root.currentPlayer) root.currentPlayer.positionChanged()
     }
 
     Rectangle {
@@ -347,7 +361,7 @@ FloatingWindow {
                             Rectangle {
                                 anchors { left: elapsedText.right; leftMargin: 9; right: remainingText.left; rightMargin: 9; verticalCenter: parent.verticalCenter }
                                 height: 10
-                                color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
+                                color: Qt.alpha(Colors.foreground, 0.25)
 
                                 Rectangle {
                                     height: parent.height

@@ -48,7 +48,7 @@ PanelWindow {
                     id: bg
                     width: parent.width - 10
                     height: parent.height - 10
-                    color: Qt.alpha(Colors.background, Theme.alphaBackground)
+                    color: Qt.alpha(Colors.background, 0.76)
                     border.width: urgency === NotificationUrgency.Critical ? 2 : 0
                     border.color: Colors.base08
 
