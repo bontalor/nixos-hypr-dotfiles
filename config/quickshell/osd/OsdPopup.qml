@@ -19,12 +19,12 @@ PanelWindow {
     WlrLayershell.margins { bottom: 10 }
 
     color: "transparent"
-    implicitHeight: 80
+    implicitHeight: Theme.popupHeight + 10   // bg + bottom shadow
     visible: OsdModel.visible
 
     Item {
-        width: 380
-        height: 60
+        width: Theme.popupWidth + 10
+        height: Theme.popupHeight + 10
         anchors.horizontalCenter: parent.horizontalCenter
 
         Rectangle {

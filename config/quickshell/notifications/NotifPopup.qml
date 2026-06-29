@@ -13,18 +13,15 @@ PanelWindow {
     WlrLayershell.margins { top: 20; right: Theme.margin + 20 }
 
     color: "transparent"
-    implicitWidth: 380
+    implicitWidth: Theme.popupWidth + 10    // bg + right shadow
     implicitHeight: root.totalHeight
     visible: NotifDaemon.activePopups.count > 0
 
+    // Each popup is fixed-size (Theme.popupWidth x popupHeight) + the
+    // 10px drop-shadow pair, so the window height is a simple sum.
     property int totalHeight: {
-        var h = 0
-        var m = NotifDaemon.activePopups
-        for (var i = 0; i < m.count; i++) {
-            var e = m.get(i)
-            h += Math.min(140, 60 + Math.ceil((e.body || "").length / 40) * 20) + 10
-        }
-        return h + Math.max(0, m.count - 1) * 10
+        var n = NotifDaemon.activePopups.count
+        return n * (Theme.popupHeight + 10) + Math.max(0, n - 1) * 10
     }
 
     Column {
@@ -42,7 +39,7 @@ PanelWindow {
                 required property int urgency
 
                 width: parent.width
-                height: Math.min(140, 60 + Math.ceil((body || "").length / 40) * 20) + 10
+                height: Theme.popupHeight + 10
 
                 Rectangle {
                     id: bg
@@ -73,6 +70,8 @@ PanelWindow {
                         font.pixelSize: Theme.fontPixelSize
                         font.family: Theme.fontFamily
                         wrapMode: Text.WordWrap
+                        maximumLineCount: 3
+                        elide: Text.ElideRight
                         visible: text !== ""
                     }
                     }
