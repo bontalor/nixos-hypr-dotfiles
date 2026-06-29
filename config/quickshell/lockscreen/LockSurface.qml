@@ -24,7 +24,7 @@ Rectangle {
     // isolation. The lockscreen's actions never overlap with anything else
     // (no Lock on the lockscreen), so a duplicated 4-item list is fine.
     property var lockActions: [
-        { name: "Logout",    glyph: "\uf2f5", command: ["sh", "-c", "loginctl kill-session \"${XDG_SESSION_ID:-$(loginctl list-sessions --no-legend | head -n1 | awk '{print $1}')}\""] },
+        { name: "Logout",    glyph: "\uf2f5", command: ["loginctl", "terminate-user", Quickshell.env("USER")] },
         { name: "Suspend",   glyph: "\uf186", command: ["systemctl", "suspend"] },
         { name: "Reboot",    glyph: "\uf2f9", command: ["systemctl", "reboot"] },
         { name: "Power Off", glyph: "\uf011", command: ["systemctl", "poweroff"] }
