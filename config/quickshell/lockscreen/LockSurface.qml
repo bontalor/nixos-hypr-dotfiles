@@ -101,9 +101,12 @@ Rectangle {
             Row {
                 width: parent.width
                 height: 30
-                spacing: 6
+                // 10px gap when the fingerprint square is shown; collapse to
+                // 0 when fprintd is unavailable so the password box fills
+                // the whole row.
+                spacing: context.fingerprintEnabled ? 10 : 0
                 Rectangle {
-                    width: parent.width - 36
+                    width: parent.width - (context.fingerprintEnabled ? 40 : 0)
                     height: 30
                     color: Qt.alpha(Colors.background, Theme.alphaBackground)
                     clip: true
@@ -147,20 +150,21 @@ Rectangle {
                         }
                     }
                 }
-                // 30×30 readiness indicator: green when fprintd is armed,
-                // red briefly on no-match, hidden when fprintd is unusable.
+                // 30×30 fingerprint readiness indicator. Matches the password
+                // box background; the glyph (fa-fingerprint, U+EE40) is tinted
+                // foreground. Presence = reader armed; hidden when fprintd is
+                // unusable, in which case the row above collapses the gap too.
                 Rectangle {
-                    width: 30
+                    width: context.fingerprintEnabled ? 30 : 0
                     height: 30
                     visible: context.fingerprintEnabled
-                    color: context.fingerprintHint.indexOf("no match") >= 0
-                        ? Qt.alpha(Colors.base08, Theme.alphaBackground)
-                        : Qt.alpha(Colors.base0b, Theme.alphaBackground)
-                    IconImage {
+                    color: Qt.alpha(Colors.background, Theme.alphaBackground)
+                    Text {
                         anchors.centerIn: parent
-                        source: Quickshell.iconPath("fingerprint", false)
-                        width: 16; height: 16
-                        visible: source.toString() !== ""
+                        text: "\uee40"
+                        color: Colors.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: 22
                     }
                 }
             }
