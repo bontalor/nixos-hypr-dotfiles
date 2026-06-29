@@ -14,6 +14,7 @@ import Quickshell.Wayland
 PanelWindow {
     id: root
     WlrLayershell.namespace: "quickshell:osd"
+    WlrLayershell.exclusionMode: WlrLayershell.ExclusionMode.None
     WlrLayershell.anchors { bottom: true; left: true; right: true }
     WlrLayershell.margins { bottom: 20 }
 

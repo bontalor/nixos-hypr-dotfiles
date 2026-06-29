@@ -117,7 +117,7 @@ Singleton {
         var v = Math.max(0, Math.min(1, cur / max))
         root._brightness = v
         root.value = v
-        root.glyph = "\uDB7F\uDFA8" // U+F05A8 — sun/brightness glyph
+        root.glyph = "\uDB81\uDDA8" // U+F05A8 — sun/brightness glyph
         root.activeKind = "brightness"
         hideTimer.restart()
     }
