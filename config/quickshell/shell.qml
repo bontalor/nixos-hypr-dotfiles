@@ -11,6 +11,7 @@ import "./media"
 import "./bar"
 import "./emoji"
 import "./notifications"
+import "./osd"
 import "./theme"
 import "./models"
 import QtQuick
@@ -21,6 +22,7 @@ Scope {
     Bar{}
     Notifications{}
     NotifPopup{}
+    OsdPopup{}
 
     Picker { id: picker }
     Launcher { id: launcher }
@@ -54,5 +56,15 @@ Scope {
         function toggle(name: string): void {
             Panels.toggle(name)
         }
+    }
+
+    IpcHandler {
+        target: "osd"
+        enabled: true
+        function volumeUp(): void { OsdModel.volumeUp() }
+        function volumeDown(): void { OsdModel.volumeDown() }
+        function mute(): void { OsdModel.volumeMute() }
+        function brightnessUp(): void { OsdModel.brightnessUp() }
+        function brightnessDown(): void { OsdModel.brightnessDown() }
     }
 }
