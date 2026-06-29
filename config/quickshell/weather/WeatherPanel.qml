@@ -211,7 +211,7 @@ Panel {
 
                 Text {
                     visible: WeatherModel.dataReady
-                    text: root.cc ? WeatherCodes.icon(parseInt(root.cc.weatherCode)) + "  " + (WeatherModel.degreeUnit === "F" ? root.cc.temp_F : root.cc.temp_C) + "\u00b0" + WeatherModel.degreeUnit : ""
+                    text: root.cc ? WeatherCodes.icon(parseInt(root.cc.weatherCode)) + " " + (WeatherModel.degreeUnit === "F" ? root.cc.temp_F : root.cc.temp_C) + "\u00b0" + WeatherModel.degreeUnit : ""
                     color: Colors.foreground
                     font.pixelSize: 32
                     font.family: Theme.fontFamily
@@ -309,7 +309,7 @@ Panel {
 
                 Text {
                     visible: WeatherModel.dataReady
-                    text: WeatherModel.dataReady ? WeatherModel.moonIcon + "  " + WeatherModel.moonPhase : ""
+                    text: WeatherModel.dataReady ? WeatherModel.moonIcon + " " + WeatherModel.moonPhase : ""
                     color: Colors.foreground
                     font.pixelSize: 32
                     font.family: Theme.fontFamily
