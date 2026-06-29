@@ -34,16 +34,16 @@ Item {
 
         Row {
             visible: wifiConnected
-            spacing: 10
+            spacing: 4
             anchors.verticalCenter: parent.verticalCenter
 
             Repeater {
                 model: 4
                 delegate: Rectangle {
-                    width: 10
-                    height: 10
+                    width: 4
+                    height: 4
                     color: index < Math.round(connectedSignal / 25)
-                           ? Colors.foreground : Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
+                           ? Colors.foreground : Qt.alpha(Colors.foreground, 0.25)
                 }
             }
         }
