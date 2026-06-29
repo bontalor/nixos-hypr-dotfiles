@@ -22,7 +22,7 @@ Item {
     Row {
         id: contentRow
         anchors.centerIn: parent
-        spacing: 10
+        spacing: 6
 
         Text {
             id: netText
