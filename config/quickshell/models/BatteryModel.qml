@@ -36,7 +36,9 @@ Singleton {
         ? displayDevice.type === UPowerDeviceType.Battery
         : false
 
-    readonly property int percentage: hasBattery ? Math.round(displayDevice.percentage) : -1
+    // Quickshell's UPower service scales the D-Bus percentage (0-100) down to
+    // a 0.0-1.0 fraction, so multiply back by 100.
+    readonly property int percentage: hasBattery ? Math.round(displayDevice.percentage * 100) : -1
     readonly property bool charging: hasBattery
         ? displayDevice.state === UPowerDeviceState.Charging
         : false
