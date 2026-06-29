@@ -23,8 +23,8 @@ Singleton {
     // Popups (notifications, OSD) — same aspect ratio as the panels,
     // at 1/4 the size. The `+ 10` accounts for the drop-shadow pair
     // extending right/below.
-    property int popupWidth: 250
-    property int popupHeight: 100
+    property int popupWidth: 270
+    property int popupHeight: 90
 
     // Two-pane scaffold (see theme/Panel.qml)
     property int rowHeight: 45
