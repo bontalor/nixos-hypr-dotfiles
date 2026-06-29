@@ -53,10 +53,10 @@ Scope {
         // fprintd-verify: exit 0 == verify-match, exit 1 == anything else
         // (no-match, no device, no enrolled fingers, daemon down, …).
         // Exit 127 == fprintd not installed. Stdout disambiguates the
-        // recoverable exit-1 cases from the permanent ones.
-        // `onFinished` overrides the Process virtual method (same pattern
-        // as PamContext.onCompleted below).
-        onFinished: (exitCode, exitStatus) => {
+        // recoverable exit-1 cases from the permanent ones. `exited` is
+        // Process's only completion signal; `onFinished`/`onErrorOccurred`
+        // exist as C++ virtual methods but aren't QML-assignable.
+        onExited: (exitCode, exitStatus) => {
             if (root.fingerprintMatched || root.unlockInProgress) return
             if (exitCode === 0) {
                 root.fingerprintMatched = true
