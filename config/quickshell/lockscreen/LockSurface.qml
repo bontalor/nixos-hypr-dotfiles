@@ -11,19 +11,12 @@ Rectangle {
 
     property string wallpaperPath: ""
 
-    // Inline helper — the lockscreen runs as its own config root via
-    // `quickshell -p lockscreen/shell.qml`, so the shared ../util singleton
-    // isn't reachable. Keeping the lone function local avoids entangling
-    // the lockscreen with the rest of the shell.
     function ordinal(n) {
         var s = ["th", "st", "nd", "rd"]
         var v = n % 100
         return n + (s[(v - 20) % 10] || s[v] || s[0])
     }
 
-    // Same shape as PowerActions.lockActions, kept local for config-root
-    // isolation. The lockscreen's actions never overlap with anything else
-    // (no Lock on the lockscreen), so a duplicated 4-item list is fine.
     property var lockActions: [
         { name: "Logout",    icon: "system-log-out",  command: ["sh", "-c", "loginctl kill-session \"${XDG_SESSION_ID:-$(loginctl list-sessions --no-legend | head -n1 | awk '{print $1}')}\""] },
         { name: "Suspend",   icon: "system-suspend",  command: ["systemctl", "suspend"] },
@@ -50,58 +43,6 @@ Rectangle {
         id: btnProcess
         running: false
     }
-
-    property bool fpAvailable: true
-    property string fpStatus: ""
-
-    Process {
-        id: fprintProcess
-        running: false
-        command: ["fprintd-verify"]
-
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: {
-                if (text.includes("verify-match")) {
-                    root.fpStatus = ""
-                    root.context.fingerprintUnlock()
-                } else if (text.includes("verify-no-match")) {
-                    root.fpStatus = "Fingerprint not recognized"
-                    fpRestartTimer.start()
-                }
-            }
-        }
-
-        stderr: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: {
-                if (text.includes("No devices")) {
-                    root.fpAvailable = false
-                    root.fpStatus = ""
-                }
-            }
-        }
-    }
-
-    Timer {
-        id: fpRestartTimer
-        interval: 1500
-        onTriggered: startFprint()
-    }
-
-    Timer {
-        id: fpStartTimer
-        interval: 500
-        onTriggered: startFprint()
-    }
-
-    function startFprint() {
-        if (!root.fpAvailable) return
-        root.fpStatus = "Touch fingerprint sensor..."
-        fprintProcess.running = true
-    }
-
-    onFpAvailableChanged: if (fpAvailable) fpStartTimer.start()
 
     property string formattedDate: {
         var d = clock.date
@@ -152,14 +93,29 @@ Rectangle {
             }
             Item {
                 width: parent.width
-                height: 16
-                visible: root.fpAvailable && root.fpStatus !== ""
+                height: 20
+                visible: root.context.fpAvailable
                 Text {
                     anchors.centerIn: parent
-                    text: "\ud83d\uddff  " + root.fpStatus
+                    text: {
+                        if (root.context.fpActive && root.context.fpMessage)
+                            return "\ud83d\uddff  " + root.context.fpMessage
+                        if (root.context.fpActive)
+                            return "\ud83d\uddff  Scanning..."
+                        return "\ud83d\uddff  Touch fingerprint sensor"
+                    }
                     color: Qt.alpha(Colors.base0d, 0.8)
                     font.pixelSize: Theme.fontPixelSizeSmall
                     font.family: Theme.fontFamily
+                }
+
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        if (!root.context.fpActive)
+                            root.context.startFprint()
+                    }
                 }
             }
             Rectangle {
@@ -184,7 +140,7 @@ Rectangle {
                     echoMode: TextInput.Password
                     inputMethodHints: Qt.ImhSensitiveData
                     onTextChanged: root.context.currentText = this.text
-                    onAccepted: { fprintProcess.running = false; root.context.tryUnlock() }
+                    onAccepted: root.context.tryUnlock()
                     Text {
                         anchors {
                             left: parent.left
