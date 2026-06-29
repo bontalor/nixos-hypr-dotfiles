@@ -51,6 +51,58 @@ Rectangle {
         running: false
     }
 
+    property bool fpAvailable: true
+    property string fpStatus: ""
+
+    Process {
+        id: fprintProcess
+        running: false
+        command: ["fprintd-verify"]
+
+        stdout: StdioCollector {
+            waitForEnd: true
+            onStreamFinished: {
+                if (text.includes("verify-match")) {
+                    root.fpStatus = ""
+                    root.context.fingerprintUnlock()
+                } else if (text.includes("verify-no-match")) {
+                    root.fpStatus = "Fingerprint not recognized"
+                    fpRestartTimer.start()
+                }
+            }
+        }
+
+        stderr: StdioCollector {
+            waitForEnd: true
+            onStreamFinished: {
+                if (text.includes("No devices")) {
+                    root.fpAvailable = false
+                    root.fpStatus = ""
+                }
+            }
+        }
+    }
+
+    Timer {
+        id: fpRestartTimer
+        interval: 1500
+        onTriggered: startFprint()
+    }
+
+    Timer {
+        id: fpStartTimer
+        interval: 500
+        onTriggered: startFprint()
+    }
+
+    function startFprint() {
+        if (!root.fpAvailable) return
+        root.fpStatus = "Touch fingerprint sensor..."
+        fprintProcess.running = true
+    }
+
+    onFpAvailableChanged: if (fpAvailable) fpStartTimer.start()
+
     property string formattedDate: {
         var d = clock.date
         return Qt.formatDateTime(d, "dddd, MMMM ") + root.ordinal(d.getDate()) + Qt.formatDateTime(d, ", yyyy")
@@ -98,6 +150,18 @@ Rectangle {
                     text: root.formattedDate
                 }
             }
+            Item {
+                width: parent.width
+                height: 16
+                visible: root.fpAvailable && root.fpStatus !== ""
+                Text {
+                    anchors.centerIn: parent
+                    text: "\ud83d\uddff  " + root.fpStatus
+                    color: Qt.alpha(Colors.base0d, 0.8)
+                    font.pixelSize: Theme.fontPixelSizeSmall
+                    font.family: Theme.fontFamily
+                }
+            }
             Rectangle {
                 width: parent.width
                 height: 30
@@ -120,7 +184,7 @@ Rectangle {
                     echoMode: TextInput.Password
                     inputMethodHints: Qt.ImhSensitiveData
                     onTextChanged: root.context.currentText = this.text
-                    onAccepted: root.context.tryUnlock()
+                    onAccepted: { fprintProcess.running = false; root.context.tryUnlock() }
                     Text {
                         anchors {
                             left: parent.left

@@ -20,6 +20,10 @@ Scope {
         pam.start()
     }
 
+    function fingerprintUnlock() {
+        root.unlocked()
+    }
+
     PamContext {
         id: pam
         configDirectory: "pam"
