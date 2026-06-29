@@ -22,10 +22,11 @@ Scope {
     // where no native Quickshell service exists.
     //
     // `fingerprintMatched` suppresses a late verify racing a password unlock;
-    // `unlockInProgress` cancels pending retries while a password attempt is
-    // in flight; `fingerprintEnabled` latches false when fprintd is missing
-    // or has no usable device/enrolled prints, so the UI hides the hint and
-    // the retry loop stops spinning.
+    // `unlockInProgress` ignores the exit of a verify killed by tryUnlock
+    // (a real match — exit 0 — still unlocks even mid-password-attempt);
+    // `fingerprintEnabled` latches false when fprintd is missing or has no
+    // usable device/enrolled prints, so the UI hides the indicator and the
+    // retry loop stops spinning.
     property bool fingerprintEnabled: true
     property bool fingerprintMatched: false
     property string fingerprintHint: "or touch fingerprint"
@@ -57,12 +58,16 @@ Scope {
         // Process's only completion signal; `onFinished`/`onErrorOccurred`
         // exist as C++ virtual methods but aren't QML-assignable.
         onExited: (exitCode, exitStatus) => {
-            if (root.fingerprintMatched || root.unlockInProgress) return
+            if (root.fingerprintMatched) return
+            // A match (exit 0) unlocks even mid-password-attempt; only
+            // non-zero exits during an in-flight password attempt belong to
+            // the verify process tryUnlock just killed, so ignore them.
             if (exitCode === 0) {
                 root.fingerprintMatched = true
                 root.unlocked()
                 return
             }
+            if (root.unlockInProgress) return
 
             var out = (fprintOut.text || "").toLowerCase()
             var unusable =
@@ -112,13 +117,19 @@ Scope {
         }
 
         onCompleted: result => {
+            root.unlockInProgress = false
             if (result == PamResult.Success) {
                 root.unlocked()
             } else {
                 root.currentText = ""
                 root.showFailure = true
+                // tryUnlock cancels any in-flight verify; without re-arming
+                // here the reader stays dead after a wrong password.
+                if (root.fingerprintEnabled && !root.fingerprintMatched) {
+                    root.fingerprintHint = "or touch fingerprint"
+                    fprintProc.running = true
+                }
             }
-            root.unlockInProgress = false
         }
     }
 }

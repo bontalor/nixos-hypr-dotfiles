@@ -98,70 +98,69 @@ Rectangle {
                     text: root.formattedDate
                 }
             }
-            Rectangle {
+            Row {
                 width: parent.width
                 height: 30
-                color: Qt.alpha(Colors.background, Theme.alphaBackground)
-                clip: true
-                TextInput {
-                    id: passwordBox
-                    anchors {
-                        left: parent.left
-                        right: parent.right
-                        verticalCenter: parent.verticalCenter
-                        leftMargin: 10
-                        rightMargin: 10
-                    }
-                    color: Colors.foreground
-                    font.pixelSize: Theme.fontPixelSize
-                    font.letterSpacing: 10
-                    font.family: Theme.fontFamily
-                    focus: true
-                    echoMode: TextInput.Password
-                    inputMethodHints: Qt.ImhSensitiveData
-                    onTextChanged: root.context.currentText = this.text
-                    onAccepted: root.context.tryUnlock()
-                    Text {
+                spacing: 6
+                Rectangle {
+                    width: parent.width - 36
+                    height: 30
+                    color: Qt.alpha(Colors.background, Theme.alphaBackground)
+                    clip: true
+                    TextInput {
+                        id: passwordBox
                         anchors {
                             left: parent.left
+                            right: parent.right
                             verticalCenter: parent.verticalCenter
                             leftMargin: 10
+                            rightMargin: 10
                         }
-                        color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
+                        color: Colors.foreground
                         font.pixelSize: Theme.fontPixelSize
+                        font.letterSpacing: 10
                         font.family: Theme.fontFamily
-                        text: "Enter password..."
-                        visible: parent.text.length === 0 && !parent.focus
-                    }
-                    Connections {
-                        target: root.context
-                        function onCurrentTextChanged() {
-                            if (passwordBox.text !== root.context.currentText) {
-                                passwordBox.text = root.context.currentText
+                        focus: true
+                        echoMode: TextInput.Password
+                        inputMethodHints: Qt.ImhSensitiveData
+                        onTextChanged: root.context.currentText = this.text
+                        onAccepted: root.context.tryUnlock()
+                        Text {
+                            anchors {
+                                left: parent.left
+                                verticalCenter: parent.verticalCenter
+                                leftMargin: 10
+                            }
+                            color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
+                            font.pixelSize: Theme.fontPixelSize
+                            font.family: Theme.fontFamily
+                            text: "Enter password..."
+                            visible: parent.text.length === 0 && !parent.focus
+                        }
+                        Connections {
+                            target: root.context
+                            function onCurrentTextChanged() {
+                                if (passwordBox.text !== root.context.currentText) {
+                                    passwordBox.text = root.context.currentText
+                                }
                             }
                         }
                     }
                 }
-            }
-            Item {
-                width: parent.width
-                height: 20
-                visible: context.fingerprintEnabled
-                Row {
-                    anchors.centerIn: parent
-                    spacing: 6
+                // 30×30 readiness indicator: green when fprintd is armed,
+                // red briefly on no-match, hidden when fprintd is unusable.
+                Rectangle {
+                    width: 30
+                    height: 30
+                    visible: context.fingerprintEnabled
+                    color: context.fingerprintHint.indexOf("no match") >= 0
+                        ? Qt.alpha(Colors.base08, Theme.alphaBackground)
+                        : Qt.alpha(Colors.base0b, Theme.alphaBackground)
                     IconImage {
+                        anchors.centerIn: parent
                         source: Quickshell.iconPath("fingerprint", false)
-                        width: 14; height: 14
-                        anchors.verticalCenter: parent.verticalCenter
+                        width: 16; height: 16
                         visible: source.toString() !== ""
-                    }
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: context.fingerprintHint
-                        color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
-                        font.pixelSize: Theme.fontPixelSize
-                        font.family: Theme.fontFamily
                     }
                 }
             }
