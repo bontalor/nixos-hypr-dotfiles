@@ -42,7 +42,7 @@ Panel {
     onDeviceActivated: function(idx) {
         if (root.selSection === 1) {
             var entry = root.powerProfiles.get(idx)
-            if (entry) BatteryModel.setProfile(entry.name)
+            if (entry) BatteryModel.setProfile(entry.enumVal)
         }
     }
 
@@ -184,7 +184,7 @@ Panel {
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
                         if (!root.inSection) { root.inSection = true; root.selDevice = index }
-                        if (!isActive) BatteryModel.setProfile(name)
+                        if (!isActive) BatteryModel.setProfile(enumVal)
                     }
                 }
             }

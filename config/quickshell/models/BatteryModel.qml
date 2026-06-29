@@ -10,14 +10,14 @@ import Quickshell.Services.UPower
 // properties the Quickshell service already has open.
 //
 // Exposes:
-//   percentage            int 0..100, or -1 if no displayDevice
+//   percentage            int 0..100, or -1 if no battery
 //   charging              bool (state == Charging)
 //   discharging           bool (state == Discharging)
 //   onBattery             bool (UPower.onBattery)
 //   activeProfile         string ("power-saver"/"balanced"/"performance")
 //   profileIndex          int index into `profiles`
-//   profiles              ListModel of { name, enum, icon }
-//   setProfile(name)      switch the active profile
+//   profiles              ListModel of { name, enumVal, icon }
+//   setProfile(index)     switch the active profile by list index
 //
 // `profiles` is a ListModel (not a JS array) so views can use index-based
 // access without the `.slice()` reassign trick other panels use to force
@@ -28,11 +28,19 @@ Singleton {
 
     readonly property var displayDevice: UPower.displayDevice
 
-    readonly property int percentage: displayDevice ? Math.round(displayDevice.percentage) : -1
-    readonly property bool charging: displayDevice
+    // UPower's displayDevice is a composite: on a laptop it's the battery,
+    // on a desktop it's the line-power supply (type=LinePower, percentage=0,
+    // state=Unknown). Gate on type==Battery so a batteryless machine reports
+    // -1 / false instead of "0% unknown".
+    readonly property bool hasBattery: displayDevice
+        ? displayDevice.type === UPowerDeviceType.Battery
+        : false
+
+    readonly property int percentage: hasBattery ? Math.round(displayDevice.percentage) : -1
+    readonly property bool charging: hasBattery
         ? displayDevice.state === UPowerDeviceState.Charging
         : false
-    readonly property bool discharging: displayDevice
+    readonly property bool discharging: hasBattery
         ? displayDevice.state === UPowerDeviceState.Discharging
         : false
     readonly property bool onBattery: UPower.onBattery
@@ -64,12 +72,15 @@ Singleton {
         ListElement { name: "Power Saver"; enumVal: 2; icon: "\uf06c" }
     }
 
-    function setProfile(name) {
-        var lc = (name || "").toLowerCase()
-        if (lc === "performance")        PowerProfiles.profile = PowerProfile.Performance
-        else if (lc === "balanced")      PowerProfiles.profile = PowerProfile.Balanced
-        else if (lc === "power-saver"
-              || lc === "power-save"
-              || lc === "powersaver")    PowerProfiles.profile = PowerProfile.PowerSaver
+    // Map a list index (matching `profiles`/`profileIndex`) back to the
+    // PowerProfile enum. The enum values don't match the list order
+    // (PowerSaver=0, Balanced=1, Performance=2 vs list 0,1,2), so a direct
+    // assignment isn't possible.
+    function setProfile(index) {
+        switch (index) {
+        case 0: PowerProfiles.profile = PowerProfile.Performance; break
+        case 1: PowerProfiles.profile = PowerProfile.Balanced; break
+        case 2: PowerProfiles.profile = PowerProfile.PowerSaver; break
+        }
     }
 }

@@ -14,13 +14,13 @@ Item {
     property string statusText: computeStatusText(batteryPercent, isCharging, activeProfile)
 
     function computeStatusText(pct, charging, profile) {
-        if (pct < 0) return "Bat ----"
-
         var profileSymbol = ""
         var p = (profile || "").toLowerCase()
         if (p === "performance") profileSymbol = Icon.bolt
         else if (p === "balanced") profileSymbol = Icon.balance
-        else if (p === "power-saver" || p === "power-save" || p === "powersave") profileSymbol = Icon.leaf
+        else if (p === "power-saver") profileSymbol = Icon.leaf
+
+        if (pct < 0) return "Bat ---- " + profileSymbol
 
         var plugSymbol = charging ? Icon.plug + " " : ""
         var pctStr = String(pct).padStart(3, " ")

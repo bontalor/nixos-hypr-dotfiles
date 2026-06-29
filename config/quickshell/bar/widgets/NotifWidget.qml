@@ -15,7 +15,7 @@ Item {
     Text {
         id: notifText
         anchors.centerIn: parent
-        text: "Notif " + (NotifDaemon.history.count > 0 ? "(" + NotifDaemon.history.count + ")" : "----")
+        text: "(" + NotifDaemon.history.count + ")"
         font.pixelSize: Theme.fontPixelSize
         font.family: Theme.fontFamily
         color: Colors.foreground
