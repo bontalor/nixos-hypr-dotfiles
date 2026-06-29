@@ -52,54 +52,6 @@ Scope {
                     anchors.verticalCenter: parent.verticalCenter
                 }
 
-                Item {
-                    id: layoutState
-                    anchors.left: workspaces.right
-                    anchors.leftMargin: 10
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: stateText.width + 20
-                    height: 30
-
-                    property string displayState: {
-                        var ws = Hyprland.focusedWorkspace
-                        if (!ws) return "Tiling"
-                        var wsId = ws.id
-                        var toplevels = Hyprland.toplevels.values
-                        var full = false
-                        var maxd = false
-                        for (var i = 0; i < toplevels.length; i++) {
-                            var c = toplevels[i]
-                            if (!c.workspace || c.workspace.id !== wsId) continue
-                            if (c.fullscreen === 2 || c.fullscreenClient === 2) full = true
-                            else if (c.fullscreen === 1 || c.fullscreenClient === 1) maxd = true
-                        }
-                        if (full) return "Fullscreen"
-                        if (maxd) return "Maximized"
-                        return "Tiling"
-                    }
-
-                    Rectangle {
-                        anchors.fill: parent
-                        color: layoutMouse.containsMouse ? Qt.alpha(Colors.foreground, 0.25) : "transparent"
-                    }
-
-                    Text {
-                        id: stateText
-                        anchors.centerIn: parent
-                        text: layoutState.displayState
-                        font.pixelSize: Theme.fontPixelSize
-                        font.family: Theme.fontFamily
-                        color: Colors.foreground
-                    }
-
-                    MouseArea {
-                        id: layoutMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                    }
-                }
-
                 MediaWidget {
                     id: mediaWidget
                     anchors.right: clockWidget.left

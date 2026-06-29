@@ -36,8 +36,10 @@ Panel {
     property int doy: Util.dayOfYear(now)
 
     property string timezoneString: {
-        var s = root.now.toString()
-        return s.substring(s.indexOf("(") + 1, s.indexOf(")"))
+        var name = Qt.formatDateTime(root.now, "t")
+        var offset = Qt.formatDateTime(root.now, "tt")
+        if (name) return name + " (UTC" + offset + ")"
+        return "UTC" + offset
     }
 
     currentModelLength: function() { return root.selSection === 2 ? 42 : 0 }
