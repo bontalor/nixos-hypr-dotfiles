@@ -44,14 +44,18 @@ Scope {
     Process {
         id: fprintProc
         running: false
-        command: ["fprintd-verify"]
+        // Wrapped in `sh -c` so a missing fprintd-verify binary yields
+        // exit 127 (shell "command not found") rather than a FailedToStart
+        // process error — `onFinished` then covers every case uniformly.
+        command: ["sh", "-c", "fprintd-verify"]
         stdout: StdioCollector { id: fprintOut }
 
         // fprintd-verify: exit 0 == verify-match, exit 1 == anything else
         // (no-match, no device, no enrolled fingers, daemon down, …).
-        // Stdout disambiguates the recoverable cases from the permanent ones.
-        // `onFinished`/`onErrorOccurred` override the Process virtual methods
-        // (same pattern as PamContext.onCompleted above).
+        // Exit 127 == fprintd not installed. Stdout disambiguates the
+        // recoverable exit-1 cases from the permanent ones.
+        // `onFinished` overrides the Process virtual method (same pattern
+        // as PamContext.onCompleted below).
         onFinished: (exitCode, exitStatus) => {
             if (root.fingerprintMatched || root.unlockInProgress) return
             if (exitCode === 0) {
@@ -62,7 +66,8 @@ Scope {
 
             var out = (fprintOut.text || "").toLowerCase()
             var unusable =
-                out.indexOf("no fingers enrolled") >= 0
+                exitCode === 127
+                || out.indexOf("no fingers enrolled") >= 0
                 || out.indexOf("no default device") >= 0
                 || out.indexOf("impossible to verify") >= 0
                 || out.indexOf("failed to connect to session bus") >= 0
@@ -70,8 +75,8 @@ Scope {
                 || out.indexOf("listenrolledfingers failed") >= 0
 
             if (unusable) {
-                // No reader, no prints, or fprintd not running — password
-                // is still the primary path; just stop pretending.
+                // No reader, no prints, fprintd missing, or daemon down —
+                // password is still the primary path; just stop pretending.
                 root.fingerprintEnabled = false
                 root.fingerprintHint = ""
                 return
@@ -81,14 +86,6 @@ Scope {
             // shortly so the user can try again without re-typing.
             root.fingerprintHint = "no match — retry"
             retryTimer.restart()
-        }
-
-        // The only realistic error is FailedToStart (fprintd not installed).
-        // Treat any process error as "fingerprint unavailable"; password
-        // remains the fallback.
-        onErrorOccurred: error => {
-            root.fingerprintEnabled = false
-            root.fingerprintHint = ""
         }
     }
 
