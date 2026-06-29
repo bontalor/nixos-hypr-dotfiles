@@ -10,6 +10,7 @@ import "./weather"
 import "./media"
 import "./bar"
 import "./emoji"
+import "./notifications"
 import "./theme"
 import "./models"
 import QtQuick
@@ -19,6 +20,7 @@ import Quickshell.Io
 Scope {
     Bar{}
     Notifications{}
+    NotifPopup{}
 
     Picker { id: picker }
     Launcher { id: launcher }
@@ -30,6 +32,7 @@ Scope {
     WeatherPanel { id: weatherPanel }
     MediaPanel { id: mediaPanel }
     EmojiPicker { id: emojiPicker }
+    NotifHistoryPanel { id: notifHistoryPanel }
 
     Component.onCompleted: {
         Panels.register("powermenu", powerMenu)
@@ -42,6 +45,7 @@ Scope {
         Panels.register("weather", weatherPanel)
         Panels.register("media", mediaPanel)
         Panels.register("emoji", emojiPicker)
+        Panels.register("notifications", notifHistoryPanel)
     }
 
     IpcHandler {

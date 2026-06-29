@@ -165,6 +165,8 @@ Scope {
                     BatteryWidget {
                         id: batteryWidget
                     }
+
+                    NotifWidget {}
                 }
             }
 
