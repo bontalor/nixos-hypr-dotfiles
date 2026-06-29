@@ -24,7 +24,7 @@ PanelWindow {
 
     Item {
         width: Theme.popupWidth + 10
-        height: Theme.popupHeight + 10
+        height: Theme.popupHeight - 10
         anchors.horizontalCenter: parent.horizontalCenter
 
         Rectangle {

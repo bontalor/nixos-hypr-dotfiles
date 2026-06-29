@@ -37,7 +37,7 @@ Singleton {
 
     Timer {
         id: hideTimer
-        interval: 5000
+        interval: 3000
         repeat: false
         onTriggered: root.activeKind = ""
     }
