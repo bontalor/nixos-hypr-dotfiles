@@ -37,6 +37,7 @@ local emoji       = "qs ipc call overlay toggle emoji"
 hl.on("hyprland.start", function()
     hl.exec_cmd("xrandr --output DP-5 --primary")
     hl.exec_cmd("kbuildsycoca6")
+    hl.exec_cmd("hypridle")
     hl.exec_cmd("awww-daemon --no-cache")
     hl.exec_cmd("~/.local/bin/setwall ~/walls/")
     hl.exec_cmd("systemctl --user start quickshell.service")
@@ -316,7 +317,7 @@ hl.window_rule({
     name = "quickshell-floating-windows",
     match = {
         title =
-        "Wallpaper Picker|App Launcher|Power Menu|Volume Control|Network Control|Battery & Power|Date & Time|Weather|Media|Emoji Picker"
+        "Wallpaper Picker|App Launcher|Power Menu|Volume Control|Network Control|Battery & Power|Date & Time|Weather|Media|Emoji Picker|Notifications"
     },
     float = true,
     size = { 850, 450, },
@@ -324,7 +325,8 @@ hl.window_rule({
 
 
 hl.layer_rule({
-    match = { namespace = "quickshell:bar" },
+    match = { namespace = "quickshell:bar|quickshell:notification" },
     blur = true,
     ignore_alpha = 0.75,
+    xray = true,
 })
