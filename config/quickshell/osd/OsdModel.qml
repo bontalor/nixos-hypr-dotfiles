@@ -42,6 +42,10 @@ Singleton {
         onTriggered: root.activeKind = ""
     }
 
+    // show controls whether onBrightness pops the OSD. False on
+    // startup (cache only); true on every media-key step.
+    property bool _show: false
+
     Process {
         id: brightProc
         running: false
@@ -95,16 +99,19 @@ Singleton {
     // brightnessctl writes & reports in one shot so the OSD reflects
     // the actual post-step value rather than a stale guess.
     function brightnessUp() {
+        root._show = true
         brightProc.command = ["sh", "-c", "brightnessctl set 5%+ >/dev/null; echo \"$(brightnessctl g) $(brightnessctl m)\""]
         brightProc.running = true
     }
 
     function brightnessDown() {
+        root._show = true
         brightProc.command = ["sh", "-c", "brightnessctl set 5%- >/dev/null; echo \"$(brightnessctl g) $(brightnessctl m)\""]
         brightProc.running = true
     }
 
     function refreshBrightness() {
+        root._show = false
         brightProc.command = ["sh", "-c", "echo \"$(brightnessctl g) $(brightnessctl m)\""]
         brightProc.running = true
     }
@@ -116,6 +123,7 @@ Singleton {
         if (!isFinite(cur) || !isFinite(max) || max <= 0) return
         var v = Math.max(0, Math.min(1, cur / max))
         root._brightness = v
+        if (!root._show) return
         root.value = v
         root.glyph = "\uDB81\uDDA8" // U+F05A8 — sun/brightness glyph
         root.activeKind = "brightness"
