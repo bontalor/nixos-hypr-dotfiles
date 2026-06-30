@@ -1,4 +1,5 @@
 import "../theme"
+import "../util"
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -19,15 +20,19 @@ Panel {
     useDefaultKeys: false
     autoScroll: false
 
+    readonly property int secConfig: 4
+
     PwObjectTracker {
         id: nodeTracker
         objects: []
     }
 
+    // All Pipewire nodes, categorized. nodeTracker.objects is updated
+    // in onAllNodesChanged (not inside the binding) to avoid the
+    // side-effect-in-binding anti-pattern.
     property var allNodes: {
         var raw = Pipewire.nodes
         var vals = raw && raw.values ? raw.values : []
-        nodeTracker.objects = vals
         var pbs = [], rcs = [], sks = [], srcs = []
         for (var i = 0; i < vals.length; i++) {
             var n = vals[i]
@@ -39,8 +44,10 @@ Panel {
             if (n.isSink && !n.isStream) sks.push(n)
             else if (!n.isSink && !n.isStream && n.type === PwNodeType.AudioSource) srcs.push(n)
         }
-        return { playbackStreams: pbs, recordingStreams: rcs, sinkNodes: sks, sourceNodes: srcs }
+        return { playbackStreams: pbs, recordingStreams: rcs, sinkNodes: sks, sourceNodes: srcs, allNodes: vals }
     }
+
+    onAllNodesChanged: nodeTracker.objects = allNodes.allNodes
 
     property var playbackStreams: allNodes.playbackStreams
     property var recordingStreams: allNodes.recordingStreams
@@ -52,8 +59,9 @@ Panel {
     property bool configExpanded: false
     property int selConfigProfile: 0
 
-    property int peakFps: 20
-    property real peakDecay: 0.05
+    // VU-meter peak polling. Uses Theme.peakFps (was a local copy).
+    readonly property int peakFps: Theme.peakFps
+    readonly property real peakDecay: 0.05
 
     Timer {
         interval: 1000 / Math.max(1, root.peakFps)
@@ -120,45 +128,43 @@ Panel {
         if (node && node.audio) node.audio.muted = !node.audio.muted
     }
 
+    // Parse pw-dump JSON output directly in JS — no python, no jq, no
+    // intermediate text format. Quickshell 0.3.0 ships no PipeWire
+    // device-profile API, so `pw-dump` is the only source. `pw-cli s
+    // <id> Profile '{...}'` sets the selected profile.
     function parseConfigDevices(text) {
+        var data
+        try { data = JSON.parse(text) } catch (e) { return [] }
         var devices = []
-        var current = null
-        var lines = text.trim().split('\n')
-        for (var i = 0; i < lines.length; i++) {
-            var line = lines[i].trim()
-            if (line.startsWith('DEVICE:')) {
-                var parts = line.substring(7).split('|')
-                current = { id: parseInt(parts[0]), description: parts[1], currentProfile: parseInt(parts[2]), profiles: [] }
-                devices.push(current)
-            } else if (line.startsWith('PROFILE:') && current) {
-                var p = line.substring(8).split('|')
-                current.profiles.push({
-                    index: parseInt(p[0]),
-                    name: p[1],
-                    description: p[2]
+        for (var i = 0; i < data.length; i++) {
+            var obj = data[i]
+            if (obj.type !== "PipeWire:Interface:Device") continue
+            var info = obj.info || {}
+            var props = info.props || {}
+            var params = info.params || {}
+            var profiles = params.EnumProfile
+            if (!profiles || !profiles.length) continue
+            var desc = props["device.description"]
+                || props["node.description"]
+                || props["device.nick"]
+                || "Unknown"
+            var cur = (params.Profile && params.Profile.length)
+                ? params.Profile[0].index : -1
+            var device = { id: obj.id, description: desc, currentProfile: cur, profiles: [] }
+            for (var j = 0; j < profiles.length; j++) {
+                device.profiles.push({
+                    index: profiles[j].index,
+                    name: profiles[j].name,
+                    description: profiles[j].description
                 })
             }
+            devices.push(device)
         }
         return devices
     }
 
     function refreshConfigDevices() {
-        dumpProc.command = ["bash", "-c", "pw-dump 2>/dev/null | python3 -c \"
-import json, sys
-data = json.load(sys.stdin)
-for obj in data:
-    if obj.get('type') != 'PipeWire:Interface:Device': continue
-    info = obj.get('info',{})
-    props = info.get('props',{})
-    params = info.get('params',{})
-    profiles = params.get('EnumProfile', [])
-    if not profiles: continue
-    desc = props.get('device.description', props.get('node.description', props.get('device.nick', 'Unknown')))
-    cur = params.get('Profile', [{}])[0].get('index', -1) if params.get('Profile') else -1
-    print(f'DEVICE:{obj[\\\"id\\\"]}|{desc}|{cur}')
-    for p in profiles:
-        print(f\\\"PROFILE:{p['index']}|{p['name']}|{p['description']}\\\")
-\""]
+        dumpProc.command = ["pw-dump"]
         dumpProc.running = true
     }
 
@@ -184,17 +190,17 @@ for obj in data:
     function scrollSelectionIntoView() {
         if (!root.inSection) return
         var y, h
-        if (root.selSection < 4) {
+        if (root.selSection < root.secConfig) {
             y = root.headerHeight + root.colSpacing + root.selDevice * (root.rowHeight + root.colSpacing)
             h = root.rowHeight
         } else if (root.configExpanded) {
-            y = root.headerHeight + root.colSpacing + root.selConfigDevice * (root.rowHeight + root.colSpacing) + root.rowHeight + root.selConfigProfile * 30
-            h = 30
+            y = root.headerHeight + root.colSpacing + root.selConfigDevice * (root.rowHeight + root.colSpacing) + root.rowHeight + root.selConfigProfile * Theme.searchRowHeight
+            h = Theme.searchRowHeight
         } else {
             y = root.headerHeight + root.colSpacing + root.selConfigDevice * (root.rowHeight + root.colSpacing)
             h = root.rowHeight
         }
-        root.flick.scrollToVisible(y, h)
+        root.scrollToVisible(y, h)
     }
 
     onShown: {
@@ -205,76 +211,74 @@ for obj in data:
     onKeyPressed: function(event) {
         switch (event.key) {
         case Qt.Key_Tab:
-            if (root.selSection === 4 && root.inSection) {
+            if (root.selSection === root.secConfig && root.inSection) {
                 if (root.configExpanded) root.configExpanded = false
                 else { root.configExpanded = true; root.selConfigProfile = 0 }
-            } else if (root.selSection === 4 && !root.inSection) {
+            } else if (root.selSection === root.secConfig && !root.inSection) {
                 root.inSection = true
             } else if (event.modifiers & Qt.ShiftModifier) {
                 if (root.inSection) root.inSection = false
-                else root.selSection = Math.max(root.selSection - 1, 0)
+                else root.selSection = Scroll.clamp(root.selSection - 1, 0, root.sections.length - 1)
             } else if (root.inSection) {
-                root.selDevice = Math.min(root.selDevice + 1, Math.max(0, root.currentModel().length - 1))
+                root.selDevice = Scroll.step(root.selDevice, 1, root.currentModel().length)
             } else {
-                root.inSection = true
-                root.selDevice = 0
+                root.inSection = true; root.selDevice = 0
             }
             event.accepted = true; break
         case Qt.Key_Backtab:
-            if (root.selSection === 4 && root.configExpanded) root.configExpanded = false
+            if (root.selSection === root.secConfig && root.configExpanded) root.configExpanded = false
             else if (root.inSection) root.inSection = false
             event.accepted = true; break
         case Qt.Key_H:
         case Qt.Key_Left:
-            if (root.inSection && root.selSection < 4) root.changeVolume(-0.05)
+            if (root.inSection && root.selSection < root.secConfig) root.changeVolume(-Theme.volumeStep)
             event.accepted = true; break
         case Qt.Key_L:
         case Qt.Key_Right:
-            if (root.inSection && root.selSection < 4) root.changeVolume(0.05)
+            if (root.inSection && root.selSection < root.secConfig) root.changeVolume(Theme.volumeStep)
             event.accepted = true; break
         case Qt.Key_Return:
         case Qt.Key_Enter:
-            if (root.selSection === 4 && root.inSection) {
+            if (root.selSection === root.secConfig && root.inSection) {
                 if (root.configExpanded && root.selConfigDevice < root.configDevices.length) {
                     var profiles = root.configDevices[root.selConfigDevice].profiles
                     if (root.selConfigProfile >= 0 && root.selConfigProfile < profiles.length)
                         root.setConfigProfile(root.configDevices[root.selConfigDevice].id, profiles[root.selConfigProfile].index)
                 } else if (!root.configExpanded && root.configDevices.length > 0) {
-                    root.configExpanded = true
-                    root.selConfigProfile = 0
+                    root.configExpanded = true; root.selConfigProfile = 0
                 }
             } else if (!root.inSection) {
                 root.inSection = true
-                if (root.selSection < 4) root.selDevice = 0
+                if (root.selSection < root.secConfig) root.selDevice = 0
             }
             event.accepted = true; break
         case Qt.Key_J:
         case Qt.Key_Down:
-            if (root.selSection === 4 && root.configExpanded && root.inSection && root.selConfigDevice < root.configDevices.length) {
+            if (root.selSection === root.secConfig && root.configExpanded && root.inSection && root.selConfigDevice < root.configDevices.length) {
                 var profiles = root.configDevices[root.selConfigDevice].profiles
-                root.selConfigProfile = Math.min(root.selConfigProfile + 1, Math.max(0, profiles.length - 1))
-            } else if (root.selSection === 4 && root.inSection) {
-                root.selConfigDevice = Math.max(0, Math.min(root.selConfigDevice + 1, Math.max(0, root.configDevices.length - 1)))
-            } else if (root.inSection && root.selSection < 4) {
-                root.selDevice = Math.min(root.selDevice + 1, Math.max(0, root.currentModel().length - 1))
+                root.selConfigProfile = Scroll.clamp(root.selConfigProfile + 1, 0, profiles.length - 1)
+            } else if (root.selSection === root.secConfig && root.inSection) {
+                root.selConfigDevice = Scroll.clamp(root.selConfigDevice + 1, 0, Math.max(0, root.configDevices.length - 1))
+            } else if (root.inSection && root.selSection < root.secConfig) {
+                root.selDevice = Scroll.step(root.selDevice, 1, root.currentModel().length)
             } else {
-                root.selSection = Math.min(root.selSection + 1, root.sections.length - 1)
+                root.selSection = Scroll.clamp(root.selSection + 1, 0, root.sections.length - 1)
             }
             event.accepted = true; break
         case Qt.Key_K:
         case Qt.Key_Up:
-            if (root.selSection === 4 && root.configExpanded && root.inSection) {
-                root.selConfigProfile = Math.max(root.selConfigProfile - 1, 0)
-            } else if (root.selSection === 4 && root.inSection) {
-                root.selConfigDevice = Math.max(root.selConfigDevice - 1, 0)
-            } else if (root.inSection && root.selSection < 4) {
-                root.selDevice = Math.max(root.selDevice - 1, 0)
+            if (root.selSection === root.secConfig && root.configExpanded && root.inSection) {
+                root.selConfigProfile = Scroll.clamp(root.selConfigProfile - 1, 0, 0)
+            } else if (root.selSection === root.secConfig && root.inSection) {
+                root.selConfigDevice = Scroll.clamp(root.selConfigDevice - 1, 0, 0)
+            } else if (root.inSection && root.selSection < root.secConfig) {
+                root.selDevice = Scroll.step(root.selDevice, -1, root.currentModel().length)
             } else {
-                root.selSection = Math.max(root.selSection - 1, 0)
+                root.selSection = Scroll.clamp(root.selSection - 1, 0, root.sections.length - 1)
             }
             event.accepted = true; break
         case Qt.Key_Escape:
-            if (root.selSection === 4 && root.configExpanded) root.configExpanded = false
+            if (root.selSection === root.secConfig && root.configExpanded) root.configExpanded = false
             else if (root.inSection) root.inSection = false
             else root.visible = false
             event.accepted = true; break
@@ -299,7 +303,7 @@ for obj in data:
     Column {
         width: parent.width
         spacing: root.colSpacing
-        visible: root.selSection < 4
+        visible: root.selSection < root.secConfig
 
         Repeater {
             id: nodeRepeater
@@ -308,7 +312,7 @@ for obj in data:
             delegate: Item {
                 id: nodeItem
                 width: parent.width
-                height: 45
+                height: root.rowHeight
                 property real displayedPeak: 0
                 property real nodeVolume: modelData.audio?.volume ?? 1
                 property bool nodeMuted: modelData.audio?.muted ?? false
@@ -326,16 +330,13 @@ for obj in data:
                     color: root.inSection && index === root.selDevice ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
                 }
 
-                Text {
+                ThemeText {
                     id: labelText
                     text: modelData.description || modelData.name || "(unnamed)"
                     anchors {
-                        left: parent.left; leftMargin: 10
+                        left: parent.left; leftMargin: Theme.margin
                         verticalCenter: parent.verticalCenter
                     }
-                    color: Colors.foreground
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
                     elide: Text.ElideRight
                     width: parent.width * 0.4
                 }
@@ -343,8 +344,8 @@ for obj in data:
                 Rectangle {
                     id: volBar
                     anchors {
-                        left: labelText.right; leftMargin: 10
-                        right: pctText.left; rightMargin: 10
+                        left: labelText.right; leftMargin: Theme.margin
+                        right: pctText.left; rightMargin: Theme.margin
                         verticalCenter: parent.verticalCenter
                     }
                     height: 8
@@ -370,17 +371,17 @@ for obj in data:
                 Row {
                     id: peakRow
                     anchors {
-                        left: labelText.right; leftMargin: 10
-                        right: pctText.left; rightMargin: 10
+                        left: labelText.right; leftMargin: Theme.margin
+                        right: pctText.left; rightMargin: Theme.margin
                         top: volBar.bottom; topMargin: 2
                     }
                     height: 10
-                    spacing: 10
+                    spacing: Theme.margin
                     clip: true
 
                     Repeater {
                         id: peakRepeater
-                        model: Math.max(1, Math.floor((peakRow.width + 10) / 20))
+                        model: Math.max(1, Math.floor((peakRow.width + Theme.margin) / 20))
 
                         delegate: Rectangle {
                             width: 10
@@ -391,16 +392,14 @@ for obj in data:
                     }
                 }
 
-                Text {
+                ThemeText {
                     id: pctText
                     anchors {
-                        right: parent.right; rightMargin: 10
+                        right: parent.right; rightMargin: Theme.margin
                         verticalCenter: parent.verticalCenter
                     }
-                    text: (modelData.audio?.muted ?? false) ? "MUT" : ("  " + Math.round((modelData.audio?.volume ?? 0) * 100)).slice(-3) + "%"
-                    color: (modelData.audio?.muted ?? false) ? Colors.base08 : Colors.foreground
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
+                    text: (modelData.audio?.muted ?? false) ? "MUT" : FormatUtil.padNum(Math.round((modelData.audio?.volume ?? 0) * 100), 3) + "%"
+                    color: (modelData.audio?.muted ?? false) ? Colors.critical : Colors.foreground
                     font.bold: (modelData.audio?.muted ?? false)
 
                     MouseArea {
@@ -412,16 +411,14 @@ for obj in data:
             }
         }
 
-        Text {
+        ThemeText {
             width: parent.width
-            height: 30
+            height: Theme.searchRowHeight
             visible: root.currentModel().length === 0
-            text: "Nothing to show"
+            text: "No devices"
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
-            font.pixelSize: Theme.fontPixelSize
-            font.family: Theme.fontFamily
         }
     }
 
@@ -429,7 +426,7 @@ for obj in data:
     Column {
         width: parent.width
         spacing: root.colSpacing
-        visible: root.selSection === 4
+        visible: root.selSection === root.secConfig
 
         Repeater {
             model: root.configDevices
@@ -437,13 +434,14 @@ for obj in data:
             delegate: Item {
                 width: parent.width
                 height: (root.configExpanded && index === root.selConfigDevice && root.inSection && root.selConfigDevice < root.configDevices.length)
-                        ? 45 + root.configDevices[root.selConfigDevice].profiles.length * 30
-                        : 45
+                        ? root.rowHeight + root.configDevices[root.selConfigDevice].profiles.length * Theme.searchRowHeight
+                        : root.rowHeight
 
                 Rectangle {
                     anchors.fill: parent
-                    color: ((!root.configExpanded && root.inSection && index === root.selConfigDevice)
-                            || (root.configExpanded && root.inSection && index === root.selConfigDevice))
+                    // Simplified: the prior (!configExpanded || configExpanded)
+                    // OR collapsed to just `inSection && selConfigDevice match`.
+                    color: root.inSection && index === root.selConfigDevice
                            ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
                 }
 
@@ -452,22 +450,19 @@ for obj in data:
 
                     Item {
                         width: parent.width
-                        height: 45
+                        height: root.rowHeight
 
-                        Text {
+                        ThemeText {
                             text: modelData.description
                             anchors {
-                                left: parent.left; leftMargin: 10
+                                left: parent.left; leftMargin: Theme.margin
                                 top: parent.top; topMargin: 4
                             }
-                            color: Colors.foreground
-                            font.pixelSize: Theme.fontPixelSize
-                            font.family: Theme.fontFamily
                             elide: Text.ElideRight
-                            width: parent.width - 20
+                            width: parent.width - 2 * Theme.margin
                         }
 
-                        Text {
+                        ThemeText {
                             function currentProfileDesc() {
                                 for (var i = 0; i < modelData.profiles.length; i++) {
                                     if (modelData.profiles[i].index === modelData.currentProfile)
@@ -477,14 +472,12 @@ for obj in data:
                             }
                             text: currentProfileDesc()
                             anchors {
-                                left: parent.left; leftMargin: 10
+                                left: parent.left; leftMargin: Theme.margin
                                 top: parent.top; topMargin: 24
                             }
                             color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
-                            font.pixelSize: Theme.fontPixelSize
-                            font.family: Theme.fontFamily
                             elide: Text.ElideRight
-                            width: parent.width - 20
+                            width: parent.width - 2 * Theme.margin
                         }
 
                         MouseArea {
@@ -510,20 +503,17 @@ for obj in data:
 
                         delegate: Rectangle {
                             width: parent.width
-                            height: 30
+                            height: Theme.searchRowHeight
                             color: index === root.selConfigProfile
                                    ? Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
                                    : Qt.alpha(Colors.base00, Theme.alphaBackground)
 
-                            Text {
+                            ThemeText {
                                 text: modelData.description || modelData.name
                                 anchors {
                                     left: parent.left; leftMargin: 30
                                     verticalCenter: parent.verticalCenter
                                 }
-                                color: Colors.foreground
-                                font.pixelSize: Theme.fontPixelSize
-                                font.family: Theme.fontFamily
                             }
 
                             MouseArea {
@@ -540,16 +530,14 @@ for obj in data:
             }
         }
 
-        Text {
+        ThemeText {
             width: parent.width
-            height: 30
+            height: Theme.searchRowHeight
             visible: root.configDevices.length === 0
             text: "No PipeWire devices"
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
-            font.pixelSize: Theme.fontPixelSize
-            font.family: Theme.fontFamily
         }
     }
 }

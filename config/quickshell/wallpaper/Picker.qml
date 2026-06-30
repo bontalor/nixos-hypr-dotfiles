@@ -1,4 +1,5 @@
 import "../theme"
+import "../util"
 import QtQuick
 import Qt.labs.folderlistmodel
 import Quickshell
@@ -19,6 +20,17 @@ FloatingWindow {
     property int selected: 0
     property int columns: 4
 
+    // The last-applied wallpaper path, persisted across sessions. Loaded
+    // on startup; used to set `selected` to the matching index when the
+    // picker opens.
+    property string lastWallpaper: ""
+
+    Component.onCompleted: {
+        PrefStore.read("wallpaper", "selected", function(text) {
+            root.lastWallpaper = text
+        })
+    }
+
     // Cache the wallpaper list once per scan instead of rescanning the
     // directory every time the picker is opened. FolderListModel watches
     // the folder natively and re-fires `status` whenever something
@@ -35,6 +47,17 @@ FloatingWindow {
             list.push({ path: p })
         }
         root.wallpaperList = list
+        // If we have a persisted wallpaper, jump to its index.
+        if (root.lastWallpaper) root.restoreSelection()
+    }
+
+    function restoreSelection() {
+        for (var i = 0; i < root.wallpaperList.length; i++) {
+            if (root.wallpaperList[i].path === root.lastWallpaper) {
+                root.selected = i
+                return
+            }
+        }
     }
 
     FolderListModel {
@@ -50,7 +73,7 @@ FloatingWindow {
 
     property alias wallpaperDir: wallpaperModel
 
-    onVisibleChanged: if (visible) selected = 0
+    onVisibleChanged: if (visible) root.restoreSelection()
 
     Rectangle {
         anchors.fill: parent
@@ -60,16 +83,16 @@ FloatingWindow {
         Keys.onPressed: event => {
             switch (event.key) {
                 case Qt.Key_H:
-                root.selected = Math.max(0, root.selected - 1)
+                root.selected = Scroll.clamp(root.selected - 1, 0, wallpaperList.length - 1)
                 break
                 case Qt.Key_J:
-                root.selected = Math.min(wallpaperList.length - 1, root.selected + root.columns)
+                root.selected = Scroll.clamp(root.selected + root.columns, 0, wallpaperList.length - 1)
                 break
                 case Qt.Key_K:
-                root.selected = Math.max(0, root.selected - root.columns)
+                root.selected = Scroll.clamp(root.selected - root.columns, 0, wallpaperList.length - 1)
                 break
                 case Qt.Key_L:
-                root.selected = Math.min(wallpaperList.length - 1, root.selected + 1)
+                root.selected = Scroll.clamp(root.selected + 1, 0, wallpaperList.length - 1)
                 break
                 case Qt.Key_Return:
                 case Qt.Key_Enter:
@@ -86,6 +109,10 @@ FloatingWindow {
             var path = wallpaperList[root.selected].path
             setter.command = [Quickshell.env("HOME") + "/.local/bin/setwall", path]
             setter.running = true
+            // Persist the selected path so the picker reopens at the
+            // last-applied wallpaper.
+            root.lastWallpaper = path
+            PrefStore.write("wallpaper", "selected", path)
             root.visible = false
         }
 

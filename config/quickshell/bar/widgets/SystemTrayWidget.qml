@@ -91,9 +91,9 @@ Item {
 
             Text {
                 anchors.centerIn: parent
-                text: overflowPopup.visible ? "\u{F0143}" : "\u{F0140}"
+                text: overflowPopup.visible ? Icon.chevronCollapse : Icon.chevronExpand
                 color: Colors.foreground
-                font.pixelSize: 22
+                font.pixelSize: Theme.fontPixelSizeLarge
                 font.family: Theme.fontFamily
             }
 
@@ -132,8 +132,8 @@ Item {
         //   dropdown left = chevronX      (aligns with chevron left edge)
         onVisibleChanged: if (visible) {
             var pos = root.parentWindow.itemPosition(chevronItem)
-            margins.top = pos.y -10
-            margins.left = pos.x + 10
+            margins.top = pos.y - Theme.margin
+            margins.left = pos.x + Theme.margin
         }
 
         // As soon as overflow disappears (tray drops to <= maxVisible),

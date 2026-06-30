@@ -3,8 +3,10 @@ pragma Singleton
 import QtQuick
 import Quickshell
 
-// Centralized Nerd Font glyph table. Use `Icon.bolt`, `Icon.plug`, etc.
-// instead of scattering "\uf0e7" literals across panels.
+// Centralized glyph table. Use `Icon.bolt`, `Icon.plug`, etc. instead
+// of scattering "\uf0e7" literals across panels. Includes Nerd Font
+// codepoints for power/distro/navigation/transport glyphs, and Unicode
+// emoji for moon phases (rendered via the system emoji font).
 
 Singleton {
     // Battery / power profiles
@@ -17,14 +19,27 @@ Singleton {
     // Distro
     property string distroFallback: "\uf303"
 
-    // Navigation chevron
+    // Navigation chevrons (SystemTray overflow, Panel marker)
     property string chevronRight: "\u25b6"
+    property string chevronLeft: "\u25c0"
+    property string chevronUp: "\u25b2"
+    property string chevronDown: "\u25bc"
+    property string chevronExpand: "\uf0140"   // Nerd Font chevron-right-circle
+    property string chevronCollapse: "\uf0143" // Nerd Font chevron-down-circle
+
+    // Transport (media)
     property string play: "\u25b6"
+    property string pause: "\u23f8"
     property string prev: "\u23ee"
     property string next: "\u23ed"
-    property string pause: "\u23f8"
 
-    // Moon phases (see Weather.MoonModel)
+    // Volume / brightness
+    property string volumeMute: "\uf026"
+    property string volumeLow: "\uf027"
+    property string volumeHigh: "\uf028"
+    property string brightness: "\uDB81\uDDA8"
+
+    // Moon phases (Unicode emoji — see MoonUtil)
     property string moonNew: "\ud83c\udf11"
     property string moonWaxingCrescent: "\ud83c\udf12"
     property string moonFirstQuarter: "\ud83c\udf13"

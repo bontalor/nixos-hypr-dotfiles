@@ -1,4 +1,5 @@
 import "../theme"
+import "../util"
 import "."
 import QtQuick
 import QtQuick.Controls
@@ -18,6 +19,16 @@ Panel {
     useDefaultKeys: false
     autoScroll: false
 
+    // --- Named section/config indices (replace magic numbers) ---
+    readonly property int secWeather: 0
+    readonly property int secAstronomy: 1
+    readonly property int secLocation: 2
+    readonly property int secConfig: 3
+
+    readonly property int cfgItemCity: 0
+    readonly property int cfgItemUnit: 1
+    readonly property int maxConfigProfiles: 2
+
     property bool configExpanded: false
     property int selConfigItem: 0
     property int selConfigProfile: 0
@@ -31,13 +42,8 @@ Panel {
     function deferredFocus() { Qt.callLater(root.forceFocus) }
 
     function currentModelLength() {
-        switch (root.selSection) {
-        case 0: return WeatherModel.dataReady ? 1 : 0
-        case 1: return WeatherModel.dataReady ? 1 : 0
-        case 2: return WeatherModel.dataReady ? 1 : 0
-        case 3: return 2
-        default: return 0
-        }
+        if (root.selSection === root.secConfig) return 2
+        return WeatherModel.dataReady ? 1 : 0
     }
 
     onShown: {
@@ -55,17 +61,20 @@ Panel {
     function scrollSelectionIntoView() {
         if (!root.inSection) return
         var y, h
-        if (root.selSection < 3) {
+        if (root.selSection < root.secConfig) {
             y = root.headerHeight + root.colSpacing
             h = root.rowHeight
         } else if (root.configExpanded) {
-            y = root.headerHeight + root.colSpacing + root.selConfigItem * (root.rowHeight + root.colSpacing) + root.rowHeight + root.selConfigProfile * 30
-            h = 30
+            y = root.headerHeight + root.colSpacing
+              + root.selConfigItem * (root.rowHeight + root.colSpacing)
+              + root.rowHeight + root.selConfigProfile * Theme.searchRowHeight
+            h = Theme.searchRowHeight
         } else {
-            y = root.headerHeight + root.colSpacing + root.selConfigItem * (root.rowHeight + root.colSpacing)
+            y = root.headerHeight + root.colSpacing
+              + root.selConfigItem * (root.rowHeight + root.colSpacing)
             h = root.rowHeight
         }
-        root.flick.scrollToVisible(y, h)
+        root.scrollToVisible(y, h)
     }
 
     readonly property var cc: {
@@ -92,105 +101,98 @@ Panel {
         return a0
     }
 
+    // --- Navigation helpers (collapse the prior 100-line state machine) ---
+
+    function navDown() {
+        if (root.selSection === root.secConfig && root.configExpanded && root.inSection) {
+            root.selConfigProfile = Scroll.clamp(root.selConfigProfile + 1, 0, root.maxConfigProfiles - 1)
+        } else if (root.selSection === root.secConfig && root.inSection) {
+            root.selConfigItem = Scroll.clamp(root.selConfigItem + 1, 0, 1)
+        } else if (root.inSection) {
+            root.selDevice = Scroll.step(root.selDevice, 1, root.currentModelLength())
+        } else {
+            root.selSection = Scroll.clamp(root.selSection + 1, 0, root.sections.length - 1)
+        }
+    }
+
+    function navUp() {
+        if (root.selSection === root.secConfig && root.configExpanded && root.inSection) {
+            root.selConfigProfile = Scroll.clamp(root.selConfigProfile - 1, 0, root.maxConfigProfiles - 1)
+        } else if (root.selSection === root.secConfig && root.inSection) {
+            root.selConfigItem = Scroll.clamp(root.selConfigItem - 1, 0, 1)
+        } else if (root.inSection) {
+            root.selDevice = Scroll.step(root.selDevice, -1, root.currentModelLength())
+        } else {
+            root.selSection = Scroll.clamp(root.selSection - 1, 0, root.sections.length - 1)
+        }
+    }
+
+    function activateConfigItem() {
+        if (root.selConfigItem === root.cfgItemCity) {
+            if (root.selConfigProfile === 0) {
+                WeatherModel.customCity = ""
+                root.configExpanded = false
+                WeatherModel.fetchWeather()
+            } else {
+                if (!root.cityEditing) {
+                    root.cityEditing = true
+                    root.cityInputText = WeatherModel.customCity || ""
+                } else {
+                    WeatherModel.customCity = root.cityInputText
+                    root.cityEditing = false
+                    root.configExpanded = false
+                    WeatherModel.fetchWeather()
+                    root.deferredFocus()
+                }
+            }
+        } else {
+            // cfgItemUnit
+            WeatherModel.degreeUnit = root.selConfigProfile === 0 ? "F" : "C"
+            root.configExpanded = false
+        }
+    }
+
     onKeyPressed: function(event) {
         switch (event.key) {
         case Qt.Key_Tab:
-            // Shift+Tab always means "go back", regardless of section.
-            // Previously this branch was an `else if` after the
-            // `selSection === 3` case, so Shift+Tab inside Configuration
-            // toggled configExpanded instead of returning to the section
-            // list — leaving the user stuck.
             if (event.modifiers & Qt.ShiftModifier) {
-                if (root.cityEditing) {
-                    root.cityEditing = false
-                    root.deferredFocus()
-                } else if (root.selSection === 3 && root.configExpanded) {
-                    root.configExpanded = false
-                } else if (root.inSection) {
-                    root.inSection = false
-                } else {
-                    root.selSection = Math.max(root.selSection - 1, 0)
-                }
-            } else if (root.selSection === 3 && root.inSection) {
+                if (root.cityEditing) { root.cityEditing = false; root.deferredFocus() }
+                else if (root.selSection === root.secConfig && root.configExpanded) root.configExpanded = false
+                else if (root.inSection) root.inSection = false
+                else root.selSection = Scroll.clamp(root.selSection - 1, 0, root.sections.length - 1)
+            } else if (root.selSection === root.secConfig && root.inSection) {
                 if (root.configExpanded) root.configExpanded = false
                 else { root.configExpanded = true; root.selConfigProfile = 0 }
             } else if (root.inSection) {
-                root.selDevice = Math.min(root.selDevice + 1, Math.max(0, root.currentModelLength() - 1))
+                root.selDevice = Scroll.step(root.selDevice, 1, root.currentModelLength())
             } else {
-                root.inSection = true
-                root.selDevice = 0
+                root.inSection = true; root.selDevice = 0
             }
             event.accepted = true; break
         case Qt.Key_Backtab:
-            if (root.selSection === 3 && root.configExpanded) root.configExpanded = false
+            if (root.selSection === root.secConfig && root.configExpanded) root.configExpanded = false
             else if (root.inSection) root.inSection = false
             event.accepted = true; break
         case Qt.Key_Return:
         case Qt.Key_Enter:
-            if (root.selSection === 3 && root.inSection && root.configExpanded) {
-                if (root.selConfigItem === 0) {
-                    if (root.selConfigProfile === 0) {
-                        WeatherModel.customCity = ""
-                        root.configExpanded = false
-                        WeatherModel.fetchWeather()
-                    } else if (root.selConfigProfile === 1) {
-                        if (!root.cityEditing) {
-                            root.cityEditing = true
-                            root.cityInputText = WeatherModel.customCity || ""
-                        } else {
-                            WeatherModel.customCity = root.cityInputText
-                            root.cityEditing = false
-                            root.configExpanded = false
-                            WeatherModel.fetchWeather()
-                            root.deferredFocus()
-                        }
-                    }
-                } else if (root.selConfigItem === 1) {
-                    if (root.selConfigProfile === 0) WeatherModel.degreeUnit = "F"
-                    else if (root.selConfigProfile === 1) WeatherModel.degreeUnit = "C"
-                    root.configExpanded = false
-                }
-            } else if (root.selSection === 3 && root.inSection && !root.configExpanded) {
-                root.configExpanded = true
-                root.selConfigProfile = 0
+            if (root.selSection === root.secConfig && root.inSection && root.configExpanded) {
+                root.activateConfigItem()
+            } else if (root.selSection === root.secConfig && root.inSection && !root.configExpanded) {
+                root.configExpanded = true; root.selConfigProfile = 0
             } else if (!root.inSection) {
-                root.inSection = true
-                root.selDevice = 0
+                root.inSection = true; root.selDevice = 0
             }
             event.accepted = true; break
         case Qt.Key_J:
         case Qt.Key_Down:
-            if (root.selSection === 3 && root.configExpanded && root.inSection) {
-                root.selConfigProfile = Math.min(root.selConfigProfile + 1, 1)
-            } else if (root.selSection === 3 && root.inSection) {
-                root.selConfigItem = Math.min(root.selConfigItem + 1, Math.max(0, 1))
-            } else if (root.inSection) {
-                root.selDevice = Math.min(root.selDevice + 1, Math.max(0, root.currentModelLength() - 1))
-            } else {
-                root.selSection = Math.min(root.selSection + 1, root.sections.length - 1)
-            }
-            event.accepted = true; break
+            root.navDown(); event.accepted = true; break
         case Qt.Key_K:
         case Qt.Key_Up:
-            if (root.selSection === 3 && root.configExpanded && root.inSection) {
-                root.selConfigProfile = Math.max(root.selConfigProfile - 1, 0)
-            } else if (root.selSection === 3 && root.inSection) {
-                root.selConfigItem = Math.max(root.selConfigItem - 1, 0)
-            } else if (root.inSection) {
-                root.selDevice = Math.max(root.selDevice - 1, 0)
-            } else {
-                root.selSection = Math.max(root.selSection - 1, 0)
-            }
-            event.accepted = true; break
+            root.navUp(); event.accepted = true; break
         case Qt.Key_Escape:
-            if (root.cityEditing) {
-                root.cityEditing = false
-                root.deferredFocus()
-            } else if (root.selSection === 3 && root.configExpanded) {
-                root.configExpanded = false
-            } else {
-                root.visible = false
-            }
+            if (root.cityEditing) { root.cityEditing = false; root.deferredFocus() }
+            else if (root.selSection === root.secConfig && root.configExpanded) root.configExpanded = false
+            else root.visible = false
             event.accepted = true; break
         }
     }
@@ -199,95 +201,68 @@ Panel {
     Column {
         width: parent.width
         spacing: root.colSpacing
-        visible: root.selSection === 0
+        visible: root.selSection === root.secWeather
 
+        // Height derived from content count, not a magic `30 * 10`.
         Item {
             width: parent.width
-            height: WeatherModel.dataReady ? 30 * 10 : 30
+            height: WeatherModel.dataReady ? 10 * (Theme.fontPixelSize + Theme.margin) : Theme.searchRowHeight
 
             Column {
                 anchors.fill: parent
-                spacing: 10
+                spacing: Theme.margin
 
-                Text {
+                ThemeText {
                     visible: WeatherModel.dataReady
-                    text: root.cc ? WeatherCodes.icon(parseInt(root.cc.weatherCode)) + " " + (WeatherModel.degreeUnit === "F" ? root.cc.temp_F : root.cc.temp_C) + "\u00b0" + WeatherModel.degreeUnit : ""
-                    color: Colors.foreground
+                    text: WeatherModel.currentSummary
                     font.pixelSize: 32
-                    font.family: Theme.fontFamily
                     font.bold: true
                 }
 
-                Text {
+                ThemeText {
                     visible: WeatherModel.dataReady
-                    text: root.cc ? WeatherCodes.desc(parseInt(root.cc.weatherCode)) : ""
-                    color: Colors.foreground
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
+                    text: root.cc ? WeatherCodes.desc(root.cc.weatherCode) : ""
                 }
 
-                Text {
+                ThemeText {
                     visible: WeatherModel.dataReady
                     text: root.cc ? "Feels like " + (WeatherModel.degreeUnit === "F" ? root.cc.FeelsLikeF : root.cc.FeelsLikeC) + "\u00b0" + WeatherModel.degreeUnit : ""
-                    color: Colors.foreground
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
                 }
 
-                Text {
+                ThemeText {
                     visible: WeatherModel.dataReady
                     text: root.cc ? "Humidity: " + root.cc.humidity + "%" : ""
-                    color: Colors.foreground
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
                 }
 
-                Text {
+                ThemeText {
                     visible: WeatherModel.dataReady
                     text: root.cc ? "Wind: " + root.cc.windspeedKmph + " km/h " + root.cc.winddir16Point : ""
-                    color: Colors.foreground
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
                 }
 
-                Text {
+                ThemeText {
                     visible: WeatherModel.dataReady
                     text: root.cc ? "UV Index: " + root.cc.uvIndex : ""
-                    color: Colors.foreground
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
                 }
 
-                Text {
+                ThemeText {
                     visible: WeatherModel.dataReady
                     text: root.cc ? "Pressure: " + root.cc.pressure + " mb" : ""
-                    color: Colors.foreground
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
                 }
 
-                Text {
+                ThemeText {
                     visible: WeatherModel.dataReady
                     text: root.cc ? "Visibility: " + root.cc.visibility + " km" : ""
-                    color: Colors.foreground
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
                 }
 
-                Text {
+                ThemeText {
                     visible: WeatherModel.dataReady
                     text: root.cc ? "Cloud cover: " + root.cc.cloudcover + "%" : ""
-                    color: Colors.foreground
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
                 }
 
-                Text {
+                ThemeText {
                     visible: !WeatherModel.dataReady
-                    text: "Fetching weather data..."
-                    color: Colors.foreground
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
+                    text: WeatherModel.fetchError ? "Fetch failed: " + WeatherModel.fetchError : "Fetching weather data..."
+                    color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
                 }
             }
         }
@@ -297,63 +272,47 @@ Panel {
     Column {
         width: parent.width
         spacing: root.colSpacing
-        visible: root.selSection === 1
+        visible: root.selSection === root.secAstronomy
 
         Item {
             width: parent.width
-            height: WeatherModel.dataReady ? 30 * 6 : 30
+            height: WeatherModel.dataReady ? 6 * (Theme.fontPixelSize + Theme.margin) : Theme.searchRowHeight
 
             Column {
                 anchors.fill: parent
-                spacing: 10
+                spacing: Theme.margin
 
-                Text {
+                ThemeText {
                     visible: WeatherModel.dataReady
                     text: WeatherModel.dataReady ? WeatherModel.moonIcon + " " + WeatherModel.moonPhase : ""
-                    color: Colors.foreground
                     font.pixelSize: 32
-                    font.family: Theme.fontFamily
                     font.bold: true
                 }
 
-                Text {
+                ThemeText {
                     visible: WeatherModel.dataReady
                     text: WeatherModel.dataReady ? "Illumination: " + WeatherModel.moonIllumination + "%" : ""
-                    color: Colors.foreground
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
                 }
 
-                Text {
+                ThemeText {
                     visible: WeatherModel.dataReady && root.astro !== null
                     text: root.astro ? "Moonrise: " + root.astro.moonrise : ""
-                    color: Colors.foreground
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
                 }
 
-                Text {
+                ThemeText {
                     visible: WeatherModel.dataReady && root.astro !== null
                     text: root.astro ? "Moonset: " + root.astro.moonset : ""
-                    color: Colors.foreground
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
                 }
 
-                Text {
+                ThemeText {
                     visible: WeatherModel.dataReady
                     text: WeatherModel.dataReady ? "Next full moon: " + WeatherModel.nextFullMoon : ""
-                    color: Colors.foreground
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
                 }
 
-                Text {
+                ThemeText {
                     visible: !WeatherModel.dataReady
                     text: "Fetching astronomy data..."
-                    color: Colors.foreground
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
+                    color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
                 }
             }
         }
@@ -363,46 +322,35 @@ Panel {
     Column {
         width: parent.width
         spacing: root.colSpacing
-        visible: root.selSection === 2
+        visible: root.selSection === root.secLocation
 
         Item {
             width: parent.width
-            height: WeatherModel.dataReady ? 30 * 3 : 30
+            height: WeatherModel.dataReady ? 3 * (Theme.fontPixelSize + Theme.margin) : Theme.searchRowHeight
 
             Column {
                 anchors.fill: parent
-                spacing: 10
+                spacing: Theme.margin
 
-                Text {
+                ThemeText {
                     visible: WeatherModel.dataReady
                     text: root.area ? root.area.areaName[0].value : ""
-                    color: Colors.foreground
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
                 }
 
-                Text {
+                ThemeText {
                     visible: WeatherModel.dataReady
                     text: root.area ? root.area.region[0].value + ", " + root.area.country[0].value : ""
-                    color: Colors.foreground
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
                 }
 
-                Text {
+                ThemeText {
                     visible: WeatherModel.dataReady
                     text: "Using: " + (WeatherModel.customCity || "Auto (IP)")
-                    color: Colors.foreground
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
                 }
 
-                Text {
+                ThemeText {
                     visible: !WeatherModel.dataReady
                     text: "Fetching location data..."
-                    color: Colors.foreground
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
+                    color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
                 }
             }
         }
@@ -412,18 +360,20 @@ Panel {
     Column {
         width: parent.width
         spacing: root.colSpacing
-        visible: root.selSection === 3
+        visible: root.selSection === root.secConfig
 
+        // --- Config item: City ---
         Item {
             width: parent.width
-            height: (root.configExpanded && 0 === root.selConfigItem && root.inSection)
-                    ? 45 + 2 * 30
-                    : 45
+            height: (root.configExpanded && root.cfgItemCity === root.selConfigItem && root.inSection)
+                    ? root.rowHeight + root.maxConfigProfiles * Theme.searchRowHeight
+                    : root.rowHeight
 
             Rectangle {
                 anchors.fill: parent
-                color: ((!root.configExpanded && root.inSection && 0 === root.selConfigItem)
-                        || (root.configExpanded && root.inSection && 0 === root.selConfigItem))
+                // Simplified: the prior (!configExpanded || configExpanded)
+                // OR collapsed to just `inSection && selConfigItem match`.
+                color: root.inSection && root.cfgItemCity === root.selConfigItem
                        ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
             }
 
@@ -432,14 +382,11 @@ Panel {
 
                 Item {
                     width: parent.width
-                    height: 45
+                    height: root.rowHeight
 
-                    Text {
+                    ThemeText {
                         text: "City: " + (WeatherModel.customCity || "Auto")
-                        anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
-                        color: Colors.foreground
-                        font.pixelSize: Theme.fontPixelSize
-                        font.family: Theme.fontFamily
+                        anchors { left: parent.left; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
                     }
 
                     MouseArea {
@@ -447,10 +394,10 @@ Panel {
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
                             if (!root.inSection) root.inSection = true
-                            if (root.configExpanded && 0 === root.selConfigItem) {
+                            if (root.configExpanded && root.cfgItemCity === root.selConfigItem) {
                                 root.configExpanded = false
                             } else {
-                                root.selConfigItem = 0
+                                root.selConfigItem = root.cfgItemCity
                                 root.configExpanded = true
                                 root.selConfigProfile = 0
                             }
@@ -460,56 +407,46 @@ Panel {
 
                 Column {
                     width: parent.width
-                    height: visible ? 2 * 30 : 0
-                    visible: root.configExpanded && root.inSection && 0 === root.selConfigItem
+                    height: visible ? root.maxConfigProfiles * Theme.searchRowHeight : 0
+                    visible: root.configExpanded && root.inSection && root.cfgItemCity === root.selConfigItem
 
                     Rectangle {
                         width: parent.width
-                        height: 30
+                        height: Theme.searchRowHeight
                         color: 0 === root.selConfigProfile
                                 ? Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
                                 : Qt.alpha(Colors.base00, Theme.alphaBackground)
 
-                        Text {
+                        ThemeText {
                             text: "Auto (IP)"
                             anchors { left: parent.left; leftMargin: 30; verticalCenter: parent.verticalCenter }
-                            color: Colors.foreground
-                            font.pixelSize: Theme.fontPixelSize
-                            font.family: Theme.fontFamily
                         }
 
                         MouseArea {
                             anchors.fill: parent
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
-                                if (root.inSection) {
-                                    WeatherModel.customCity = ""
-                                    root.configExpanded = false
-                                    WeatherModel.fetchWeather()
-                                }
+                                if (root.inSection) root.activateConfigItem()
                             }
                         }
                     }
 
                     Rectangle {
                         width: parent.width
-                        height: 30
+                        height: Theme.searchRowHeight
                         color: !root.cityEditing && 1 === root.selConfigProfile
                                 ? Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
                                 : Qt.alpha(Colors.base00, Theme.alphaBackground)
 
-                        Text {
+                        ThemeText {
                             text: "Custom..."
-                            anchors { left: parent.left; leftMargin: 30; right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
-                            color: Colors.foreground
-                            font.pixelSize: Theme.fontPixelSize
-                            font.family: Theme.fontFamily
+                            anchors { left: parent.left; leftMargin: 30; right: parent.right; rightMargin: Theme.margin; verticalCenter: parent.verticalCenter }
                             visible: !root.cityEditing
                         }
 
                         TextInput {
                             visible: root.cityEditing
-                            anchors { left: parent.left; leftMargin: 30; right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
+                            anchors { left: parent.left; leftMargin: 30; right: parent.right; rightMargin: Theme.margin; verticalCenter: parent.verticalCenter }
                             color: Colors.foreground
                             font.pixelSize: Theme.fontPixelSize
                             font.family: Theme.fontFamily
@@ -536,6 +473,7 @@ Panel {
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
                                 if (root.inSection && !root.cityEditing) {
+                                    root.selConfigProfile = 1
                                     root.cityEditing = true
                                     root.cityInputText = WeatherModel.customCity || ""
                                 }
@@ -546,16 +484,16 @@ Panel {
             }
         }
 
+        // --- Config item: Unit ---
         Item {
             width: parent.width
-            height: (root.configExpanded && 1 === root.selConfigItem && root.inSection)
-                    ? 45 + 2 * 30
-                    : 45
+            height: (root.configExpanded && root.cfgItemUnit === root.selConfigItem && root.inSection)
+                    ? root.rowHeight + root.maxConfigProfiles * Theme.searchRowHeight
+                    : root.rowHeight
 
             Rectangle {
                 anchors.fill: parent
-                color: ((!root.configExpanded && root.inSection && 1 === root.selConfigItem)
-                        || (root.configExpanded && root.inSection && 1 === root.selConfigItem))
+                color: root.inSection && root.cfgItemUnit === root.selConfigItem
                        ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
             }
 
@@ -564,14 +502,11 @@ Panel {
 
                 Item {
                     width: parent.width
-                    height: 45
+                    height: root.rowHeight
 
-                    Text {
+                    ThemeText {
                         text: "Unit: \u00b0" + WeatherModel.degreeUnit
-                        anchors { left: parent.left; leftMargin: 10; verticalCenter: parent.verticalCenter }
-                        color: Colors.foreground
-                        font.pixelSize: Theme.fontPixelSize
-                        font.family: Theme.fontFamily
+                        anchors { left: parent.left; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
                     }
 
                     MouseArea {
@@ -579,10 +514,10 @@ Panel {
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
                             if (!root.inSection) root.inSection = true
-                            if (root.configExpanded && 1 === root.selConfigItem) {
+                            if (root.configExpanded && root.cfgItemUnit === root.selConfigItem) {
                                 root.configExpanded = false
                             } else {
-                                root.selConfigItem = 1
+                                root.selConfigItem = root.cfgItemUnit
                                 root.configExpanded = true
                                 root.selConfigProfile = 0
                             }
@@ -592,22 +527,19 @@ Panel {
 
                 Column {
                     width: parent.width
-                    height: visible ? 2 * 30 : 0
-                    visible: root.configExpanded && root.inSection && 1 === root.selConfigItem
+                    height: visible ? root.maxConfigProfiles * Theme.searchRowHeight : 0
+                    visible: root.configExpanded && root.inSection && root.cfgItemUnit === root.selConfigItem
 
                     Rectangle {
                         width: parent.width
-                        height: 30
+                        height: Theme.searchRowHeight
                         color: 0 === root.selConfigProfile
                                 ? Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
                                 : Qt.alpha(Colors.base00, Theme.alphaBackground)
 
-                        Text {
+                        ThemeText {
                             text: "Fahrenheit"
                             anchors { left: parent.left; leftMargin: 30; verticalCenter: parent.verticalCenter }
-                            color: Colors.foreground
-                            font.pixelSize: Theme.fontPixelSize
-                            font.family: Theme.fontFamily
                         }
 
                         MouseArea {
@@ -615,8 +547,8 @@ Panel {
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
                                 if (root.inSection) {
-                                    WeatherModel.degreeUnit = "F"
-                                    root.configExpanded = false
+                                    root.selConfigProfile = 0
+                                    root.activateConfigItem()
                                 }
                             }
                         }
@@ -624,17 +556,14 @@ Panel {
 
                     Rectangle {
                         width: parent.width
-                        height: 30
+                        height: Theme.searchRowHeight
                         color: 1 === root.selConfigProfile
                                 ? Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
                                 : Qt.alpha(Colors.base00, Theme.alphaBackground)
 
-                        Text {
+                        ThemeText {
                             text: "Celsius"
                             anchors { left: parent.left; leftMargin: 30; verticalCenter: parent.verticalCenter }
-                            color: Colors.foreground
-                            font.pixelSize: Theme.fontPixelSize
-                            font.family: Theme.fontFamily
                         }
 
                         MouseArea {
@@ -642,8 +571,8 @@ Panel {
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
                                 if (root.inSection) {
-                                    WeatherModel.degreeUnit = "C"
-                                    root.configExpanded = false
+                                    root.selConfigProfile = 1
+                                    root.activateConfigItem()
                                 }
                             }
                         }

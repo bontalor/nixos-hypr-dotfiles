@@ -1,4 +1,6 @@
 import "./theme"
+import "./util"
+import "./models"
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -9,26 +11,6 @@ Rectangle {
     color: "transparent"
 
     property string wallpaperPath: ""
-
-    // Inline helper — the lockscreen runs as its own config root via
-    // `quickshell -p lockscreen/shell.qml`, so the shared ../util singleton
-    // isn't reachable. Keeping the lone function local avoids entangling
-    // the lockscreen with the rest of the shell.
-    function ordinal(n) {
-        var s = ["th", "st", "nd", "rd"]
-        var v = n % 100
-        return n + (s[(v - 20) % 10] || s[v] || s[0])
-    }
-
-    // Same shape as PowerActions.actions, kept local for config-root
-    // isolation. The lockscreen's actions never overlap with anything else
-    // (no Lock on the lockscreen), so a duplicated 4-item list is fine.
-    property var lockActions: [
-        { name: "Logout",    glyph: "\uf2f5", command: ["loginctl", "terminate-user", Quickshell.env("USER")] },
-        { name: "Suspend",   glyph: "\uf186", command: ["systemctl", "suspend"] },
-        { name: "Reboot",    glyph: "\uf2f9", command: ["systemctl", "reboot"] },
-        { name: "Power Off", glyph: "\uf011", command: ["systemctl", "poweroff"] }
-    ]
 
     FileView {
         id: wallpaperFile
@@ -52,23 +34,27 @@ Rectangle {
 
     property string formattedDate: {
         var d = clock.date
-        return Qt.formatDateTime(d, "dddd, MMMM ") + root.ordinal(d.getDate()) + Qt.formatDateTime(d, ", yyyy")
+        return Qt.formatDateTime(d, "dddd, MMMM ") + FormatUtil.ordinal(d.getDate()) + Qt.formatDateTime(d, ", yyyy")
     }
 
-    property int panelWidth: 850
-    property int panelHeight: 450
+    // Power actions from the shared PowerActions singleton (now reachable
+    // via the lockscreen/util + lockscreen/models symlinks). Filter out
+    // "Lock" since we're already on the lockscreen.
+    property var lockActions: PowerActions.actions.filter(function(a) {
+        return a.name !== "Lock"
+    })
 
     Rectangle {
         id: panel
-        x: (parent.width - panelWidth) / 2
-        y: (parent.height - panelHeight) / 2
-        width: panelWidth - 10
-        height: panelHeight - 10
-        color: Qt.alpha(Colors.background, 0.76)
+        x: (parent.width - Theme.panelWidth) / 2
+        y: (parent.height - Theme.panelHeight) / 2
+        width: Theme.panelWidth - Theme.margin
+        height: Theme.panelHeight - Theme.margin
+        color: Qt.alpha(Colors.background, Theme.alphaBackground)
         Column {
             anchors.centerIn: parent
             width: 420
-            spacing: 10
+            spacing: Theme.margin
             Item {
                 width: parent.width
                 height: 60
@@ -99,14 +85,14 @@ Rectangle {
             }
             Row {
                 width: parent.width
-                height: 30
+                height: Theme.headerHeight
                 // 10px gap when the fingerprint square is shown; collapse to
                 // 0 when fprintd is unavailable so the password box fills
                 // the whole row.
-                spacing: context.fingerprintEnabled ? 10 : 0
+                spacing: context.fingerprintEnabled ? Theme.margin : 0
                 Rectangle {
                     width: parent.width - (context.fingerprintEnabled ? 40 : 0)
-                    height: 30
+                    height: Theme.headerHeight
                     color: Qt.alpha(Colors.background, Theme.alphaBackground)
                     clip: true
                     TextInput {
@@ -115,8 +101,8 @@ Rectangle {
                             left: parent.left
                             right: parent.right
                             verticalCenter: parent.verticalCenter
-                            leftMargin: 10
-                            rightMargin: 10
+                            leftMargin: Theme.margin
+                            rightMargin: Theme.margin
                         }
                         color: Colors.foreground
                         font.pixelSize: Theme.fontPixelSize
@@ -131,7 +117,7 @@ Rectangle {
                             anchors {
                                 left: parent.left
                                 verticalCenter: parent.verticalCenter
-                                leftMargin: 10
+                                leftMargin: Theme.margin
                             }
                             color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
                             font.pixelSize: Theme.fontPixelSize
@@ -149,14 +135,11 @@ Rectangle {
                         }
                     }
                 }
-                // 30×30 fingerprint readiness indicator. Matches the password
-                // box background; the glyph (nf-md-fingerprint, U+F0237) is
-                // tinted foreground. Presence = reader armed; hidden when
-                // fprintd is unusable, in which case the row above collapses
-                // the gap too.
+                // 30x30 fingerprint readiness indicator. Presence = reader
+                // armed; hidden when fprintd is unusable.
                 Rectangle {
                     width: context.fingerprintEnabled ? 30 : 0
-                    height: 30
+                    height: Theme.headerHeight
                     visible: context.fingerprintEnabled
                     color: Qt.alpha(Colors.background, Theme.alphaBackground)
                     Text {
@@ -164,7 +147,7 @@ Rectangle {
                         text: "\u{F0237}"
                         color: Colors.foreground
                         font.family: Theme.fontFamily
-                        font.pixelSize: 22
+                        font.pixelSize: Theme.fontPixelSizeLarge
                     }
                 }
             }
@@ -180,13 +163,13 @@ Rectangle {
                             width: 45
                             height: 45
                             anchors.horizontalCenter: parent.horizontalCenter
-                            color: btnMouse.containsMouse ? Qt.alpha(Colors.base08, Theme.alphaBackground) : Qt.alpha(Colors.background, Theme.alphaBackground)
+                            color: btnMouse.containsMouse ? Qt.alpha(Colors.critical, Theme.alphaBackground) : Qt.alpha(Colors.background, Theme.alphaBackground)
                             Text {
                                 anchors.centerIn: parent
                                 text: modelData?.glyph ?? ""
                                 color: Colors.foreground
                                 font.family: Theme.fontFamily
-                                font.pixelSize: 22
+                                font.pixelSize: Theme.fontPixelSizeLarge
                             }
                             MouseArea {
                                 id: btnMouse
@@ -217,27 +200,17 @@ Rectangle {
                     anchors.horizontalCenter: parent.horizontalCenter
                     visible: context.showFailure
                     text: "Incorrect password"
-                    color: Colors.base08
+                    color: Colors.critical
                     font.pixelSize: Theme.fontPixelSize
                     font.family: Theme.fontFamily
                 }
             }
         }
     }
-    Rectangle {
-        id: shadowBottom
-        x: panel.x + 10
-        y: panel.y + panel.height
-        width: panel.width - 10
-        height: 10
-        color: Qt.alpha("#000000", Theme.alphaBackground)
-    }
-    Rectangle {
-        id: shadowRight
-        x: panel.x + panel.width
-        y: panel.y + 10
-        width: 10
-        height: panel.height
-        color: Qt.alpha("#000000", Theme.alphaBackground)
+    DropShadow {
+        x: panel.x
+        y: panel.y
+        width: panel.width + Theme.margin
+        height: panel.height + Theme.margin
     }
 }

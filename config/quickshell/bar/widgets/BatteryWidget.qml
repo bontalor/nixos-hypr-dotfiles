@@ -1,17 +1,23 @@
 import "../../theme"
 import "../../models"
+import "../../util"
 import QtQuick
 
-Item {
+WidgetButton {
     id: root
-    width: batText.width + 20
-    height: 30
 
     property int batteryPercent: BatteryModel.percentage
     property bool isCharging: BatteryModel.charging
     property string activeProfile: BatteryModel.activeProfile
 
-    property string statusText: computeStatusText(batteryPercent, isCharging, activeProfile)
+    label: computeStatusText(batteryPercent, isCharging, activeProfile)
+    labelColor: {
+        if (batteryPercent < 0) return Colors.foreground
+        if (batteryPercent <= Theme.batteryCritical) return Colors.critical
+        if (batteryPercent <= Theme.batteryWarning) return Colors.base09
+        return Colors.foreground
+    }
+    panel: Panels.battery
 
     function computeStatusText(pct, charging, profile) {
         var profileSymbol = ""
@@ -23,35 +29,8 @@ Item {
         if (pct < 0) return "Bat ---- " + profileSymbol
 
         var plugSymbol = charging ? Icon.plug + " " : ""
-        var pctStr = String(pct).padStart(3, " ")
+        var pctStr = FormatUtil.padNum(pct, 3)
 
         return "Bat " + pctStr + "% " + profileSymbol + " " + plugSymbol
-    }
-
-    Rectangle {
-        anchors.fill: parent
-        color: mouseArea.containsMouse ? Qt.alpha(Colors.foreground, 0.25) : "transparent"
-    }
-
-    Text {
-        id: batText
-        anchors.centerIn: parent
-        text: root.statusText
-        font.pixelSize: Theme.fontPixelSize
-        font.family: Theme.fontFamily
-        color: {
-            if (batteryPercent < 0) return Colors.foreground
-            if (batteryPercent <= Theme.batteryCritical) return Colors.base08
-            if (batteryPercent <= Theme.batteryWarning) return Colors.base09
-            return Colors.foreground
-        }
-    }
-
-    MouseArea {
-        id: mouseArea
-        anchors.fill: parent
-        hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
-        onClicked: Panels.toggle("battery")
     }
 }

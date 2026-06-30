@@ -29,9 +29,9 @@ Panel {
     // these arrays stay frozen.
     property int _year: now.getFullYear()
     property int _month: now.getMonth()
-    property var cellDates: Util.monthCells(_year, _month)
-    property int isoWeek: Util.isoWeek(now)
-    property int doy: Util.dayOfYear(now)
+    property var cellDates: CalendarUtil.monthCells(_year, _month)
+    property int isoWeek: CalendarUtil.isoWeek(now)
+    property int doy: CalendarUtil.dayOfYear(now)
 
     property string timezoneString: {
         var name = Qt.formatDateTime(root.now, "t")
@@ -40,6 +40,10 @@ Panel {
         return "UTC" + offset
     }
 
+    // Calendar cell height tracks the grid width so scroll-to-selected
+    // stays correct if the panel is resized (previously hardcoded 36).
+    readonly property real cellHeight: calendarGrid.width / 7
+
     currentModelLength: function() { return root.selSection === 2 ? 42 : 0 }
 
     onSelDeviceChanged: root.calendarScroll()
@@ -47,8 +51,8 @@ Panel {
 
     function calendarScroll() {
         if (!root.inSection || root.selSection !== 2) return
-        var y = root.headerHeight + root.colSpacing + Math.floor(root.selDevice / 7) * 36
-        root.flick.scrollToVisible(y, 30)
+        var y = root.headerHeight + root.colSpacing + Math.floor(root.selDevice / 7) * root.cellHeight
+        root.scrollToVisible(y, root.cellHeight)
     }
 
     // ---- Section 0: Date ----
@@ -59,31 +63,24 @@ Panel {
 
         Item {
             width: parent.width
-            height: 30 * 3 + 20
+            height: Theme.headerHeight * 3 + 20
 
             Column {
                 anchors.fill: parent
-                spacing: 10
+                spacing: Theme.margin
 
-                Text {
+                ThemeText {
                     text: Qt.formatDateTime(root.now, "dddd, MMMM d, yyyy")
-                    color: Colors.foreground
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
                 }
 
-                Text {
+                ThemeText {
                     text: "Day of year: " + root.doy
                     color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
                 }
 
-                Text {
+                ThemeText {
                     text: "Week: " + root.isoWeek
                     color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
                 }
             }
         }
@@ -97,32 +94,26 @@ Panel {
 
         Item {
             width: parent.width
-            height: 30 * 3 + 20
+            height: Theme.headerHeight * 3 + 20
 
             Column {
                 anchors.fill: parent
-                spacing: 10
+                spacing: Theme.margin
 
-                Text {
+                ThemeText {
                     text: Qt.formatDateTime(root.now, "HH:mm:ss")
-                    color: Colors.foreground
                     font.pixelSize: 24
-                    font.family: Theme.fontFamily
                     font.bold: true
                 }
 
-                Text {
+                ThemeText {
                     text: "Timezone: " + root.timezoneString
                     color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
                 }
 
-                Text {
+                ThemeText {
                     text: "UTC: " + root.now.toUTCString()
                     color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
                 }
             }
         }
@@ -136,7 +127,7 @@ Panel {
 
         Item {
             width: parent.width
-            height: 30
+            height: Theme.headerHeight
 
             Row {
                 anchors { left: parent.left; right: parent.right }
@@ -145,15 +136,13 @@ Panel {
                 Repeater {
                     model: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
-                    delegate: Text {
+                    delegate: ThemeText {
                         width: parent.width / 7
-                        height: 30
+                        height: Theme.headerHeight
                         horizontalAlignment: Text.AlignHCenter
                         verticalAlignment: Text.AlignVCenter
                         text: modelData
                         color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
-                        font.pixelSize: Theme.fontPixelSize
-                        font.family: Theme.fontFamily
                     }
                 }
             }
@@ -172,7 +161,7 @@ Panel {
                     required property var modelData
                     required property int index
                     width: calendarGrid.width / 7
-                    height: calendarGrid.width / 7
+                    height: root.cellHeight
                     color: {
                         if (root.inSection && root.selDevice === index)
                             return Qt.alpha(Colors.base01, Theme.alphaSelected)
@@ -183,14 +172,12 @@ Panel {
                         return "transparent"
                     }
 
-                    Text {
+                    ThemeText {
                         anchors.centerIn: parent
                         text: modelData.getDate()
                         color: modelData.getMonth() !== root._month
                                ? Qt.alpha(Colors.foreground, Theme.alphaBackground)
                                : Colors.foreground
-                        font.pixelSize: Theme.fontPixelSize
-                        font.family: Theme.fontFamily
                     }
 
                     MouseArea {

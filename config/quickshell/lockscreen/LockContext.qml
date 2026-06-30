@@ -7,7 +7,6 @@ Scope {
     id: root
 
     signal unlocked()
-    signal failed()
 
     property string currentText: ""
     property bool unlockInProgress: false

@@ -3,13 +3,14 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 
-Item {
+WidgetButton {
     id: root
-    width: 30
-    height: 30
-    clip: true
 
     readonly property string assetsDir: Quickshell.shellDir + "/assets"
+
+    // Single source of truth for the NixOS logo path (previously
+    // duplicated as both the fallback default and the table entry).
+    readonly property string nixosLogo: "/run/current-system/sw/share/icons/hicolor/scalable/apps/nix-snowflake.svg"
 
     property string distroContent: ""
 
@@ -22,14 +23,14 @@ Item {
     property string logoPath: computeLogoPath(distroContent)
 
     function computeLogoPath(content) {
-        if (!content) return "/run/current-system/sw/share/icons/hicolor/scalable/apps/nix-snowflake.svg"
+        if (!content) return root.nixosLogo
         var lines = content.split("\n")
         for (var i = 0; i < lines.length; i++) {
             if (lines[i].startsWith("ID=")) {
                 var id = lines[i].substring(3).replace(/"/g, "").trim()
                 var paths = {
                     "arch": assetsDir + "/archlinux-logo.svg",
-                    "nixos": "/run/current-system/sw/share/icons/hicolor/scalable/apps/nix-snowflake.svg",
+                    "nixos": root.nixosLogo,
                 }
                 return paths[id] || ""
             }
@@ -37,11 +38,7 @@ Item {
         return ""
     }
 
-    Rectangle {
-        anchors.fill: parent
-        color: mouseArea.containsMouse ? Qt.alpha(Colors.foreground, 0.25) : "transparent"
-        radius: 0
-    }
+    panel: Panels.launcher
 
     Image {
         id: logoImage
@@ -62,13 +59,5 @@ Item {
         font.family: Theme.fontFamily
         color: Colors.foreground
         visible: logoImage.status !== Image.Ready
-    }
-
-    MouseArea {
-        id: mouseArea
-        anchors.fill: parent
-        hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
-        onClicked: Panels.toggle("launcher")
     }
 }

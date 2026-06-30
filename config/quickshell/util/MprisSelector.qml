@@ -8,19 +8,15 @@ import Quickshell.Services.Mpris
 // MediaPanel. Previously duplicated nearly verbatim across both files.
 //
 // Exposes:
-//   - refreshCounter        bumps whenever any player's playbackState or
-//                           trackTitle changes; bind `void` against it in
-//                           `currentPlayer`/`trackTitle` properties to force
-//                           a re-evaluation (Mpris doesn't emit notify on
-//                           reassigning the same QObject).
-//   - playerTimestamps      keyed by desktopEntry||identity||dbusName,
-//                           recording the last time a player's track /
-//                           playback state changed (used to break ties
-//                           when multiple players are simultaneously
-//                           Playing).
+//   - currentPlayer         readonly binding — the preferred player from
+//                           the current Mpris.players list. Re-evaluates
+//                           automatically when any player's playbackState
+//                           or trackTitle changes (no refreshCounter hack).
+//   - playersChanged()      signal emitted on player add/remove/state
+//                           change for consumers that need a side effect
+//                           beyond a property binding.
 //   - allPlayers()          deduplicated, preferring the playing+has-title
-//                           instance when a key collides. Returns Mpris
-//                           players keyed by stable identity.
+//                           instance when a key collides.
 //   - selectCurrent(players)  preferred player from a list — currently
 //                           Playing wins; ties broken by most-recent
 //                           timestamp; falling back to first available.
@@ -29,7 +25,10 @@ import Quickshell.Services.Mpris
 Singleton {
     id: root
 
-    property int refreshCounter: 0
+    signal playersChanged()
+
+    // Keyed by desktopEntry||identity||dbusName. Pruned when a player
+    // disappears (see Instantiator delegate's onDestruction).
     property var playerTimestamps: ({})
 
     function _key(p) {
@@ -46,6 +45,7 @@ Singleton {
                 best[key] = p
             } else {
                 var cur = best[key]
+                // Playing wins; has-title breaks the next tie.
                 var curScore = (cur.playbackState === MprisPlaybackState.Playing ? 2 : 0)
                              + (cur.trackTitle ? 1 : 0)
                 var newScore = (p.playbackState === MprisPlaybackState.Playing ? 2 : 0)
@@ -53,9 +53,7 @@ Singleton {
                 if (newScore > curScore) best[key] = p
             }
         }
-        var out = []
-        for (var k in best) out.push(best[k])
-        return out
+        return Object.keys(best).map(function(k) { return best[k] })
     }
 
     function selectCurrent(players) {
@@ -95,12 +93,27 @@ Singleton {
         }
     }
 
+    // The preferred player. A plain readonly binding reads
+    // `Mpris.players` plus each candidate's `playbackState`/`trackTitle`
+    // during evaluation, so QML re-evaluates this automatically when any
+    // of those change — no refreshCounter / `void` hack required.
+    readonly property var currentPlayer: root.selectCurrent(root.allPlayers())
+
     Instantiator {
         model: Mpris.players
         delegate: Connections {
             target: modelData
-            function onPlaybackStateChanged() { root.updateTimestamp(modelData); root.refreshCounter++ }
-            function onTrackTitleChanged()    { root.updateTimestamp(modelData); root.refreshCounter++ }
+            function onPlaybackStateChanged() { root.updateTimestamp(modelData); root.playersChanged() }
+            function onTrackTitleChanged()    { root.updateTimestamp(modelData); root.playersChanged() }
+            // Prune the timestamp entry when this player disappears from
+            // the Mpris list — prevents unbounded growth as players churn.
+            Component.onDestruction: {
+                var key = root._key(modelData)
+                if (root.playerTimestamps[key] !== undefined) {
+                    delete root.playerTimestamps[key]
+                    root.playersChanged()
+                }
+            }
         }
     }
 }

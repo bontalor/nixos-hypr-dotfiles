@@ -4,6 +4,8 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Services.UPower
+import "../util"
+import "../theme"
 
 // Centralized power state backed by the native UPower + PowerProfiles
 // services. Previously the bar shelled out to `upower -i` and `powerprofilesctl
@@ -46,7 +48,8 @@ Singleton {
     }
 
     // Persisted selection by nativePath (stable across device add/remove).
-    // Falls back to the first available battery device.
+    // Falls back to the first available battery device. Set via
+    // selectDevice() (which persists) or primed at startup by PrefStore.
     property string selectedNativePath: ""
 
     readonly property var activeDevice: {
@@ -100,9 +103,7 @@ Singleton {
 
     function selectDevice(nativePath) {
         root.selectedNativePath = nativePath
-        var dir = Quickshell.shellDir + "/battery"
-        selectionWriter.command = ["sh", "-c", "mkdir -p \"$1\" && printf '%s' \"$2\" > \"$1\"/selected", "sh", dir, nativePath]
-        selectionWriter.running = true
+        PrefStore.write("battery", "selected", nativePath)
     }
 
     // --- Power profiles ---
@@ -126,6 +127,8 @@ Singleton {
         }
     }
 
+    // Single source of truth for profile metadata: name, enum value,
+    // and icon glyph. profileIndex/setProfile index into this list.
     property var profiles: ListModel {
         ListElement { name: "Performance"; enumVal: 0; icon: "\uf0e7" }
         ListElement { name: "Balanced";    enumVal: 1; icon: "\uf0eb" }
@@ -140,26 +143,9 @@ Singleton {
         }
     }
 
-    Process {
-        id: selectionWriter
-        running: false
-    }
-
-    Process {
-        id: selectionReader
-        running: false
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: {
-                var p = text.trim()
-                if (p) root.selectedNativePath = p
-            }
-        }
-    }
-
     Component.onCompleted: {
-        var dir = Quickshell.shellDir + "/battery"
-        selectionReader.command = ["sh", "-c", "cat \"$1\" 2>/dev/null", "sh", dir + "/selected"]
-        selectionReader.running = true
+        PrefStore.read("battery", "selected", function(text) {
+            if (text) root.selectedNativePath = text
+        })
     }
 }

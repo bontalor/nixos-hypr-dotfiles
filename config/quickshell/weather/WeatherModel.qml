@@ -10,6 +10,9 @@ import "../theme"
 // phase once per fetch (rather than recomputing every minute), and
 // refreshes on a long interval gated on `dataReady` so a newly-spawned
 // shell doesn't fire a second network request before the first completes.
+//
+// A short retry timer fires if the first fetch fails so a headless boot
+// with no network at startup doesn't stay weatherless forever.
 
 Singleton {
     id: root
@@ -25,10 +28,27 @@ Singleton {
     property int moonIllumination: 0
     property string nextFullMoon: ""
 
+    // Single source of truth for the bar chip + panel header text.
+    // Previously duplicated between WeatherWidget.qml and WeatherPanel.qml
+    // with weaker null-guarding in the widget.
+    readonly property string currentSummary: {
+        if (!dataReady) return ""
+        var cc = weatherData.current_condition
+        if (!cc || !cc.length) return ""
+        var c = cc[0]
+        var icon = isNight ? (moonIcon + " ") : ""
+        return icon + WeatherCodes.icon(c.weatherCode) + " "
+             + (degreeUnit === "F" ? c.temp_F : c.temp_C) + "\u00b0" + degreeUnit
+    }
+
     property bool ready: false
     property bool retryingFallback: false
     property bool fetchRunning: false
     property bool needsRefetch: false
+
+    // Surface fetch errors so the panel can show "fetch failed" instead
+    // of stale "fetching..." forever.
+    property string fetchError: ""
 
     function fetchWeather() {
         if (fetchRunning) {
@@ -36,6 +56,7 @@ Singleton {
             return
         }
         fetchRunning = true
+        fetchError = ""
         var url = "https://wttr.in/"
         if (customCity && !retryingFallback) url += encodeURIComponent(customCity) + "?format=j1"
         else url += "?format=j1"
@@ -70,13 +91,19 @@ Singleton {
         try {
             json = JSON.parse(text)
         } catch (e) {
-            // curl returned an error page or empty string; leave prior data intact.
+            // curl returned an error page or empty string; leave prior
+            // data intact but surface the failure so the panel can show
+            // "fetch failed" and the retry timer can fire.
+            if (!dataReady) fetchError = "fetch failed"
             return
         }
         if (json && json.current_condition && json.current_condition[0]) {
             weatherData = json
             dataReady = true
+            fetchError = ""
             updateMoonData()
+        } else if (!dataReady) {
+            fetchError = "no data"
         }
     }
 
@@ -120,67 +147,53 @@ Singleton {
     // within a wttr.in refresh window (the prior moonTimer ticked every
     // 60s and was oversampled by ~1440x).
     function updateMoonData() {
-        var age = Util.lunarAge()
+        var age = MoonUtil.lunarAge()
         root.isNight = calcIsNight()
-        root.moonPhase = Util.moonPhaseName(age)
-        root.moonIcon = Util.moonPhaseIcon(root.moonPhase)
-        root.moonIllumination = Util.moonIllumination(age)
-        root.nextFullMoon = Util.nextFullMoon(age)
+        root.moonPhase = MoonUtil.moonPhaseName(age)
+        root.moonIcon = MoonUtil.moonPhaseIcon(root.moonPhase)
+        root.moonIllumination = MoonUtil.moonIllumination(age)
+        root.nextFullMoon = MoonUtil.nextFullMoon(age)
     }
 
     // Only poll after the first fetch completes (or the user opens the
     // panel) — running before `dataReady` would race with startup.
     Timer {
-        interval: 600000
+        interval: Theme.weatherRefreshMillis
         repeat: true
         running: root.dataReady
         onTriggered: fetchWeather()
     }
 
-    Process {
-        id: unitWriter
-        running: false
-    }
-
-    Process {
-        id: cityWriter
-        running: false
+    // Retry-on-failure: if the first fetch fails (no network at boot),
+    // try again every 60s until success. Without this, the main refresh
+    // timer (gated on `dataReady`) would never start.
+    Timer {
+        interval: 60000
+        repeat: true
+        running: !root.dataReady && root.ready && !root.fetchRunning
+        onTriggered: fetchWeather()
     }
 
     onDegreeUnitChanged: {
         if (!ready) return
-        var dir = Quickshell.shellDir + "/weather"
-        unitWriter.command = ["sh", "-c", "mkdir -p \"$1\" && printf '%s' \"$2\" > \"$1\"/unit", "sh", dir, degreeUnit]
-        unitWriter.running = true
+        PrefStore.write("weather", "unit", degreeUnit)
     }
 
     onCustomCityChanged: {
         if (!ready) return
-        var dir = Quickshell.shellDir + "/weather"
-        cityWriter.command = ["sh", "-c", "mkdir -p \"$1\" && printf '%s' \"$2\" > \"$1\"/city", "sh", dir, customCity]
-        cityWriter.running = true
-    }
-
-    Process {
-        id: startupReader
-        running: false
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: {
-                var lines = text.split('\n')
-                if (lines[0].trim()) root.degreeUnit = lines[0].trim()
-                if (lines[1].trim()) root.customCity = lines[1].trim()
-                root.ready = true
-                fetchWeather()
-            }
-        }
+        PrefStore.write("weather", "city", customCity)
     }
 
     Component.onCompleted: {
-        var dir = Quickshell.shellDir + "/weather"
-        startupReader.command = ["sh", "-c",
-            "printf '%s\\n' \"$(cat \"$1/unit\" 2>/dev/null)\" \"$(cat \"$1/city\" 2>/dev/null)\"",
-            "sh", dir]
-        startupReader.running = true
+        // Read both persisted keys; the second read triggers the first
+        // fetch once both are loaded.
+        PrefStore.read("weather", "unit", function(text) {
+            if (text) root.degreeUnit = text
+            PrefStore.read("weather", "city", function(text) {
+                if (text) root.customCity = text
+                root.ready = true
+                fetchWeather()
+            })
+        })
     }
 }

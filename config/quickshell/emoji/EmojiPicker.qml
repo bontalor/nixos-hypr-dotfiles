@@ -55,19 +55,13 @@ SearchPanel {
     }
 
     rowDelegate: SearchRow {
-        Text {
+        ThemeText {
             anchors.verticalCenter: parent.verticalCenter
             text: modelData?.char ?? ""
-            color: Colors.foreground
-            font.pixelSize: Theme.fontPixelSize
-            font.family: Theme.fontFamily
         }
-        Text {
+        ThemeText {
             anchors.verticalCenter: parent.verticalCenter
             text: modelData?.name ?? ""
-            color: Colors.foreground
-            font.pixelSize: Theme.fontPixelSize
-            font.family: Theme.fontFamily
         }
     }
 }

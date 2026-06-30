@@ -1,6 +1,7 @@
 // OSD popup — mirrors the notification popup's shape and drop-shadow
 // style, but anchored to the bottom center of the screen. Visible only
-// while OsdModel.hideTimer is running (5s after each trigger).
+// while OsdModel.hideTimer is running (Theme.osdHideInterval after each
+// trigger).
 //
 // Icon on the left (OsdModel.glyph), a value bar on the right: filled
 // portion is Colors.foreground, remainder is Colors.foreground @ 0.25.
@@ -16,30 +17,27 @@ PanelWindow {
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.namespace: "quickshell:osd"
     WlrLayershell.anchors { bottom: true; left: true; right: true }
-    WlrLayershell.margins { bottom: 10 }
+    WlrLayershell.margins { bottom: Theme.margin }
 
     color: "transparent"
-    implicitHeight: Theme.popupHeight + 10   // bg + bottom shadow
+    implicitHeight: Theme.popupHeightWithShadow
     visible: OsdModel.visible
 
     Item {
-        width: Theme.popupWidth + 10
-        height: Theme.popupHeight - 10
+        width: Theme.popupWidthWithShadow
+        height: Theme.popupHeight
         anchors.horizontalCenter: parent.horizontalCenter
 
         Rectangle {
             id: bg
-            width: parent.width - 10
-            height: parent.height - 10
-            color: Qt.alpha(Colors.background, 0.76)
+            width: parent.width - Theme.margin
+            height: parent.height - Theme.margin
+            color: Qt.alpha(Colors.background, Theme.alphaBackground)
 
             Item {
                 anchors {
                     fill: parent
-                    leftMargin: Theme.margin
-                    rightMargin: Theme.margin
-                    topMargin: Theme.margin
-                    bottomMargin: Theme.margin
+                    margins: Theme.margin
                 }
 
                 Text {
@@ -72,20 +70,10 @@ PanelWindow {
             }
         }
 
-        // Drop-shadow pair — identical geometry to NotifPopup.qml.
-        Rectangle {
-            x: 10
-            y: parent.height - 10
-            width: parent.width - 10
-            height: 10
-            color: Qt.alpha("#000000", Theme.alphaBackground)
-        }
-        Rectangle {
-            x: parent.width - 10
-            y: 10
-            width: 10
-            height: parent.height - 20
-            color: Qt.alpha("#000000", Theme.alphaBackground)
+        // Shared drop-shadow component (replaces the hand-rolled
+        // two-Rectangle block duplicated with NotifPopup/Bar/LockSurface).
+        DropShadow {
+            anchors.fill: parent
         }
     }
 }

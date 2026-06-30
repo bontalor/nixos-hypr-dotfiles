@@ -21,7 +21,6 @@ Panel {
     property var wiredDevices: NetworkModel.wiredDevices
     property bool wifiEnabled: NetworkModel.wifiOn
     property string connectivityState: NetworkModel.connectivity
-    property string connectivityLevel: NetworkModel.connectivity // single field now
 
     // Aggregated "first wifi device's networks" view — matches the prior UI
     // behaviour (the bar showed a single wifi adapter).
@@ -86,10 +85,16 @@ Panel {
         var list = root.wiredDevices
         if (idx >= list.length) return
         var dev = list[idx]
-        if (dev.connected) dev.disconnect()
-        // Reconnecting a wired device isn't exposed by the Quickshell API;
-        // nmcli still has it as a fallback for the rare off case.
-        else nmcliProc.command = ["nmcli", "device", "connect", dev.name]; nmcliProc.running = true
+        if (dev.connected) {
+            dev.disconnect()
+        } else {
+            // Reconnecting a wired device isn't exposed by the Quickshell API;
+            // nmcli still has it as a fallback for the rare off case.
+            // (Braces here are load-bearing — without them `nmcliProc.running
+            // = true` fired unconditionally, including on the disconnect branch.)
+            nmcliProc.command = ["nmcli", "device", "connect", dev.name]
+            nmcliProc.running = true
+        }
     }
 
     function checkConnectivity() { Networking.checkConnectivity() }
@@ -110,7 +115,7 @@ Panel {
         spacing: root.colSpacing
         visible: root.selSection === 0
 
-        Text {
+        ThemeText {
             width: parent.width
             height: Theme.searchRowHeight
             visible: !root.wifiEnabled
@@ -118,8 +123,6 @@ Panel {
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
-            font.pixelSize: Theme.fontPixelSize
-            font.family: Theme.fontFamily
         }
 
         Repeater {
@@ -137,13 +140,10 @@ Panel {
                     color: root.inSection && index === root.selDevice ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
                 }
 
-                Text {
+                ThemeText {
                     id: wifiLabel
                     text: modelData.ssid
                     anchors { left: parent.left; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
-                    color: Colors.foreground
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
                     elide: Text.ElideRight
                     width: parent.width * 0.45
                 }
@@ -164,7 +164,7 @@ Panel {
                     }
                 }
 
-                Text {
+                ThemeText {
                     anchors { right: parent.right; rightMargin: Theme.margin; verticalCenter: parent.verticalCenter }
                     text: {
                         if (modelData.network.stateChanging) {
@@ -174,8 +174,6 @@ Panel {
                         return modelData.active ? "Connected" : "Off"
                     }
                     color: modelData.active ? Colors.base0b : Qt.alpha(Colors.foreground, Theme.alphaBackground)
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
                     font.bold: modelData.active
                 }
 
@@ -190,7 +188,7 @@ Panel {
             }
         }
 
-        Text {
+        ThemeText {
             width: parent.width
             height: Theme.searchRowHeight
             visible: root.wifiEnabled && root.wifiNetworks.length === 0
@@ -198,8 +196,6 @@ Panel {
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
-            font.pixelSize: Theme.fontPixelSize
-            font.family: Theme.fontFamily
         }
     }
 
@@ -221,35 +217,28 @@ Panel {
                     color: root.inSection && index === root.selDevice ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
                 }
 
-                Text {
+                ThemeText {
                     id: ethLabel
                     text: modelData.name || "(unnamed)"
                     anchors { left: parent.left; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
-                    color: Colors.foreground
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
                     elide: Text.ElideRight
                     width: parent.width * 0.45
                 }
 
-                Text {
+                ThemeText {
                     text: modelData.address || (modelData.connected ? "Connected" : "Disconnected")
                     anchors { left: ethLabel.right; leftMargin: Theme.margin; right: ethStatus.left; rightMargin: Theme.margin; verticalCenter: parent.verticalCenter }
                     color: modelData.connected ? Colors.foreground : Qt.alpha(Colors.foreground, Theme.alphaBackground)
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
                     elide: Text.ElideRight
                 }
 
-                Text {
+                ThemeText {
                     id: ethStatus
                     anchors { right: parent.right; rightMargin: Theme.margin; verticalCenter: parent.verticalCenter }
                     text: modelData.stateChanging
                         ? (modelData.state === ConnectionState.Disconnecting ? "Disconnecting..." : "Connecting...")
                         : modelData.connected ? "Connected" : "Off"
                     color: modelData.connected ? Colors.base0b : Colors.foreground
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
                     font.bold: modelData.connected
                 }
 
@@ -264,7 +253,7 @@ Panel {
             }
         }
 
-        Text {
+        ThemeText {
             width: parent.width
             height: Theme.searchRowHeight
             visible: root.wiredDevices.length === 0
@@ -272,8 +261,6 @@ Panel {
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
-            font.pixelSize: Theme.fontPixelSize
-            font.family: Theme.fontFamily
         }
     }
 
@@ -283,14 +270,12 @@ Panel {
         spacing: root.colSpacing
         visible: root.selSection === 2
 
-        Text {
+        ThemeText {
             text: "Wi-Fi"
             width: parent.width
             height: 20
             leftPadding: Theme.margin
             color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
-            font.pixelSize: Theme.fontPixelSize
-            font.family: Theme.fontFamily
             font.bold: true
         }
 
@@ -299,12 +284,9 @@ Panel {
             height: root.rowHeight
             color: root.inSection && 0 === root.selDevice ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
 
-            Text {
+            ThemeText {
                 text: "Wi-Fi: " + (root.wifiEnabled ? "On" : "Off")
                 anchors { left: parent.left; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
-                color: Colors.foreground
-                font.pixelSize: Theme.fontPixelSize
-                font.family: Theme.fontFamily
             }
 
             MouseArea {
@@ -317,28 +299,25 @@ Panel {
             }
         }
 
-        Text {
+        ThemeText {
             text: "Ethernet"
             width: parent.width
             height: 20
             leftPadding: Theme.margin
             color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
-            font.pixelSize: Theme.fontPixelSize
-            font.family: Theme.fontFamily
             font.bold: true
         }
 
         Rectangle {
             width: parent.width
             height: root.rowHeight
-            color: root.inSection && 2 === root.selDevice ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
+            // Index 1 (not 2) — currentModelLength returns 2 for this
+            // section, so valid selDevice indices are 0 and 1.
+            color: root.inSection && 1 === root.selDevice ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
 
-            Text {
+            ThemeText {
                 text: "Ethernet: " + (root.wiredDevices.some(function(d) { return d.connected }) ? "Connected" : "Disconnected")
                 anchors { left: parent.left; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
-                color: Colors.foreground
-                font.pixelSize: Theme.fontPixelSize
-                font.family: Theme.fontFamily
             }
         }
     }
@@ -354,12 +333,9 @@ Panel {
             height: root.rowHeight
             color: root.inSection && 0 === root.selDevice ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
 
-            Text {
+            ThemeText {
                 text: "Connectivity: " + (root.connectivityState || "--")
                 anchors { left: parent.left; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
-                color: Colors.foreground
-                font.pixelSize: Theme.fontPixelSize
-                font.family: Theme.fontFamily
             }
 
             MouseArea {
@@ -377,12 +353,9 @@ Panel {
             height: root.rowHeight
             color: root.inSection && 1 === root.selDevice ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
 
-            Text {
+            ThemeText {
                 text: "nmtui"
                 anchors { left: parent.left; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
-                color: Colors.foreground
-                font.pixelSize: Theme.fontPixelSize
-                font.family: Theme.fontFamily
             }
 
             MouseArea {

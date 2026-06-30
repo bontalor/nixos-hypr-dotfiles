@@ -11,6 +11,8 @@
 //                                      EmojiPicker uses 10)
 //   property var       matchPredicate function(item, q) -> bool
 //                                      defaults to substring match on `item.name`
+//   property var       sortKeyFn      function(item) -> string  passed to
+//                                      SubstringRankSort.sort; defaults to item.name
 //   property Component rowDelegate     the SearchRow (with content children)
 //                                      that the Repeater instantiates
 //   signal             launched(int idx)   fires on Enter or row click
@@ -35,6 +37,7 @@ FloatingWindow {
     property var matchPredicate: function(item, q) {
         return item && item.name && item.name.toLowerCase().includes(q)
     }
+    property var sortKeyFn: null
     property Component rowDelegate
 
     signal launched(int idx)
@@ -52,7 +55,9 @@ FloatingWindow {
             for (var i = 0; i < all.length; i++) {
                 if (root.matchPredicate(all[i], q)) list.push(all[i])
             }
-            list = FuzzySort.sort(q, list)
+            // SubstringRankSort returns a fresh sorted copy; the original
+            // `list` (and `root.items`) is left untouched.
+            list = SubstringRankSort.sort(q, list, root.sortKeyFn)
         }
         if (root.maxLength > 0 && list.length > root.maxLength) {
             list = list.slice(0, root.maxLength)
@@ -65,7 +70,8 @@ FloatingWindow {
         root.selectedIndex = 0
         searchText.forceActiveFocus()
     }
-    onSelectedIndexChanged: if (resultFlick) resultFlick.scrollToSelected()
+    onSelectedIndexChanged: Scroll.scrollIntoView(resultFlick,
+        root.selectedIndex * Theme.searchRowStride, Theme.searchRowHeight)
 
     function launchSelected() {
         if (root.selectedIndex >= 0 && root.selectedIndex < root.filtered.length)
@@ -108,10 +114,10 @@ FloatingWindow {
                     Keys.onPressed: event => {
                         switch (event.key) {
                         case Qt.Key_Down:
-                            root.selectedIndex = Math.min(root.selectedIndex + 1, Math.max(0, root.filtered.length - 1))
+                            root.selectedIndex = Scroll.step(root.selectedIndex, 1, root.filtered.length)
                             event.accepted = true; break
                         case Qt.Key_Up:
-                            root.selectedIndex = Math.max(root.selectedIndex - 1, 0)
+                            root.selectedIndex = Scroll.step(root.selectedIndex, -1, root.filtered.length)
                             event.accepted = true; break
                         case Qt.Key_Return:
                         case Qt.Key_Enter:
@@ -136,23 +142,6 @@ FloatingWindow {
                     anchors.margins: Theme.margin
                     contentHeight: resultCol.height
                     clip: true
-
-                    function scrollToSelected() {
-                        // y of row N = N * (rowHeight + colSpacing).
-                        // Note: resultFlick is inset by Theme.margin inside
-                        // its surrounding panel Rectangle, so a 0px gap from
-                        // the Flickable edge reads as Theme.margin against
-                        // the visible panel background.
-                        var y = root.selectedIndex * (Theme.searchRowHeight + Theme.margin)
-                        var h = Theme.searchRowHeight
-                        var viewH = resultFlick.height
-                        var maxY = Math.max(0, resultCol.height - viewH)
-                        if (y < resultFlick.contentY) {
-                            resultFlick.contentY = Math.max(0, y)
-                        } else if (y + h > resultFlick.contentY + viewH) {
-                            resultFlick.contentY = Math.min(maxY, y + h - viewH)
-                        }
-                    }
 
                     Column {
                         id: resultCol

@@ -32,7 +32,7 @@ Panel {
         if (idx === 0) {
             NotifDaemon.clearHistory()
         } else if (idx > 0 && idx - 1 < root.historyList.count) {
-            root.historyList.remove(idx - 1)
+            NotifDaemon.removeFromHistory(idx - 1)
         }
     }
 
@@ -88,6 +88,7 @@ Panel {
                 required property string body
                 required property string appName
                 required property var timestamp
+                required property int index
 
                 width: parent.width
                 height: Math.max(root.rowHeight, col.implicitHeight + 2 * Theme.margin)
@@ -155,7 +156,7 @@ Panel {
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
                         if (!root.inSection) { root.inSection = true; root.selDevice = index + 1 }
-                        root.historyList.remove(index)
+                        NotifDaemon.removeFromHistory(index)
                     }
                 }
             }

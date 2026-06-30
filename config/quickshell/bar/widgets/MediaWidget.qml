@@ -2,21 +2,18 @@ import "../../theme"
 import "../../util"
 import QtQuick
 import Quickshell
-import Quickshell.Io
 import Quickshell.Services.Mpris
 import Quickshell.Services.Pipewire
 
 Item {
     id: root
-    width: 30 + 10 + textMetrics.width + 20
-    height: 30
+    width: 30 + Theme.margin + textMetrics.width + 2 * Theme.margin
+    height: Theme.barHeight
     clip: true
-    visible: true
 
-    property var currentPlayer: {
-        void MprisSelector.refreshCounter
-        return MprisSelector.selectCurrent(MprisSelector.allPlayers())
-    }
+    // Use the shared currentPlayer binding (auto-tracks Mpris property
+    // changes — no refreshCounter / `void` hack required).
+    property var currentPlayer: MprisSelector.currentPlayer
 
     property string trackTitle: currentPlayer ? (currentPlayer.trackTitle ?? "") : ""
     property string trackArtist: currentPlayer ? (currentPlayer.trackArtist ?? "") : ""
@@ -31,7 +28,10 @@ Item {
     property int scrollPos: 0
 
     property var peakNode: findPeakNode(Pipewire.nodes)
-    property var peakLevels: [0, 0, 0, 0, 0, 0, 0, 0]
+    // Decorative peak visualizer. A single PwNodePeakMonitor.peak scalar
+    // is spread across `Theme.peakBands` bands with per-band random
+    // sensitivity/decay — this is NOT a real spectrum, just motion.
+    property var peakLevels: Array(Theme.peakBands).fill(0)
 
     function findPeakNode(nodes) {
         if (!nodes) return null
@@ -48,7 +48,7 @@ Item {
         else {
             scrollPos = 0
             scrollTimer.running = false
-            root.peakLevels = [0, 0, 0, 0, 0, 0, 0, 0]
+            root.peakLevels = Array(Theme.peakBands).fill(0)
         }
     }
 
@@ -73,7 +73,7 @@ Item {
             var arr = root.peakLevels.slice()
             if (peakNode) {
                 var raw = Math.min(1, peakMon.peak)
-                for (var i = 0; i < Theme.peakBands; i++) {
+                for (let i = 0; i < Theme.peakBands; i++) {
                     var sensitivity = 0.3 + Math.random() * 1.2
                     var decay = 0.01 + Math.random() * 0.05
                     var target = Math.min(1, raw * sensitivity * 1.2)
@@ -81,7 +81,7 @@ Item {
                     else if (arr[i] > 0) arr[i] = Math.max(0, arr[i] - decay)
                 }
             } else {
-                for (var i = 0; i < Theme.peakBands; i++) arr[i] = 0
+                for (let j = 0; j < Theme.peakBands; j++) arr[j] = 0
             }
             root.peakLevels = arr
         }
@@ -90,23 +90,25 @@ Item {
     Component.onCompleted: startScroll()
 
     Rectangle {
-        x: contentRow.x - 10
+        x: contentRow.x - Theme.margin
         y: 0
-        width: contentRow.width + 20
-        height: 30
-        color: mouseArea.containsMouse ? Qt.alpha(Colors.foreground, 0.25) : "transparent"
+        width: contentRow.width + 2 * Theme.margin
+        height: Theme.barHeight
+        color: mouseArea.containsMouse
+            ? Qt.alpha(Colors.foreground, Theme.alphaHover)
+            : "transparent"
     }
 
     Item {
         id: contentRow
-        anchors { left: parent.left; leftMargin: 10; right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
+        anchors { left: parent.left; leftMargin: Theme.margin; right: parent.right; rightMargin: Theme.margin; verticalCenter: parent.verticalCenter }
         height: parent.height
 
         Item {
             id: vizArea
             anchors { left: parent.left; verticalCenter: parent.verticalCenter }
             width: 30
-            height: 30
+            height: parent.height
 
             Repeater {
                 model: Theme.peakBands
@@ -133,7 +135,7 @@ Item {
 
         Item {
             id: clipArea
-            anchors { left: vizArea.right; leftMargin: 10; right: parent.right; verticalCenter: parent.verticalCenter }
+            anchors { left: vizArea.right; leftMargin: Theme.margin; right: parent.right; verticalCenter: parent.verticalCenter }
             height: parent.height
             clip: true
 
@@ -178,6 +180,6 @@ Item {
         anchors.fill: parent
         hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
-        onClicked: Panels.toggle("media")
+        onClicked: Panels.toggle(Panels.media)
     }
 }

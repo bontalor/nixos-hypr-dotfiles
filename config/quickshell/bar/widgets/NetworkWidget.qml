@@ -2,10 +2,10 @@ import "../../theme"
 import "../../models"
 import QtQuick
 
-Item {
+WidgetButton {
     id: root
-    width: contentRow.width + 20
-    height: 30
+
+    width: contentRow.width + 2 * Theme.margin
 
     // Direct bindings to the D-Bus-backed model. No fetch / parse.
     property string statusText: NetworkModel.statusTextShort()
@@ -14,18 +14,17 @@ Item {
     property bool wifiConnected: NetworkModel.wifiConnected
     property bool ethConnected: NetworkModel.ethConnected
 
-    Rectangle {
-        anchors.fill: parent
-        color: mouseArea.containsMouse ? Qt.alpha(Colors.foreground, 0.25) : "transparent"
-    }
+    panel: Panels.network
+    acceptRightClick: true
+
+    onRightClicked: mouse => NetworkModel.setWifiEnabled(!root.wifiIsEnabled)
 
     Row {
         id: contentRow
         anchors.centerIn: parent
-        spacing: 10
+        spacing: Theme.margin
 
         Text {
-            id: netText
             text: root.statusText
             font.pixelSize: Theme.fontPixelSize
             font.family: Theme.fontFamily
@@ -33,7 +32,7 @@ Item {
         }
 
         Row {
-            visible: wifiConnected
+            visible: root.wifiConnected
             spacing: 4
             anchors.verticalCenter: parent.verticalCenter
 
@@ -42,24 +41,9 @@ Item {
                 delegate: Rectangle {
                     width: 4
                     height: 4
-                    color: index < Math.round(connectedSignal / 25)
+                    color: index < Math.round(root.connectedSignal / 25)
                            ? Colors.foreground : Qt.alpha(Colors.foreground, 0.25)
                 }
-            }
-        }
-    }
-
-    MouseArea {
-        id: mouseArea
-        anchors.fill: parent
-        hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
-        acceptedButtons: Qt.LeftButton | Qt.RightButton
-        onClicked: function(mouse) {
-            if (mouse.button === Qt.RightButton) {
-                NetworkModel.setWifiEnabled(!wifiIsEnabled)
-            } else {
-                Panels.toggle("network")
             }
         }
     }

@@ -16,6 +16,7 @@
 // appended to contentCol below the section header bar.
 
 import "."
+import "../util"
 import QtQuick
 import Quickshell
 
@@ -23,8 +24,8 @@ FloatingWindow {
     id: root
     title: ""
     color: "transparent"
-    implicitWidth: 850
-    implicitHeight: 450
+    implicitWidth: Theme.panelWidth
+    implicitHeight: Theme.panelHeight
     visible: false
     onClosed: visible = false
 
@@ -35,9 +36,9 @@ FloatingWindow {
     property bool inSection: false
     property int selDevice: 0
 
-    property int rowHeight: 45
-    property int headerHeight: 30
-    property int colSpacing: 10
+    property int rowHeight: Theme.rowHeight
+    property int headerHeight: Theme.headerHeight
+    property int colSpacing: Theme.colSpacing
 
     // Panels override with `currentModelLength: function() { ... }`.
     property var currentModelLength: function() { return 0 }
@@ -47,7 +48,7 @@ FloatingWindow {
     // When true (default), the base auto-scrolls the Flickable to keep
     // selDevice visible on selection change. Panels with non-standard row
     // geometry (e.g. nested expanded menus) can disable and call
-    // root.flick.scrollToVisible(y, h) themselves.
+    // Scroll.scrollIntoView(flick, y, h) themselves.
     property bool autoScroll: true
 
     signal shown()
@@ -56,10 +57,16 @@ FloatingWindow {
     signal sectionChanged(int idx)
 
     onSelSectionChanged: root.sectionChanged(root.selSection)
-    onSelDeviceChanged: if (root.autoScroll && root.inSection) root.flick.scrollToSelection()
-    onInSectionChanged: if (root.autoScroll && root.inSection) root.flick.scrollToSelection()
+    onSelDeviceChanged: if (root.autoScroll && root.inSection) root.scrollToSelection()
+    onInSectionChanged: if (root.autoScroll && root.inSection) root.scrollToSelection()
 
-    Shortcut { sequence: "Escape"; onActivated: root.visible = false }
+    // Single Escape handler: exits inSection first, then closes the panel.
+    // (Previously a Shortcut at top level closed the panel outright,
+    // bypassing the inSection-aware Escape logic in handleKey below.)
+    Shortcut {
+        sequence: "Escape"
+        onActivated: root.handleKey({ key: Qt.Key_Escape, accepted: false, modifiers: 0 })
+    }
 
     onVisibleChanged: if (visible) {
         root.selSection = 0
@@ -74,14 +81,29 @@ FloatingWindow {
 
     function forceFocus() { mainRect.forceActiveFocus() }
 
+    // Scroll the content Flickable so the currently-selected row is
+    // visible. Delegates the clamp arithmetic to Scroll.scrollIntoView
+    // (shared with SearchPanel and VolumePanel).
+    function scrollToSelection() {
+        var y = root.headerHeight + root.colSpacing + root.selDevice * (root.rowHeight + root.colSpacing)
+        Scroll.scrollIntoView(flick, y, root.rowHeight)
+    }
+
+    // Public scroll helper for subclasses with non-standard row geometry
+    // (e.g. nested expanded menus). Delegates to the shared Scroll util
+    // so the clamp arithmetic isn't reimplemented per panel.
+    function scrollToVisible(itemY, itemH) {
+        Scroll.scrollIntoView(flick, itemY, itemH)
+    }
+
     function handleKey(event) {
         switch (event.key) {
         case Qt.Key_Tab:
             if (event.modifiers & Qt.ShiftModifier) {
                 if (root.inSection) root.inSection = false
-                else root.selSection = Math.max(0, root.selSection - 1)
+                else root.selSection = Scroll.clamp(root.selSection - 1, 0, root.sections.length - 1)
             } else if (root.inSection) {
-                root.selDevice = Math.min(root.selDevice + 1, Math.max(0, root.currentModelLength() - 1))
+                root.selDevice = Scroll.step(root.selDevice, 1, root.currentModelLength())
             } else {
                 root.inSection = true
                 root.selDevice = 0
@@ -95,17 +117,17 @@ FloatingWindow {
         case Qt.Key_J:
         case Qt.Key_Down:
             if (root.inSection)
-                root.selDevice = Math.min(root.selDevice + 1, Math.max(0, root.currentModelLength() - 1))
+                root.selDevice = Scroll.step(root.selDevice, 1, root.currentModelLength())
             else
-                root.selSection = Math.min(root.selSection + 1, root.sections.length - 1)
+                root.selSection = Scroll.clamp(root.selSection + 1, 0, root.sections.length - 1)
             event.accepted = true; break
 
         case Qt.Key_K:
         case Qt.Key_Up:
             if (root.inSection)
-                root.selDevice = Math.max(root.selDevice - 1, 0)
+                root.selDevice = Scroll.step(root.selDevice, -1, root.currentModelLength())
             else
-                root.selSection = Math.max(root.selSection - 1, 0)
+                root.selSection = Scroll.clamp(root.selSection - 1, 0, root.sections.length - 1)
             event.accepted = true; break
 
         case Qt.Key_H:
@@ -164,21 +186,21 @@ FloatingWindow {
                             Text {
                                 text: modelData.name
                                 anchors {
-                                    left: parent.left; leftMargin: 10
-                                    right: parent.right; rightMargin: 10
+                                    left: parent.left; leftMargin: Theme.margin
+                                    right: parent.right; rightMargin: Theme.margin
                                     verticalCenter: parent.verticalCenter
                                 }
                                 color: Colors.foreground
                                 font.pixelSize: Theme.fontPixelSize
                                 font.family: Theme.fontFamily
                                 elide: Text.ElideRight
-                                leftPadding: (root.selSection === index && root.inSection) ? 18 : 0
+                                leftPadding: (root.selSection === index && root.inSection) ? Theme.iconSize - Theme.margin : 0
                             }
 
                             Text {
-                                text: "\u25b6"
+                                text: Icon.chevronRight
                                 anchors {
-                                    left: parent.left; leftMargin: 10
+                                    left: parent.left; leftMargin: Theme.margin
                                     verticalCenter: parent.verticalCenter
                                 }
                                 color: Colors.foreground
@@ -213,21 +235,6 @@ FloatingWindow {
                     contentHeight: contentCol.height
                     clip: true
 
-                    function scrollToVisible(itemY, itemH) {
-                        // The Flickable is inset by root.colSpacing inside
-                        // its surrounding panel Rectangle, so flush rows read
-                        // as colSpacing-gap from the visible panel edge.
-                        var viewH = flick.height
-                        var maxY = Math.max(0, contentCol.height - viewH)
-                        if (itemY < flick.contentY) flick.contentY = Math.max(0, itemY)
-                        else if (itemY + itemH > flick.contentY + viewH) flick.contentY = Math.min(maxY, itemY + itemH - viewH)
-                    }
-
-                    function scrollToSelection() {
-                        var y = root.headerHeight + root.colSpacing + root.selDevice * (root.rowHeight + root.colSpacing)
-                        flick.scrollToVisible(y, root.rowHeight)
-                    }
-
                     Column {
                         id: contentCol
                         width: parent.width
@@ -241,7 +248,7 @@ FloatingWindow {
                             Text {
                                 text: root.sections[root.selSection]?.name ?? ""
                                 anchors {
-                                    left: parent.left; leftMargin: 10
+                                    left: parent.left; leftMargin: Theme.margin
                                     verticalCenter: parent.verticalCenter
                                 }
                                 color: Colors.foreground

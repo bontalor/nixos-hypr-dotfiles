@@ -24,19 +24,14 @@ SearchPanel {
     }
 
     rowDelegate: SearchRow {
-        Text {
+        ThemeText {
             anchors.verticalCenter: parent.verticalCenter
             text: modelData?.glyph ?? ""
-            color: Colors.foreground
-            font.family: Theme.fontFamily
             font.pixelSize: Theme.iconSize
         }
-        Text {
+        ThemeText {
             anchors.verticalCenter: parent.verticalCenter
             text: modelData?.name ?? ""
-            color: Colors.foreground
-            font.pixelSize: Theme.fontPixelSize
-            font.family: Theme.fontFamily
         }
     }
 }

@@ -13,6 +13,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Services.Notifications
+import "../theme"
 
 Singleton {
     id: root
@@ -21,38 +22,45 @@ Singleton {
     property ListModel history: ListModel {}
 
     property ListModel activePopups: ListModel {}
-    property int maxPopups: 3
+    property int maxPopups: Theme.maxPopups
+
+    // Pending expiries keyed by notifId. A single recurring Timer scans
+    // this map and calls notification.expire() on due entries — replaces
+    // the prior per-notification Qt.createQmlObject("Timer {}", ...)
+    // anti-pattern (no static analysis, per-notif QObject allocation).
+    property var pendingExpiries: ({})
 
     NotificationServer {
         id: server
         keepOnReload: true
         persistenceSupported: true
         bodySupported: true
-        actionsSupported: true
+        // actionsSupported is false because no action-button UI is
+        // rendered. Clients that send action buttons have them silently
+        // dropped; setting false here tells them not to bother.
+        actionsSupported: false
         onNotification: function(n) { root.handleNotification(n) }
     }
 
-    // One-shot Timer reused for auto-expire. Restarting it just resets
-    // the countdown; we keep one timer per concurrent popup by tracking
-    // them in a small array of {id, timer} pairs.
+    // Single recurring timer that scans pendingExpiries for due entries.
+    // 1s granularity matches the OSD hide timer and is fine for 5s expiries.
+    Timer {
+        interval: 1000
+        repeat: true
+        running: true
+        onTriggered: root.scanExpiries()
+    }
+
     function handleNotification(notification) {
-        // Snapshot into history (newest first).
+        // Snapshot into history (newest first). Schema matches the
+        // activePopups snapshot so the panel and popups see the same fields.
         root.history.insert(0, root.snapshot(notification))
 
         // Track the notification so its `closed` signal fires when
         // we expire/dismiss it.
         notification.tracked = true
 
-        root.activePopups.insert(0, {
-            notifId: notification.id,
-            summary: notification.summary,
-            body: notification.body,
-            appName: notification.appName,
-            appIcon: notification.appIcon,
-            urgency: notification.urgency,
-            image: notification.image || "",
-            timestamp: Date.now()
-        })
+        root.activePopups.insert(0, root.snapshot(notification))
 
         // Cap popup count (oldest popped off the bottom).
         while (root.activePopups.count > root.maxPopups) {
@@ -74,20 +82,27 @@ Singleton {
 
     function expireMillis(notification) {
         if (notification.urgency === NotificationUrgency.Critical) return 0
-        return 5000
+        return Theme.notifExpireMillis
     }
 
     function scheduleExpire(notification, ms) {
-        // Single-shot Timer. Created on demand — parented to the
-        // singleton itself, so it dies with the daemon.
-        var timer = Qt.createQmlObject("import QtQuick; Timer {}", root, "notif-expire-timer")
-        timer.interval = ms
-        timer.repeat = false
-        timer.triggered.connect(function() {
-            try { notification.expire() } catch (e) {}
-            timer.destroy()
-        })
-        timer.start()
+        root.pendingExpiries[notification.id] = {
+            notification: notification,
+            expireAt: Date.now() + ms
+        }
+    }
+
+    function scanExpiries() {
+        var now = Date.now()
+        var due = []
+        for (var id in root.pendingExpiries) {
+            if (root.pendingExpiries[id].expireAt <= now) due.push(id)
+        }
+        for (var i = 0; i < due.length; i++) {
+            var entry = root.pendingExpiries[due[i]]
+            delete root.pendingExpiries[due[i]]
+            try { entry.notification.expire() } catch (e) {}
+        }
     }
 
     function dismissPopup(notifId) {
@@ -110,6 +125,14 @@ Singleton {
 
     function clearHistory() { root.history.clear() }
 
+    // Remove a single history entry by index. View code should call
+    // this instead of mutating the singleton model directly.
+    function removeFromHistory(idx) {
+        if (idx >= 0 && idx < root.history.count) root.history.remove(idx)
+    }
+
+    // Single schema for both history and activePopups snapshots —
+    // includes appIcon/image so the panel can render them too.
     function snapshot(n) {
         return {
             notifId: n.id,
@@ -117,6 +140,7 @@ Singleton {
             body: n.body || "",
             appName: n.appName || "",
             appIcon: n.appIcon || "",
+            image: n.image || "",
             urgency: n.urgency,
             timestamp: Date.now()
         }

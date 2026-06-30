@@ -80,7 +80,7 @@ Panel {
                 Text {
                     text: pct + "%"
                     anchors { left: devName.right; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
-                    color: pct <= Theme.batteryCritical ? Colors.base08
+                    color: pct <= Theme.batteryCritical ? Colors.critical
                         : pct <= Theme.batteryWarning ? Colors.base09
                         : Colors.foreground
                     font.pixelSize: Theme.fontPixelSize

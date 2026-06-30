@@ -15,14 +15,16 @@ import Quickshell.Networking
 // don't need to know about Quickshell.Networking directly:
 //   wifiEnabled / setWifiEnabled(bool)
 //   wifiHardwareEnabled
+//   wifiOn                               wifiEnabled && wifiHardwareEnabled
 //   connectivity                          full/limited/portal/none/unknown
+//   devices                               raw Networking.devices for panels
 //   wifiDevices                           filtered list of WifiDevice
 //   wiredDevices                          filtered list of WiredDevice
 //   wifiConnected / ethConnected          computed booleans
 //   activeNetworkSSID                     SSID of the currently active
 //                                         WifiNetwork, or "" if none
 //   activeWifiSignal                      0..100
-//   apiDevices()                          raw Networking.devices for panels
+//   statusTextShort()                     bar chip status string
 //
 // Signal subscriptions are entirely the service's responsibility; we
 // don't subscribe to anything from the shell side.
@@ -32,7 +34,7 @@ Singleton {
 
     readonly property bool wifiEnabled: Networking.wifiEnabled
     readonly property bool wifiHardwareEnabled: Networking.wifiHardwareEnabled
-    property bool wifiOn: wifiEnabled && wifiHardwareEnabled
+    readonly property bool wifiOn: wifiEnabled && wifiHardwareEnabled
 
     function setWifiEnabled(on) { Networking.wifiEnabled = on }
 
@@ -48,39 +50,27 @@ Singleton {
 
     readonly property var devices: Networking.devices ? Networking.devices.values : []
 
-    readonly property var wifiDevices: {
+    function devicesOfType(type) {
         var out = []
-        for (var i = 0; i < root.devices.length; i++) {
-            var d = root.devices[i]
-            if (d.type === DeviceType.Wifi) out.push(d)
+        var ds = root.devices
+        for (var i = 0; i < ds.length; i++) {
+            if (ds[i].type === type) out.push(ds[i])
         }
         return out
     }
 
-    readonly property var wiredDevices: {
-        var out = []
-        for (var i = 0; i < root.devices.length; i++) {
-            var d = root.devices[i]
-            if (d.type === DeviceType.Wired) out.push(d)
-        }
-        return out
-    }
+    readonly property var wifiDevices: devicesOfType(DeviceType.Wifi)
+    readonly property var wiredDevices: devicesOfType(DeviceType.Wired)
 
-    readonly property bool wifiConnected: {
-        var ds = root.wifiDevices
-        for (var i = 0; i < ds.length; i++) {
-            if (ds[i].connected) return true
+    function anyConnected(devices) {
+        for (var i = 0; i < devices.length; i++) {
+            if (devices[i].connected) return true
         }
         return false
     }
 
-    readonly property bool ethConnected: {
-        var ds = root.wiredDevices
-        for (var i = 0; i < ds.length; i++) {
-            if (ds[i].connected) return true
-        }
-        return false
-    }
+    readonly property bool wifiConnected: anyConnected(root.wifiDevices)
+    readonly property bool ethConnected: anyConnected(root.wiredDevices)
 
     // The active WifiNetwork for the bar chip display.
     readonly property var activeWifiNetwork: {
@@ -102,7 +92,6 @@ Singleton {
         ? Math.round((root.activeWifiNetwork.signalStrength || 0) * 100)
         : 0
 
-    // Helper for the bar chip status string
     function statusTextShort() {
         if (root.wifiConnected) return "WiFi On"
         if (root.ethConnected) return "Eth On"

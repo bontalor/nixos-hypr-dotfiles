@@ -1,51 +1,48 @@
-// On-screen-display state for volume and screen brightness.
-//
-// Driven by media keys through the `osd` IpcHandler (see shell.qml):
-//   qs ipc call osd volumeUp / volumeDown / mute
-//   qs ipc call osd brightnessUp / brightnessDown
-//
-// Volume is read/written in-process via Pipewire (the same default sink
-// the bar widget watches). Brightness shells out to `brightnessctl`,
-// since Quickshell 0.3.0 ships no backlight service. Each invocation
-// kicks `hideTimer` (5s) — `OsdPopup` mirrors `activeKind` so it shows
-// only while the timer is running.
-
 pragma Singleton
 
 import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Pipewire
+import "../theme"
+
+// On-screen-display state singleton for volume + brightness. Driven via
+// the `osd` IpcHandler in shell.qml. Volume read/written in-process
+// through Pipewire; brightness shells out to `brightnessctl` (Quickshell
+// 0.3.0 ships no backlight service). Maintains activeKind/value/glyph
+// and a hide timer that OsdPopup mirrors.
+//
+// The hide timer interval is Theme.osdHideInterval (3s).
 
 Singleton {
     id: root
 
-    // Currently displayed kind. Empty → hidden.
-    property string activeKind: ""  // "" | "volume" | "brightness"
-    property real value: 0          // 0..1 progress shown by the bar
-    property string glyph: ""       // Nerd Font codepoint shown left
-    readonly property bool visible: root.activeKind !== ""
+    property string activeKind: ""    // "volume" | "brightness"
+    property real value: 0
+    property string glyph: ""
+    property bool visible: false
 
-    // Latest known values (kept live so an OSD pop is always fresh).
-    property real _brightness: 0
-    readonly property real volume: Pipewire.defaultAudioSink?.audio.volume ?? 0
-    readonly property bool muted: Pipewire.defaultAudioSink?.audio.muted ?? false
+    // Pipewire volume state. `?? 0`/`?? false` guards against
+    // defaultAudioSink being null at startup.
+    property real volume: Pipewire.defaultAudioSink?.audio?.volume ?? 0
+    property bool muted: Pipewire.defaultAudioSink?.audio?.muted ?? false
 
     PwObjectTracker {
         objects: [Pipewire.defaultAudioSink]
     }
 
+    property bool _show: false   // true when a media-key step should pop the OSD
+
     Timer {
         id: hideTimer
-        interval: 3000
+        interval: Theme.osdHideInterval
         repeat: false
-        onTriggered: root.activeKind = ""
+        onTriggered: root.visible = false
     }
 
-    // show controls whether onBrightness pops the OSD. False on
-    // startup (cache only); true on every media-key step.
-    property bool _show: false
-
+    // Single shared Process for brightnessctl commands. Reused across
+    // up/down/refresh; command is rebound per call. Reentrancy is
+    // guarded by Process's restart-on-running semantics.
     Process {
         id: brightProc
         running: false
@@ -55,78 +52,77 @@ Singleton {
         }
     }
 
-    Component.onCompleted: root.refreshBrightness()
-
-    // ---- Volume ----
-
     function volumeUp() {
-        var a = Pipewire.defaultAudioSink?.audio
-        if (!a) return
-        a.muted = false
-        a.volume = Math.min(1, a.volume + 0.05)
-        root.showVolume()
+        var sink = Pipewire.defaultAudioSink
+        if (sink && sink.audio) {
+            sink.audio.volume = Math.min(1, sink.audio.volume + Theme.volumeStep)
+            showVolume()
+        }
     }
 
     function volumeDown() {
-        var a = Pipewire.defaultAudioSink?.audio
-        if (!a) return
-        a.volume = Math.max(0, a.volume - 0.05)
-        root.showVolume()
+        var sink = Pipewire.defaultAudioSink
+        if (sink && sink.audio) {
+            sink.audio.volume = Math.max(0, sink.audio.volume - Theme.volumeStep)
+            showVolume()
+        }
     }
 
     function volumeMute() {
-        var a = Pipewire.defaultAudioSink?.audio
-        if (!a) return
-        a.muted = !a.muted
-        root.showVolume()
+        var sink = Pipewire.defaultAudioSink
+        if (sink && sink.audio) {
+            sink.audio.muted = !sink.audio.muted
+            showVolume()
+        }
     }
 
     function showVolume() {
         root.activeKind = "volume"
-        root.value = root.muted ? 0 : root.volume
+        root.value = root.volume
         root.glyph = root.volumeGlyph()
+        root.visible = true
         hideTimer.restart()
     }
 
     function volumeGlyph() {
-        if (root.muted) return "\uf026"
-        if (root.volume <= 0.33) return "\uf027"
-        return "\uf028"
+        if (root.muted) return Icon.volumeMute
+        if (root.volume < Theme.volumeGlyphThreshold) return Icon.volumeLow
+        return Icon.volumeHigh
     }
 
-    // ---- Brightness ----
-
-    // brightnessctl writes & reports in one shot so the OSD reflects
-    // the actual post-step value rather than a stale guess.
     function brightnessUp() {
-        root._show = true
-        brightProc.command = ["sh", "-c", "brightnessctl set 5%+ >/dev/null; echo \"$(brightnessctl g) $(brightnessctl m)\""]
+        brightProc.command = ["brightnessctl", "s", "+" + Theme.brightnessStep + "%"]
         brightProc.running = true
     }
 
     function brightnessDown() {
-        root._show = true
-        brightProc.command = ["sh", "-c", "brightnessctl set 5%- >/dev/null; echo \"$(brightnessctl g) $(brightnessctl m)\""]
+        brightProc.command = ["brightnessctl", "s", Theme.brightnessStep + "%-"]
         brightProc.running = true
     }
 
     function refreshBrightness() {
-        root._show = false
-        brightProc.command = ["sh", "-c", "echo \"$(brightnessctl g) $(brightnessctl m)\""]
+        brightProc.command = ["brightnessctl", "info"]
         brightProc.running = true
     }
 
     function onBrightness(text) {
-        var parts = (text || "").trim().split(/\s+/)
-        var cur = parseFloat(parts[0])
-        var max = parseFloat(parts[1])
-        if (!isFinite(cur) || !isFinite(max) || max <= 0) return
-        var v = Math.max(0, Math.min(1, cur / max))
-        root._brightness = v
-        if (!root._show) return
-        root.value = v
-        root.glyph = "\uDB81\uDDA8" // U+F05A8 — sun/brightness glyph
-        root.activeKind = "brightness"
-        hideTimer.restart()
+        // Parse "cur max" percentages from `brightnessctl info`/`set`.
+        var m = text.match(/\((\d+)%\)/)
+        var pct = m ? parseInt(m[1]) / 100 : 0
+        if (!isFinite(pct) || pct <= 0) return
+        if (root._show) {
+            root.activeKind = "brightness"
+            root.value = pct
+            root.glyph = Icon.brightness
+            root.visible = true
+            hideTimer.restart()
+        }
+    }
+
+    Component.onCompleted: {
+        // Prime the brightness cache silently (no OSD pop on startup).
+        root._show = false
+        refreshBrightness()
+        root._show = true
     }
 }

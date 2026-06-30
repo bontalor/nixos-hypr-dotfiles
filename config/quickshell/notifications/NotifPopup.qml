@@ -13,7 +13,7 @@ PanelWindow {
     WlrLayershell.margins { top: 20; right: Theme.margin + 20 }
 
     color: "transparent"
-    implicitWidth: Theme.popupWidth + 10    // bg + right shadow
+    implicitWidth: Theme.popupWidthWithShadow
     implicitHeight: totalHeight
     visible: NotifDaemon.activePopups.count > 0 && !fullscreenActive
 
@@ -22,12 +22,12 @@ PanelWindow {
 
     property int totalHeight: {
         var count = NotifDaemon.activePopups.count
-        return count * Theme.popupHeight + Math.max(0, count - 1) * 10
+        return count * Theme.popupHeight + Math.max(0, count - 1) * Theme.margin
     }
 
     Column {
         width: parent.width
-        spacing: 10
+        spacing: Theme.margin
 
         Repeater {
             model: NotifDaemon.activePopups
@@ -36,6 +36,8 @@ PanelWindow {
                 required property string summary
                 required property string body
                 required property string appName
+                required property string appIcon
+                required property string image
                 required property int notifId
                 required property int urgency
 
@@ -44,57 +46,63 @@ PanelWindow {
 
                 Rectangle {
                     id: bg
-                    width: parent.width - 10
-                    height: parent.height - 10
-                    color: Qt.alpha(Colors.background, 0.76)
+                    width: parent.width - Theme.margin
+                    height: parent.height - Theme.margin
+                    color: Qt.alpha(Colors.background, Theme.alphaBackground)
                     border.width: urgency === NotificationUrgency.Critical ? 2 : 0
-                    border.color: Colors.base08
+                    border.color: Colors.critical
 
-                    Column {
-                        anchors { left: parent.left; right: parent.right; top: parent.top; leftMargin: Theme.margin; rightMargin: Theme.margin; topMargin: Theme.margin }
+                    Row {
+                        anchors {
+                            left: parent.left; right: parent.right; top: parent.top
+                            leftMargin: Theme.margin; rightMargin: Theme.margin; topMargin: Theme.margin
+                        }
                         spacing: 6
 
-                        Text {
-                            width: parent.width
-                            text: summary || ""
-                            color: Colors.foreground
-                            font.pixelSize: Theme.fontPixelSize
-                            font.family: Theme.fontFamily
-                            font.bold: true
-                            wrapMode: Text.WordWrap
+                        // App icon (rendered from the model data the
+                        // daemon already collected — previously fetched
+                        // and transported but never displayed).
+                        IconImage {
+                            source: appIcon
+                            visible: status === Image.Ready
+                            width: 16; height: 16
+                            anchors.verticalCenter: parent.verticalCenter
                         }
 
-                        Text {
-                            width: parent.width
-                            text: body || ""
-                            color: Colors.foreground
-                            font.pixelSize: Theme.fontPixelSize
-                            font.family: Theme.fontFamily
-                            wrapMode: Text.WordWrap
-                            visible: text !== ""
+                        Column {
+                            width: parent.width - (appIcon ? 22 : 0)
+                            spacing: 4
+
+                            Text {
+                                width: parent.width
+                                text: summary || ""
+                                color: Colors.foreground
+                                font.pixelSize: Theme.fontPixelSize
+                                font.family: Theme.fontFamily
+                                font.bold: true
+                                wrapMode: Text.WordWrap
+                            }
+
+                            Text {
+                                width: parent.width
+                                text: body || ""
+                                color: Colors.foreground
+                                font.pixelSize: Theme.fontPixelSize
+                                font.family: Theme.fontFamily
+                                wrapMode: Text.WordWrap
+                                visible: text !== ""
+                            }
                         }
                     }
 
                     MouseArea {
                         anchors.fill: parent
-                        propagateComposedEvents: true
                         onClicked: NotifDaemon.dismissPopup(notifId)
                     }
                 }
 
-                Rectangle {
-                    x: 10
-                    y: parent.height - 10
-                    width: parent.width - 10
-                    height: 10
-                    color: Qt.alpha("#000000", Theme.alphaBackground)
-                }
-                Rectangle {
-                    x: parent.width - 10
-                    y: 10
-                    width: 10
-                    height: parent.height - 20
-                    color: Qt.alpha("#000000", Theme.alphaBackground)
+                DropShadow {
+                    anchors.fill: parent
                 }
             }
         }

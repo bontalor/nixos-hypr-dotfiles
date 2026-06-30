@@ -37,17 +37,17 @@ Scope {
     NotifHistoryPanel { id: notifHistoryPanel }
 
     Component.onCompleted: {
-        Panels.register("powermenu", powerMenu)
-        Panels.register("picker", picker)
-        Panels.register("launcher", launcher)
-        Panels.register("volume", volumePanel)
-        Panels.register("network", networkPanel)
-        Panels.register("battery", batteryPanel)
-        Panels.register("datetime", dateTimePanel)
-        Panels.register("weather", weatherPanel)
-        Panels.register("media", mediaPanel)
-        Panels.register("emoji", emojiPicker)
-        Panels.register("notifications", notifHistoryPanel)
+        Panels.register(Panels.powerMenu, powerMenu)
+        Panels.register(Panels.picker, picker)
+        Panels.register(Panels.launcher, launcher)
+        Panels.register(Panels.volume, volumePanel)
+        Panels.register(Panels.network, networkPanel)
+        Panels.register(Panels.battery, batteryPanel)
+        Panels.register(Panels.dateTime, dateTimePanel)
+        Panels.register(Panels.weather, weatherPanel)
+        Panels.register(Panels.media, mediaPanel)
+        Panels.register(Panels.emoji, emojiPicker)
+        Panels.register(Panels.notifications, notifHistoryPanel)
     }
 
     IpcHandler {

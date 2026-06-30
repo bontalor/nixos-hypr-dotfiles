@@ -50,12 +50,9 @@ SearchPanel {
             height: Theme.iconSize
             visible: source.toString() !== ""
         }
-        Text {
+        ThemeText {
             anchors.verticalCenter: parent.verticalCenter
             text: modelData?.name ?? ""
-            color: Colors.foreground
-            font.pixelSize: Theme.fontPixelSize
-            font.family: Theme.fontFamily
         }
     }
 }

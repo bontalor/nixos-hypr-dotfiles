@@ -13,6 +13,12 @@ Singleton {
     property string foreground: special.foreground
     property string cursor: special.cursor
 
+    // Semantic aliases — name the palette slot by role so consumers
+    // don't hardcode `base08` for "critical" / `base0d` for "accent".
+    property string critical: colors.color8      // base08
+    property string accent: colors.color13        // base0d
+    property string selected: colors.color1       // base01
+
     property string base00: colors.color0
     property string base01: colors.color1
     property string base02: colors.color2
@@ -44,27 +50,30 @@ Singleton {
     }
 
     component Special: JsonObject {
-        property string background: "transparent"
-        property string foreground: "transparent"
-        property string cursor: "transparent"
+        // Sentinel "magenta" makes a missing/invalid wal palette
+        // immediately visible instead of rendering the whole shell
+        // transparent with no warning.
+        property string background: "magenta"
+        property string foreground: "magenta"
+        property string cursor: "magenta"
     }
 
     component Colors: JsonObject {
-        property string color0: "transparent"
-        property string color1: "transparent"
-        property string color2: "transparent"
-        property string color3: "transparent"
-        property string color4: "transparent"
-        property string color5: "transparent"
-        property string color6: "transparent"
-        property string color7: "transparent"
-        property string color8: "transparent"
-        property string color9: "transparent"
-        property string color10: "transparent"
-        property string color11: "transparent"
-        property string color12: "transparent"
-        property string color13: "transparent"
-        property string color14: "transparent"
-        property string color15: "transparent"
+        property string color0: "magenta"
+        property string color1: "magenta"
+        property string color2: "magenta"
+        property string color3: "magenta"
+        property string color4: "magenta"
+        property string color5: "magenta"
+        property string color6: "magenta"
+        property string color7: "magenta"
+        property string color8: "magenta"
+        property string color9: "magenta"
+        property string color10: "magenta"
+        property string color11: "magenta"
+        property string color12: "magenta"
+        property string color13: "magenta"
+        property string color14: "magenta"
+        property string color15: "magenta"
     }
 }

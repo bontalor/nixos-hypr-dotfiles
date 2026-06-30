@@ -2,8 +2,10 @@ import "../../theme"
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland
+
 Row {
-    spacing: 10
+    id: root
+    spacing: Theme.margin
 
     property var activeToplevelWsIds: {
         var ids = {}
@@ -15,18 +17,29 @@ Row {
         return ids
     }
 
+    // Bind to the actual Hyprland workspace list instead of a hardcoded
+    // `model: 9`. Falls back to 9 if the Hyprland service hasn't populated
+    // yet, so the bar is usable before the compositor reports workspaces.
+    property int wsCount: {
+        var ws = Hyprland.workspaces
+        var n = ws ? ws.values.length : 0
+        return Math.max(9, n)
+    }
+
     Repeater {
-        model: 9
+        model: root.wsCount
         Item {
             property int wsId: index + 1
             property bool isActive: Hyprland.focusedWorkspace?.id === wsId
-            property bool hasToplevels: activeToplevelWsIds[wsId] === true
-            width: 30
-            height: 30
+            property bool hasToplevels: root.activeToplevelWsIds[wsId] === true
+            width: Theme.barHeight
+            height: Theme.barHeight
 
             Rectangle {
                 anchors.fill: parent
-                color: isActive || mouseArea.containsMouse ? Qt.alpha(Colors.foreground, 0.25) : "transparent"
+                color: isActive || mouseArea.containsMouse
+                    ? Qt.alpha(Colors.foreground, Theme.alphaHover)
+                    : "transparent"
             }
 
             Rectangle {
@@ -34,18 +47,17 @@ Row {
                 height: 4
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.bottom: parent.bottom
-                anchors.bottomMargin: 0
                 color: hasToplevels ? Colors.foreground : "transparent"
             }
 
             Text {
-                id: textItem
                 anchors.centerIn: parent
                 text: wsId
                 font.pixelSize: Theme.fontPixelSize
                 font.family: Theme.fontFamily
                 color: Colors.foreground
             }
+
             MouseArea {
                 id: mouseArea
                 anchors.fill: parent

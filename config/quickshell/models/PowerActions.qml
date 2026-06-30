@@ -8,8 +8,11 @@ import Quickshell
 // triggered actions — not polling or subscription state — so they're
 // the one place a small Process is the right tool. Quickshell 0.3.0
 // ships no `logind` D-Bus service, so for now we keep the established
-// `systemctl`/`loginctl` commands, just gathered in one source of truth
-// instead of duplicated between PowerMenu.qml and LockSurface.qml.
+// `systemctl`/`loginctl` commands, just gathered in one source of truth.
+//
+// The lockscreen reaches this singleton via a `lockscreen/models`
+// symlink (config-root isolation would otherwise hide it). LockSurface
+// filters out the "Lock" action since it's already on the lockscreen.
 
 Singleton {
     property var actions: [

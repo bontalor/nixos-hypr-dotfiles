@@ -14,7 +14,7 @@ Scope {
     Variants {
         model: Quickshell.screens;
         PanelWindow {
-            id: panelWindow // Added unique window reference id
+            id: panelWindow
             required property var modelData
             screen: modelData
             WlrLayershell.namespace: "quickshell:bar"
@@ -24,81 +24,57 @@ Scope {
                 right: true
             }
             margins {
-                top: 10
-                right: 10
-                left: 10
+                top: Theme.barMargin
+                right: Theme.barMargin
+                left: Theme.barMargin
             }
             color: "transparent"
-            implicitHeight: 40
+            implicitHeight: Theme.barHeight + Theme.barMargin
             Rectangle {
                 id: bar
                 x: 0
                 y: 0
-                width: parent.width - 10
-                height: 30
-                color: Qt.alpha(Colors.background, 0.76)
+                width: parent.width - Theme.barMargin
+                height: Theme.barHeight
+                color: Qt.alpha(Colors.background, Theme.alphaBackground)
                 z: 1
                 DistroWidget {
                     id: distroWidget
                     anchors.left: parent.left
-                    anchors.leftMargin: 10
+                    anchors.leftMargin: Theme.barMargin
                     anchors.verticalCenter: parent.verticalCenter
                 }
 
                 WorkspacesWidget {
                     id: workspaces
                     anchors.left: distroWidget.right
-                    anchors.leftMargin: 10
+                    anchors.leftMargin: Theme.barMargin
                     anchors.verticalCenter: parent.verticalCenter
                 }
 
                 MediaWidget {
                     id: mediaWidget
                     anchors.right: clockWidget.left
-                    anchors.rightMargin: 10
+                    anchors.rightMargin: Theme.barMargin
                     anchors.verticalCenter: clockWidget.verticalCenter
                 }
 
-                Item {
+                ClockWidget {
                     id: clockWidget
-                    width: clockText.width + 20
-                    height: 30
                     anchors.centerIn: parent
-
-                    Rectangle {
-                        anchors.fill: parent
-                        color: clockMouse.containsMouse ? Qt.alpha(Colors.foreground, 0.25) : "transparent"
-                    }
-
-                    Text {
-                        id: clockText
-                        anchors.centerIn: parent
-                        text: Time.time
-                        font.pixelSize: Theme.fontPixelSize
-                        font.family: Theme.fontFamily
-                        color: Colors.foreground
-                    }
-
-                    MouseArea {
-                        id: clockMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: Panels.toggle("datetime")
-                    }
                 }
 
                 WeatherWidget {
                     anchors.left: clockWidget.right
-                    anchors.leftMargin: 10
+                    anchors.leftMargin: Theme.barMargin
                     anchors.verticalCenter: clockWidget.verticalCenter
                 }
 
                 Row {
                     anchors.right: parent.right
-                    anchors.rightMargin: 10
+                    anchors.rightMargin: Theme.barMargin
                     anchors.verticalCenter: parent.verticalCenter
-                    spacing: 10
+                    spacing: Theme.barMargin
                     layoutDirection: Qt.RightToLeft
 
                     SystemTrayWidget {
@@ -122,25 +98,16 @@ Scope {
                 }
             }
 
-            Rectangle {
-                id: shadowBottom
-                x: 10
-                y: 30
-                width: parent.width - 10
-                height: 10
-                color: Qt.alpha("#000000", Theme.alphaBackground)
-                z: 0
-            }
-            Rectangle {
-                id: shadowRight
-                x: parent.width - 10
-                y: 10
-                width: 10
-                height: 20
-                color: Qt.alpha("#000000", Theme.alphaBackground)
+            // Shared drop-shadow component. Sized to include the shadow
+            // extent (bar width + margin, bar height + margin) so the
+            // internal L-shaped strips align with the bar's right/bottom edges.
+            DropShadow {
+                x: 0
+                y: 0
+                width: bar.width + Theme.margin
+                height: Theme.barHeight + Theme.margin
                 z: 0
             }
         }
     }
 }
-
