@@ -50,30 +50,31 @@ Singleton {
     }
 
     component Special: JsonObject {
-        // Sentinel "magenta" makes a missing/invalid wal palette
-        // immediately visible instead of rendering the whole shell
-        // transparent with no warning.
-        property string background: "magenta"
-        property string foreground: "magenta"
-        property string cursor: "magenta"
+        // Dark defaults minimize the flash on Quickshell restart (the
+        // wal palette loads a few ms after the singleton initialises).
+        // A missing palette is still noticeable — everything is plain
+        // black/white with no accent colors.
+        property string background: "#000000"
+        property string foreground: "#ffffff"
+        property string cursor: "#ffffff"
     }
 
     component Colors: JsonObject {
-        property string color0: "magenta"
-        property string color1: "magenta"
-        property string color2: "magenta"
-        property string color3: "magenta"
-        property string color4: "magenta"
-        property string color5: "magenta"
-        property string color6: "magenta"
-        property string color7: "magenta"
-        property string color8: "magenta"
-        property string color9: "magenta"
-        property string color10: "magenta"
-        property string color11: "magenta"
-        property string color12: "magenta"
-        property string color13: "magenta"
-        property string color14: "magenta"
-        property string color15: "magenta"
+        property string color0: "#000000"
+        property string color1: "#000000"
+        property string color2: "#000000"
+        property string color3: "#000000"
+        property string color4: "#000000"
+        property string color5: "#000000"
+        property string color6: "#000000"
+        property string color7: "#000000"
+        property string color8: "#000000"
+        property string color9: "#000000"
+        property string color10: "#000000"
+        property string color11: "#000000"
+        property string color12: "#000000"
+        property string color13: "#000000"
+        property string color14: "#000000"
+        property string color15: "#000000"
     }
 }

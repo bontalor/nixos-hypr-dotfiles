@@ -109,20 +109,31 @@ Singleton {
         // Parse "cur max" percentages from `brightnessctl info`/`set`.
         var m = text.match(/\((\d+)%\)/)
         var pct = m ? parseInt(m[1]) / 100 : 0
-        if (!isFinite(pct) || pct <= 0) return
+        if (!isFinite(pct) || pct <= 0) {
+            // Initial read may fail if brightnessctl isn't ready yet —
+            // still re-enable _show so future key presses work.
+            if (!root._show) root._show = true
+            return
+        }
         if (root._show) {
             root.activeKind = "brightness"
             root.value = pct
             root.glyph = Icon.brightness
             root.visible = true
             hideTimer.restart()
+        } else {
+            // Initial silent read (from Component.onCompleted) — cache
+            // the value, re-enable _show, but don't pop the OSD.
+            root._show = true
         }
     }
 
     Component.onCompleted: {
         // Prime the brightness cache silently (no OSD pop on startup).
+        // _show is re-enabled inside onBrightness after this initial
+        // read completes — setting it here would race the async process
+        // and cause a spurious OSD pop on restart.
         root._show = false
         refreshBrightness()
-        root._show = true
     }
 }

@@ -32,6 +32,7 @@ FloatingWindow {
     default property alias content: contentCol.data
 
     property var sections: []
+    property string sidebarHeader: ""
     property int selSection: 0
     property bool inSection: false
     property int selDevice: 0
@@ -175,6 +176,26 @@ FloatingWindow {
                     anchors.fill: parent
                     anchors.margins: root.colSpacing
                     spacing: root.colSpacing
+
+                    // Optional sidebar header (e.g. "Sources" in MediaPanel).
+                    Rectangle {
+                        width: parent.width
+                        height: root.headerHeight
+                        visible: root.sidebarHeader !== ""
+                        color: Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
+
+                        Text {
+                            text: root.sidebarHeader
+                            anchors {
+                                left: parent.left; leftMargin: Theme.margin
+                                verticalCenter: parent.verticalCenter
+                            }
+                            color: Colors.foreground
+                            font.pixelSize: Theme.fontPixelSize
+                            font.family: Theme.fontFamily
+                            font.bold: true
+                        }
+                    }
 
                     Repeater {
                         model: root.sections

@@ -19,6 +19,7 @@ Panel {
     autoScroll: false
 
     // Sidebar = player list. Panel's `sections` drives the sidebar Repeater.
+    sidebarHeader: "Sources"
     sections: {
         var players = root.allPlayers
         var out = []
@@ -28,14 +29,14 @@ Panel {
         return out
     }
 
-    // Use the shared currentPlayer binding (auto-tracks Mpris property
-    // changes — no refreshCounter / `void` hack required).
-    property bool manuallySelected: false
-    property var manualPlayer: null
-
-    property var currentPlayer: root.manuallySelected && root.manualPlayer
-        ? root.manualPlayer
-        : MprisSelector.currentPlayer
+    // The content area shows whichever player is selected in the sidebar
+    // (selSection). On open, selSection is set to the currently-playing
+    // player so the user sees what's active immediately.
+    property var currentPlayer: {
+        if (root.selSection >= 0 && root.selSection < root.allPlayers.length)
+            return root.allPlayers[root.selSection]
+        return null
+    }
 
     property var allPlayers: MprisSelector.allPlayers()
 
@@ -58,14 +59,11 @@ Panel {
 
     function fmtTime(sec) { return FormatUtil.fmtSeconds(sec) }
 
-    function setPlayer(player) {
-        manualPlayer = player
-        manuallySelected = true
-    }
-
     onShown: {
-        manuallySelected = false
-        selSection = 0
+        // Open on the currently-playing player so the user sees what's
+        // active immediately, rather than always landing on index 0.
+        var idx = root.allPlayers.indexOf(MprisSelector.currentPlayer)
+        selSection = idx >= 0 ? idx : 0
     }
 
     // Re-emit `positionChanged` every second so the `trackPosition` binding
@@ -94,9 +92,8 @@ Panel {
             event.accepted = true; break
         case Qt.Key_Return:
         case Qt.Key_Enter:
-            if (root.selSection < root.allPlayers.length) {
-                root.setPlayer(root.allPlayers[root.selSection])
-            }
+            // No-op — currentPlayer already follows selSection. Enter is
+            // consumed so Panel's base handler doesn't fire.
             event.accepted = true; break
         case Qt.Key_J:
         case Qt.Key_Down:
