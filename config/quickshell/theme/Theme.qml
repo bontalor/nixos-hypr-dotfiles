@@ -60,7 +60,7 @@ Singleton {
     property int osdHideInterval: 3000
     property real volumeStep: 0.05
     property int brightnessStep: 5
-    property real volumeGlyphThreshold: 0.33
+    property real volumeGlyphThreshold: 0.5
 
     // --- Notifications ---
     property int notifExpireMillis: 5000

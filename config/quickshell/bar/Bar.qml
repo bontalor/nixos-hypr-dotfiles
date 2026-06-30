@@ -36,7 +36,7 @@ Scope {
                 y: 0
                 width: parent.width - Theme.barMargin
                 height: Theme.barHeight
-                color: Qt.alpha(Colors.background, Theme.alphaBackground)
+                color: Qt.alpha(Colors.background, 0.76)
                 z: 1
                 DistroWidget {
                     id: distroWidget

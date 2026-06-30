@@ -32,7 +32,7 @@ PanelWindow {
             id: bg
             width: parent.width - Theme.margin
             height: parent.height - Theme.margin
-            color: Qt.alpha(Colors.background, Theme.alphaBackground)
+            color: Qt.alpha(Colors.background, 0.76)
 
             Item {
                 anchors {

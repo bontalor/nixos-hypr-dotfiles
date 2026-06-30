@@ -24,8 +24,8 @@ Singleton {
     property string chevronLeft: "\u25c0"
     property string chevronUp: "\u25b2"
     property string chevronDown: "\u25bc"
-    property string chevronExpand: "\uf0140"   // Nerd Font chevron-right-circle
-    property string chevronCollapse: "\uf0143" // Nerd Font chevron-down-circle
+    property string chevronExpand: "\u{f0140}"   // Nerd Font chevron-right-circle
+    property string chevronCollapse: "\u{f0143}" // Nerd Font chevron-down-circle
 
     // Transport (media)
     property string play: "\u25b6"
