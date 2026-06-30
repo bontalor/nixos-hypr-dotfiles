@@ -77,7 +77,7 @@ Rectangle {
                 height: 20
                 Text {
                     anchors.centerIn: parent
-                    color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
+                    color: Colors.foreground
                     font.pixelSize: Theme.fontPixelSize
                     font.family: Theme.fontFamily
                     text: root.formattedDate
@@ -110,6 +110,7 @@ Rectangle {
                         font.family: Theme.fontFamily
                         focus: true
                         echoMode: TextInput.Password
+                        passwordCharacter: "\u25A0"
                         inputMethodHints: Qt.ImhSensitiveData
                         onTextChanged: root.context.currentText = this.text
                         onAccepted: root.context.tryUnlock()
@@ -119,7 +120,7 @@ Rectangle {
                                 verticalCenter: parent.verticalCenter
                                 leftMargin: Theme.margin
                             }
-                            color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
+                            color: Colors.foreground
                             font.pixelSize: Theme.fontPixelSize
                             font.family: Theme.fontFamily
                             text: "Enter password..."
@@ -203,7 +204,7 @@ Rectangle {
                     anchors.horizontalCenter: parent.horizontalCenter
                     visible: context.fingerprintScanning
                     text: "waiting for scan..."
-                    color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
+                    color: Colors.foreground
                     font.pixelSize: Theme.fontPixelSize
                     font.family: Theme.fontFamily
                 }
@@ -218,7 +219,7 @@ Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
             visible: context.showFailure
             text: "Incorrect password"
-            color: Colors.critical
+            color: Colors.foreground
             font.pixelSize: Theme.fontPixelSize
             font.family: Theme.fontFamily
         }
