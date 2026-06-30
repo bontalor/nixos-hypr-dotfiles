@@ -154,18 +154,6 @@ Rectangle {
                     }
                 }
             }
-            Item {
-                width: parent.width
-                height: 20
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    visible: context.fingerprintScanning
-                    text: "scanning fingerprint..."
-                    color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
-                    font.pixelSize: Theme.fontPixelSizeSmall
-                    font.family: Theme.fontFamily
-                }
-            }
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: 45
@@ -216,6 +204,14 @@ Rectangle {
                     visible: context.showFailure
                     text: "Incorrect password"
                     color: Colors.critical
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
+                }
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    visible: context.fingerprintScanning
+                    text: "scanning fingerprint..."
+                    color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
                     font.pixelSize: Theme.fontPixelSize
                     font.family: Theme.fontFamily
                 }
