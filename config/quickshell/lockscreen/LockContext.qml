@@ -22,24 +22,15 @@ Scope {
     // `unlockInProgress` ignores the exit of a verify killed by tryUnlock;
     // `fingerprintEnabled` latches false when fprintd is missing or has no
     // usable device/enrolled prints.
-    //
-    // `fingerprintScanning` is true briefly after fprintd-verify exits (a
-    // scan just completed) — fprintd-verify blocks silently while waiting for
-    // a finger, so `Process.running` can't distinguish "idle" from "finger on
-    // scanner." The brief `fingerprintScanning` window gives the user visual
-    // feedback that their fingerprint was read, before the result (unlock or
-    // retry) is processed.
-    //
+    // `fingerprintScanning` is true while fprintd-verify is running (the
+    // reader is armed and waiting for a finger).
     // `fingerprintFailed` is true after a transient no-match; the UI tints
     // the fingerprint indicator red. Reset on re-arm or successful match.
     property bool fingerprintEnabled: true
     property bool fingerprintMatched: false
-    property bool fingerprintScanning: false
+    property bool fingerprintScanning: fprintProc.running && root.fingerprintEnabled
     property bool fingerprintFailed: false
     property string fingerprintHint: "or touch fingerprint"
-
-    // Stashed exit code while scanFeedbackTimer runs.
-    property int _pendingExitCode: -1
 
     onCurrentTextChanged: showFailure = false
 
@@ -55,65 +46,51 @@ Scope {
     Process {
         id: fprintProc
         running: false
+        // Wrapped in `sh -c` so a missing fprintd-verify binary yields
+        // exit 127 (shell "command not found") rather than a FailedToStart
+        // process error — `onExited` then covers every case uniformly.
         command: ["sh", "-c", "fprintd-verify"]
         stdout: StdioCollector { id: fprintOut }
 
+        // fprintd-verify: exit 0 == verify-match, exit 1 == anything else
+        // (no-match, no device, no enrolled fingers, daemon down, …).
+        // Exit 127 == fprintd not installed. Stdout disambiguates the
+        // recoverable exit-1 cases from the permanent ones.
         onExited: (exitCode, exitStatus) => {
             if (root.fingerprintMatched) return
+            if (exitCode === 0) {
+                root.fingerprintMatched = true
+                root.fingerprintFailed = false
+                root.unlocked()
+                return
+            }
             if (root.unlockInProgress) return
 
-            // A scan just completed. Show "scanning fingerprint..." briefly
-            // before processing the result, so the user sees feedback that
-            // their finger was read.
-            root._pendingExitCode = exitCode
-            root.fingerprintScanning = true
-            scanFeedbackTimer.restart()
+            var out = (fprintOut.text || "").toLowerCase()
+            // Permanent failures — fprintd missing, no hardware, no prints.
+            // Transient failures (session bus down after suspend, daemon
+            // restart, no-match) are NOT in this list; the watchdog timer
+            // re-arms them.
+            var unusable =
+                exitCode === 127
+                || out.indexOf("no fingers enrolled") >= 0
+                || out.indexOf("no default device") >= 0
+                || out.indexOf("impossible to verify") >= 0
+                || out.indexOf("listenrolledfingers failed") >= 0
+
+            if (unusable) {
+                root.fingerprintEnabled = false
+                root.fingerprintFailed = false
+                root.fingerprintHint = ""
+                return
+            }
+
+            // Transient no-match / retry-scan / inactivity timeout / session
+            // bus hiccup after suspend — re-arm shortly.
+            root.fingerprintFailed = true
+            root.fingerprintHint = "no match — retry"
+            retryTimer.restart()
         }
-    }
-
-    // Brief delay between scan completion and result processing, giving the
-    // UI time to show "scanning fingerprint..." feedback.
-    Timer {
-        id: scanFeedbackTimer
-        interval: 300
-        onTriggered: root.processScanResult()
-    }
-
-    function processScanResult() {
-        root.fingerprintScanning = false
-        var exitCode = root._pendingExitCode
-
-        if (exitCode === 0) {
-            root.fingerprintMatched = true
-            root.fingerprintFailed = false
-            root.unlocked()
-            return
-        }
-
-        var out = (fprintOut.text || "").toLowerCase()
-        // Permanent failures — fprintd missing, no hardware, no prints.
-        // Transient failures (session bus down after suspend, daemon
-        // restart, no-match) are NOT in this list; the watchdog timer
-        // re-arms them.
-        var unusable =
-            exitCode === 127
-            || out.indexOf("no fingers enrolled") >= 0
-            || out.indexOf("no default device") >= 0
-            || out.indexOf("impossible to verify") >= 0
-            || out.indexOf("listenrolledfingers failed") >= 0
-
-        if (unusable) {
-            root.fingerprintEnabled = false
-            root.fingerprintFailed = false
-            root.fingerprintHint = ""
-            return
-        }
-
-        // Transient no-match / retry-scan / inactivity timeout / session
-        // bus hiccup after suspend — re-arm shortly.
-        root.fingerprintFailed = true
-        root.fingerprintHint = "no match — retry"
-        retryTimer.restart()
     }
 
     // One-shot retry after a transient failure (no-match, timeout).

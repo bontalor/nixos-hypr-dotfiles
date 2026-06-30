@@ -210,7 +210,7 @@ Rectangle {
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
                     visible: context.fingerprintScanning
-                    text: "scanning fingerprint..."
+                    text: "waiting for scan..."
                     color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
                     font.pixelSize: Theme.fontPixelSize
                     font.family: Theme.fontFamily
