@@ -201,14 +201,6 @@ Rectangle {
                 height: 20
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    visible: context.showFailure
-                    text: "Incorrect password"
-                    color: Colors.critical
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
-                }
-                Text {
-                    anchors.horizontalCenter: parent.horizontalCenter
                     visible: context.fingerprintScanning
                     text: "waiting for scan..."
                     color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
@@ -216,6 +208,19 @@ Rectangle {
                     font.family: Theme.fontFamily
                 }
             }
+        }
+        // Incorrect password — pinned to the bottom center of the panel,
+        // 10px from the bottom edge, so it never overlaps the "waiting for
+        // scan..." text in the centered Column above.
+        Text {
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: Theme.margin
+            anchors.horizontalCenter: parent.horizontalCenter
+            visible: context.showFailure
+            text: "Incorrect password"
+            color: Colors.critical
+            font.pixelSize: Theme.fontPixelSize
+            font.family: Theme.fontFamily
         }
     }
     DropShadow {
