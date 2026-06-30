@@ -136,12 +136,15 @@ Rectangle {
                     }
                 }
                 // 30x30 fingerprint readiness indicator. Presence = reader
-                // armed; hidden when fprintd is unusable.
+                // armed; hidden when fprintd is unusable. Tints red on a
+                // transient no-match failure.
                 Rectangle {
                     width: context.fingerprintEnabled ? 30 : 0
                     height: Theme.headerHeight
                     visible: context.fingerprintEnabled
-                    color: Qt.alpha(Colors.background, Theme.alphaBackground)
+                    color: context.fingerprintFailed
+                        ? Qt.alpha(Colors.critical, Theme.alphaBackground)
+                        : Qt.alpha(Colors.background, Theme.alphaBackground)
                     Text {
                         anchors.centerIn: parent
                         text: "\u{F0237}"
@@ -149,6 +152,18 @@ Rectangle {
                         font.family: Theme.fontFamily
                         font.pixelSize: Theme.fontPixelSizeLarge
                     }
+                }
+            }
+            Item {
+                width: parent.width
+                height: 20
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    visible: context.fingerprintScanning
+                    text: "scanning fingerprint..."
+                    color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
+                    font.pixelSize: Theme.fontPixelSizeSmall
+                    font.family: Theme.fontFamily
                 }
             }
             Row {

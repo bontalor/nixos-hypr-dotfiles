@@ -4,8 +4,9 @@
 // entries from `NotifDaemon.history` (newest first). Enter dismisses
 // the selected entry from history; Escape closes the panel as usual.
 //
-// Layout matches the bar's drop-shadow style: bg rect on top of two
-// black Rectangles (bottom + right) that produce the visible shadow.
+// Uses custom scrolling (autoScroll: false) because notification entries
+// have variable heights — the base Panel's scrollToSelection assumes a
+// fixed rowHeight stride.
 
 import "../theme"
 import "../util"
@@ -19,6 +20,8 @@ Panel {
     id: root
     title: "Notifications"
     sections: [{ name: "History" }]
+
+    autoScroll: false
 
     property var historyList: NotifDaemon.history
 
@@ -36,24 +39,46 @@ Panel {
         }
     }
 
+    onSelDeviceChanged: root.scrollHistoryIntoView()
+    onInSectionChanged: if (root.inSection) root.scrollHistoryIntoView()
+
+    // Scroll the Flickable to keep the selected entry visible. Unlike
+    // Panel.scrollToSelection (which assumes fixed rowHeight), this reads
+    // the actual delegate item's y/height from the Repeater — necessary
+    // because notification entries have variable heights.
+    function scrollHistoryIntoView() {
+        if (!root.inSection) return
+        var baseY = historyColumn.y
+        if (root.selDevice === 0) {
+            // "Clear All" row
+            root.scrollToVisible(baseY + clearAllRow.y, clearAllRow.height)
+        } else {
+            var idx = root.selDevice - 1
+            if (idx >= 0 && idx < historyRepeater.count) {
+                var item = historyRepeater.itemAt(idx)
+                if (item) root.scrollToVisible(baseY + item.y, item.height)
+            }
+        }
+    }
+
     Column {
+        id: historyColumn
         width: parent.width
         spacing: root.colSpacing
         visible: root.selSection === 0
 
-        Text {
+        ThemeText {
             width: parent.width
             height: Theme.searchRowHeight
             visible: root.historyList.count === 0
             text: "No notifications"
             color: Qt.alpha(Colors.foreground, 0.5)
-            font.pixelSize: Theme.fontPixelSize
-            font.family: Theme.fontFamily
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
         }
 
         Rectangle {
+            id: clearAllRow
             width: parent.width
             height: root.rowHeight
             color: root.inSection && root.selDevice === 0
@@ -61,12 +86,9 @@ Panel {
                    : "transparent"
             visible: root.historyList.count > 0
 
-            Text {
+            ThemeText {
                 anchors { left: parent.left; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
                 text: "Clear All"
-                color: Colors.foreground
-                font.pixelSize: Theme.fontPixelSize
-                font.family: Theme.fontFamily
             }
 
             MouseArea {
@@ -80,6 +102,7 @@ Panel {
         }
 
         Repeater {
+            id: historyRepeater
             model: root.historyList
 
             delegate: Rectangle {
@@ -102,22 +125,16 @@ Panel {
                     width: parent.width - 2 * Theme.margin
                     spacing: 4
 
-                    Text {
+                    ThemeText {
                         width: parent.width
                         text: summary || "(no summary)"
-                        color: Colors.foreground
-                        font.pixelSize: Theme.fontPixelSize
-                        font.family: Theme.fontFamily
                         font.bold: true
                         elide: Text.ElideRight
                     }
 
-                    Text {
+                    ThemeText {
                         width: parent.width
                         text: body || ""
-                        color: Colors.foreground
-                        font.pixelSize: Theme.fontPixelSize
-                        font.family: Theme.fontFamily
                         wrapMode: Text.WordWrap
                         maximumLineCount: 3
                         elide: Text.ElideRight
@@ -128,24 +145,22 @@ Panel {
                         width: parent.width
                         height: Math.max(appNameLbl.implicitHeight, tsLbl.implicitHeight)
 
-                        Text {
+                        ThemeText {
                             id: appNameLbl
                             anchors.left: parent.left
                             anchors.verticalCenter: parent.verticalCenter
                             text: appName || ""
                             color: Qt.alpha(Colors.foreground, 0.5)
-                            font.pixelSize: Theme.fontPixelSizeSmall
-                            font.family: Theme.fontFamily
+                            size: "small"
                         }
 
-                        Text {
+                        ThemeText {
                             id: tsLbl
                             anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
                             text: root.fmtTimestamp(timestamp)
                             color: Qt.alpha(Colors.foreground, 0.5)
-                            font.pixelSize: Theme.fontPixelSizeSmall
-                            font.family: Theme.fontFamily
+                            size: "small"
                             horizontalAlignment: Text.AlignRight
                         }
                     }

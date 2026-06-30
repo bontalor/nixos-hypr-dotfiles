@@ -26,8 +26,14 @@ Scope {
     // `fingerprintEnabled` latches false when fprintd is missing or has no
     // usable device/enrolled prints, so the UI hides the indicator and the
     // retry loop stops spinning.
+    // `fingerprintScanning` is true while fprintd-verify is actively running
+    // (the reader is armed and waiting for a finger).
+    // `fingerprintFailed` is true after a transient no-match; the UI tints
+    // the fingerprint indicator red. Reset on re-arm or successful match.
     property bool fingerprintEnabled: true
     property bool fingerprintMatched: false
+    property bool fingerprintScanning: fprintProc.running && root.fingerprintEnabled
+    property bool fingerprintFailed: false
     property string fingerprintHint: "or touch fingerprint"
 
     onCurrentTextChanged: showFailure = false
@@ -46,7 +52,7 @@ Scope {
         running: false
         // Wrapped in `sh -c` so a missing fprintd-verify binary yields
         // exit 127 (shell "command not found") rather than a FailedToStart
-        // process error — `onFinished` then covers every case uniformly.
+        // process error — `onExited` then covers every case uniformly.
         command: ["sh", "-c", "fprintd-verify"]
         stdout: StdioCollector { id: fprintOut }
 
@@ -63,44 +69,70 @@ Scope {
             // the verify process tryUnlock just killed, so ignore them.
             if (exitCode === 0) {
                 root.fingerprintMatched = true
+                root.fingerprintFailed = false
                 root.unlocked()
                 return
             }
             if (root.unlockInProgress) return
 
             var out = (fprintOut.text || "").toLowerCase()
+            // Permanent failures — fprintd missing, no hardware, no prints.
+            // Transient failures (session bus down after suspend, daemon
+            // restart, no-match) are NOT in this list; the watchdog timer
+            // re-arms them.
             var unusable =
                 exitCode === 127
                 || out.indexOf("no fingers enrolled") >= 0
                 || out.indexOf("no default device") >= 0
                 || out.indexOf("impossible to verify") >= 0
-                || out.indexOf("failed to connect to session bus") >= 0
-                || out.indexOf("failed to get fprintd manager") >= 0
                 || out.indexOf("listenrolledfingers failed") >= 0
 
             if (unusable) {
-                // No reader, no prints, fprintd missing, or daemon down —
-                // password is still the primary path; just stop pretending.
+                // No reader, no prints, or fprintd missing — password is
+                // still the primary path; just stop pretending.
                 root.fingerprintEnabled = false
+                root.fingerprintFailed = false
                 root.fingerprintHint = ""
                 return
             }
 
-            // Transient no-match / retry-scan / inactivity timeout — re-arm
-            // shortly so the user can try again without re-typing.
+            // Transient no-match / retry-scan / inactivity timeout / session
+            // bus hiccup after suspend — re-arm shortly.
+            root.fingerprintFailed = true
             root.fingerprintHint = "no match — retry"
             retryTimer.restart()
         }
     }
 
+    // One-shot retry after a transient failure (no-match, timeout).
     Timer {
         id: retryTimer
         interval: 1500
         onTriggered: {
             if (root.fingerprintMatched || root.unlockInProgress
                 || !root.fingerprintEnabled) return
+            root.fingerprintFailed = false
             root.fingerprintHint = "or touch fingerprint"
             fprintProc.running = true
+        }
+    }
+
+    // Recurring watchdog: re-arms fprintd-verify if it's not running and
+    // fingerprint is still enabled. Handles suspend/resume (where the
+    // process may be killed without a clean onExited), fprintd daemon
+    // restarts, and any other case where the reader goes idle unexpectedly.
+    Timer {
+        interval: 5000
+        repeat: true
+        running: root.fingerprintEnabled && !root.fingerprintMatched
+                 && !root.unlockInProgress
+        onTriggered: {
+            if (!fprintProc.running && root.fingerprintEnabled
+                && !root.fingerprintMatched && !root.unlockInProgress) {
+                root.fingerprintFailed = false
+                root.fingerprintHint = "or touch fingerprint"
+                fprintProc.running = true
+            }
         }
     }
 
@@ -125,6 +157,7 @@ Scope {
                 // tryUnlock cancels any in-flight verify; without re-arming
                 // here the reader stays dead after a wrong password.
                 if (root.fingerprintEnabled && !root.fingerprintMatched) {
+                    root.fingerprintFailed = false
                     root.fingerprintHint = "or touch fingerprint"
                     fprintProc.running = true
                 }

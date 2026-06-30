@@ -268,9 +268,12 @@ Panel {
         case Qt.Key_K:
         case Qt.Key_Up:
             if (root.selSection === root.secConfig && root.configExpanded && root.inSection) {
-                root.selConfigProfile = Scroll.clamp(root.selConfigProfile - 1, 0, 0)
+                if (root.selConfigDevice < root.configDevices.length) {
+                    var profiles = root.configDevices[root.selConfigDevice].profiles
+                    root.selConfigProfile = Scroll.clamp(root.selConfigProfile - 1, 0, profiles.length - 1)
+                }
             } else if (root.selSection === root.secConfig && root.inSection) {
-                root.selConfigDevice = Scroll.clamp(root.selConfigDevice - 1, 0, 0)
+                root.selConfigDevice = Scroll.clamp(root.selConfigDevice - 1, 0, Math.max(0, root.configDevices.length - 1))
             } else if (root.inSection && root.selSection < root.secConfig) {
                 root.selDevice = Scroll.step(root.selDevice, -1, root.currentModel().length)
             } else {
