@@ -14,20 +14,15 @@ PanelWindow {
 
     color: "transparent"
     implicitWidth: Theme.popupWidth + 10    // bg + right shadow
-    implicitHeight: Theme.popupHeight
+    implicitHeight: totalHeight
     visible: NotifDaemon.activePopups.count > 0 && !fullscreenActive
 
     property bool fullscreenActive: ToplevelManager.activeToplevel
         ? ToplevelManager.activeToplevel.fullscreen : false
 
     property int totalHeight: {
-        var h = 0
-        var m = NotifDaemon.activePopups
-        for (var i = 0; i < m.count; i++) {
-            var e = m.get(i)
-            h += Math.min(140, 60 + Math.ceil((e.body || "").length / 40) * 20) + 10
-        }
-        return h + Math.max(0, m.count - 1) * 10
+        var count = NotifDaemon.activePopups.count
+        return count * Theme.popupHeight + Math.max(0, count - 1) * 10
     }
 
     Column {
@@ -59,25 +54,25 @@ PanelWindow {
                         anchors { left: parent.left; right: parent.right; top: parent.top; leftMargin: Theme.margin; rightMargin: Theme.margin; topMargin: Theme.margin }
                         spacing: 6
 
-                    Text {
-                        width: parent.width
-                        text: summary || ""
-                        color: Colors.foreground
-                        font.pixelSize: Theme.fontPixelSize
-                        font.family: Theme.fontFamily
-                        font.bold: true
-                        wrapMode: Text.WordWrap
-                    }
+                        Text {
+                            width: parent.width
+                            text: summary || ""
+                            color: Colors.foreground
+                            font.pixelSize: Theme.fontPixelSize
+                            font.family: Theme.fontFamily
+                            font.bold: true
+                            wrapMode: Text.WordWrap
+                        }
 
-                    Text {
-                        width: parent.width
-                        text: body || ""
-                        color: Colors.foreground
-                        font.pixelSize: Theme.fontPixelSize
-                        font.family: Theme.fontFamily
-                        wrapMode: Text.WordWrap
-                        visible: text !== ""
-                    }
+                        Text {
+                            width: parent.width
+                            text: body || ""
+                            color: Colors.foreground
+                            font.pixelSize: Theme.fontPixelSize
+                            font.family: Theme.fontFamily
+                            wrapMode: Text.WordWrap
+                            visible: text !== ""
+                        }
                     }
 
                     MouseArea {

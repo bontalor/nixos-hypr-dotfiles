@@ -22,13 +22,17 @@ Panel {
 
     property var historyList: NotifDaemon.history
 
-    currentModelLength: function() { return root.historyList.count }
+    currentModelLength: function() {
+        return root.historyList.count + (root.historyList.count > 0 ? 1 : 0)
+    }
 
     onShown: { /* nothing — history is live */ }
 
     onDeviceActivated: function(idx) {
-        if (idx >= 0 && idx < root.historyList.count) {
-            root.historyList.remove(idx)
+        if (idx === 0) {
+            NotifDaemon.clearHistory()
+        } else if (idx > 0 && idx - 1 < root.historyList.count) {
+            root.historyList.remove(idx - 1)
         }
     }
 
@@ -37,8 +41,6 @@ Panel {
         spacing: root.colSpacing
         visible: root.selSection === 0
 
-        // Section header is rendered by Panel.qml; we just append the
-        // Flickable list of history entries to the content column.
         Text {
             width: parent.width
             height: Theme.searchRowHeight
@@ -51,14 +53,45 @@ Panel {
             verticalAlignment: Text.AlignVCenter
         }
 
+        Rectangle {
+            width: parent.width
+            height: root.rowHeight
+            color: root.inSection && root.selDevice === 0
+                   ? Qt.alpha(Colors.base01, Theme.alphaSelected)
+                   : "transparent"
+            visible: root.historyList.count > 0
+
+            Text {
+                anchors { left: parent.left; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
+                text: "Clear All"
+                color: Colors.foreground
+                font.pixelSize: Theme.fontPixelSize
+                font.family: Theme.fontFamily
+            }
+
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                    if (!root.inSection) { root.inSection = true; root.selDevice = 0 }
+                    NotifDaemon.clearHistory()
+                }
+            }
+        }
+
         Repeater {
             model: root.historyList
 
             delegate: Rectangle {
                 id: entry
+                required property string summary
+                required property string body
+                required property string appName
+                required property var timestamp
+
                 width: parent.width
                 height: Math.max(root.rowHeight, col.implicitHeight + 2 * Theme.margin)
-                color: root.inSection && index === root.selDevice
+                color: root.inSection && root.selDevice - 1 === index
                        ? Qt.alpha(Colors.base01, Theme.alphaSelected)
                        : "transparent"
 
@@ -121,7 +154,7 @@ Panel {
                     anchors.fill: parent
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
-                        if (!root.inSection) { root.inSection = true; root.selDevice = index }
+                        if (!root.inSection) { root.inSection = true; root.selDevice = index + 1 }
                         root.historyList.remove(index)
                     }
                 }
