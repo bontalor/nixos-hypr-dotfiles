@@ -15,7 +15,10 @@ PanelWindow {
     color: "transparent"
     implicitWidth: Theme.popupWidth + 10    // bg + right shadow
     implicitHeight: Theme.popupHeight
-    visible: NotifDaemon.activePopups.count > 0
+    visible: NotifDaemon.activePopups.count > 0 && !fullscreenActive
+
+    property bool fullscreenActive: ToplevelManager.activeToplevel
+        ? ToplevelManager.activeToplevel.fullscreen : false
 
     property int totalHeight: {
         var h = 0
