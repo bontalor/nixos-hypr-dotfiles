@@ -2,7 +2,7 @@ pragma Singleton
 
 import QtQuick
 import Quickshell
-import "../theme"
+import "../theme"  // FormatUtil
 
 // Lunar / moon-phase math. Pure functions over a small set of constants.
 // Split out of the former Util.qml so astronomy has a home separate from
@@ -16,6 +16,17 @@ import "../theme"
 //   - nextFullMoon(age, from) human-readable date of the next full moon
 
 Singleton {
+    // Moon phase emoji (Unicode). Kept here alongside the phase logic that
+    // uses them rather than in Icon.qml, which holds shell-wide glyphs.
+    readonly property string moonNew:             "🌑"
+    readonly property string moonWaxingCrescent:  "🌒"
+    readonly property string moonFirstQuarter:    "🌓"
+    readonly property string moonWaxingGibbous:   "🌔"
+    readonly property string moonFull:            "🌕"
+    readonly property string moonWaningGibbous:   "🌖"
+    readonly property string moonLastQuarter:     "🌗"
+    readonly property string moonWaningCrescent:  "🌘"
+
     // Synodic (mean) month in days. Constant of the Brown-style algorithm.
     property real synodicMonth: 29.530587
     // J2000 new-moon epoch (1999-08-29 04:14 UTC).
@@ -57,14 +68,14 @@ Singleton {
     // so callers can't drift between the two.
     function moonPhaseIcon(name) {
         var p = (name || "").toLowerCase()
-        if (p.includes("new"))              return Icon.moonNew
-        if (p.includes("waxing crescent")) return Icon.moonWaxingCrescent
-        if (p.includes("first quarter"))    return Icon.moonFirstQuarter
-        if (p.includes("waxing gibbous"))   return Icon.moonWaxingGibbous
-        if (p.includes("full"))             return Icon.moonFull
-        if (p.includes("waning gibbous"))   return Icon.moonWaningGibbous
-        if (p.includes("last quarter"))     return Icon.moonLastQuarter
-        if (p.includes("waning crescent"))   return Icon.moonWaningCrescent
+        if (p.includes("new"))             return moonNew
+        if (p.includes("waxing crescent")) return moonWaxingCrescent
+        if (p.includes("first quarter"))   return moonFirstQuarter
+        if (p.includes("waxing gibbous"))  return moonWaxingGibbous
+        if (p.includes("full"))            return moonFull
+        if (p.includes("waning gibbous"))  return moonWaningGibbous
+        if (p.includes("last quarter"))    return moonLastQuarter
+        if (p.includes("waning crescent")) return moonWaningCrescent
         return ""
     }
 

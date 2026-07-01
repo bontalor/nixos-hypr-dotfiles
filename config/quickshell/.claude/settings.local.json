@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sed -i '/    \\\\/\\\\/ Moon phases/,/    property string moonWaningCrescent/d' /home/bonta/.config/quickshell/theme/Icon.qml)",
+      "Bash(sed -i '/^$/N;/^\\\\n$/d' /home/bonta/.config/quickshell/theme/Icon.qml)"
+    ]
+  }
+}
