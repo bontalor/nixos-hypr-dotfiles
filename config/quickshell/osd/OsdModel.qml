@@ -32,8 +32,7 @@ Singleton {
     }
 
 
-    property bool _show: false      // true when a media-key step should pop the OSD
-    property real _lastBrightness: -1
+    property bool _show: false   // true when a media-key step should pop the OSD
 
     Timer {
         id: hideTimer
@@ -108,7 +107,7 @@ Singleton {
     }
 
     function onBrightness(text) {
-        // Parse percentage from `brightnessctl info`/`set` output.
+        // Parse "cur max" percentages from `brightnessctl info`/`set`.
         var m = text.match(/\((\d+)%\)/)
         var pct = m ? parseInt(m[1]) / 100 : 0
         if (!isFinite(pct) || pct <= 0) {
@@ -118,18 +117,14 @@ Singleton {
             return
         }
         if (root._show) {
-            // Skip OSD if brightness didn't actually change (already at limit).
-            if (pct === root._lastBrightness) return
-            root._lastBrightness = pct
             root.activeKind = "brightness"
             root.value = pct
             root.glyph = Icon.brightness
             root.visible = true
             hideTimer.restart()
         } else {
-            // Initial silent read — cache value and re-enable _show without
-            // popping the OSD.
-            root._lastBrightness = pct
+            // Initial silent read (from Component.onCompleted) — cache
+            // the value, re-enable _show, but don't pop the OSD.
             root._show = true
         }
     }
