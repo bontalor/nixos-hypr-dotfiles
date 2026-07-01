@@ -236,7 +236,7 @@ Panel {
                     ThemeText {
                         anchors.centerIn: parent
                         text: Icon.prev
-                        font.pixelSize: Theme.fontPixelSizeLarge
+                        font.pixelSize: Theme.fontPixelSizeXLarge
                     }
                     MouseArea {
                         anchors.fill: parent
@@ -251,7 +251,7 @@ Panel {
                     ThemeText {
                         anchors.centerIn: parent
                         text: root.playbackState === MprisPlaybackState.Playing ? Icon.pause : Icon.play
-                        font.pixelSize: Theme.fontPixelSizeLarge
+                        font.pixelSize: Theme.fontPixelSizeXLarge
                     }
                     MouseArea {
                         anchors.fill: parent
@@ -266,7 +266,7 @@ Panel {
                     ThemeText {
                         anchors.centerIn: parent
                         text: Icon.next
-                        font.pixelSize: Theme.fontPixelSizeLarge
+                        font.pixelSize: Theme.fontPixelSizeXLarge
                     }
                     MouseArea {
                         anchors.fill: parent

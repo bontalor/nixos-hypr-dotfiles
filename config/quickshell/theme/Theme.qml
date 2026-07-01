@@ -12,6 +12,7 @@ Singleton {
     property string fontFamily: "JetBrainsMono Nerd Font"
     property int fontPixelSize: 16
     property int fontPixelSizeLarge: 22
+    property int fontPixelSizeXLarge: 30
     property int fontPixelSizeSmall: 12
 
     // --- Bar geometry ---

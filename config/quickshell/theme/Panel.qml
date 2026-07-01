@@ -77,6 +77,8 @@ FloatingWindow {
         root.shown()
     }
 
+    property alias flick: flick
+
     function forceFocus() { mainRect.forceActiveFocus() }
 
     // Scroll the content Flickable so the currently-selected row is
