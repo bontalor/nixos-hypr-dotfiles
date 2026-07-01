@@ -32,7 +32,7 @@ PanelWindow {
             id: bg
             width: parent.width - Theme.margin
             height: parent.height - Theme.margin
-            color: Qt.alpha(Colors.background, 0.76)
+            color: Qt.alpha(Colors.background, Theme.alphaWindow)
 
             Item {
                 anchors {
@@ -58,7 +58,7 @@ PanelWindow {
                         right: parent.right
                         verticalCenter: parent.verticalCenter
                     }
-                    height: 8
+                    height: Theme.osdBarHeight
                     color: Qt.alpha(Colors.foreground, 0.25)
 
                     Rectangle {

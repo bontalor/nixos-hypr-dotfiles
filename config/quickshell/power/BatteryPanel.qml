@@ -64,7 +64,7 @@ Panel {
 
                 Rectangle {
                     anchors.fill: parent
-                    color: root.inSection && index === root.selDevice ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
+                    color: (root.inSection && index === root.selDevice) || batteryDevMouse.containsMouse ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
                 }
 
                 Text {
@@ -101,7 +101,9 @@ Panel {
                 }
 
                 MouseArea {
+                    id: batteryDevMouse
                     anchors.fill: parent
+                    hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
                         if (!root.inSection) { root.inSection = true; root.selDevice = index }
@@ -146,7 +148,7 @@ Panel {
 
                 Rectangle {
                     anchors.fill: parent
-                    color: root.inSection && index === root.selDevice ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
+                    color: (root.inSection && index === root.selDevice) || profileMouse.containsMouse ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
                 }
 
                 Row {
@@ -181,7 +183,9 @@ Panel {
                 }
 
                 MouseArea {
+                    id: profileMouse
                     anchors.fill: parent
+                    hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
                         if (!root.inSection) { root.inSection = true; root.selDevice = index }

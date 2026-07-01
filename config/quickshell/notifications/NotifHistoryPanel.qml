@@ -81,7 +81,7 @@ Panel {
             id: clearAllRow
             width: parent.width
             height: root.rowHeight
-            color: root.inSection && root.selDevice === 0
+            color: (root.inSection && root.selDevice === 0) || clearAllMouse.containsMouse
                    ? Qt.alpha(Colors.base01, Theme.alphaSelected)
                    : "transparent"
             visible: root.historyList.count > 0
@@ -92,7 +92,9 @@ Panel {
             }
 
             MouseArea {
+                id: clearAllMouse
                 anchors.fill: parent
+                hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
                     if (!root.inSection) { root.inSection = true; root.selDevice = 0 }
@@ -115,7 +117,7 @@ Panel {
 
                 width: parent.width
                 height: Math.max(root.rowHeight, col.implicitHeight + 2 * Theme.margin)
-                color: root.inSection && root.selDevice - 1 === index
+                color: (root.inSection && root.selDevice - 1 === index) || entryMouse.containsMouse
                        ? Qt.alpha(Colors.base01, Theme.alphaSelected)
                        : "transparent"
 
@@ -167,7 +169,9 @@ Panel {
                 }
 
                 MouseArea {
+                    id: entryMouse
                     anchors.fill: parent
+                    hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
                         if (!root.inSection) { root.inSection = true; root.selDevice = index + 1 }

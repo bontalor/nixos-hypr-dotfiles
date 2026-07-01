@@ -184,15 +184,12 @@ FloatingWindow {
                         visible: root.sidebarHeader !== ""
                         color: Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
 
-                        Text {
+                        ThemeText {
                             text: root.sidebarHeader
                             anchors {
                                 left: parent.left; leftMargin: Theme.margin
                                 verticalCenter: parent.verticalCenter
                             }
-                            color: Colors.foreground
-                            font.pixelSize: Theme.fontPixelSize
-                            font.family: Theme.fontFamily
                             font.bold: true
                         }
                     }
@@ -202,36 +199,32 @@ FloatingWindow {
                         delegate: Rectangle {
                             width: parent.width
                             height: root.headerHeight
-                            color: root.selSection === index ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
+                            color: root.selSection === index || sectionMouse.containsMouse ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
 
-                            Text {
+                            ThemeText {
                                 text: modelData.name
                                 anchors {
                                     left: parent.left; leftMargin: Theme.margin
                                     right: parent.right; rightMargin: Theme.margin
                                     verticalCenter: parent.verticalCenter
                                 }
-                                color: Colors.foreground
-                                font.pixelSize: Theme.fontPixelSize
-                                font.family: Theme.fontFamily
                                 elide: Text.ElideRight
                                 leftPadding: (root.selSection === index && root.inSection) ? Theme.iconSize - Theme.margin : 0
                             }
 
-                            Text {
+                            ThemeText {
                                 text: Icon.chevronRight
                                 anchors {
                                     left: parent.left; leftMargin: Theme.margin
                                     verticalCenter: parent.verticalCenter
                                 }
-                                color: Colors.foreground
-                                font.pixelSize: Theme.fontPixelSize
-                                font.family: Theme.fontFamily
                                 visible: root.selSection === index && root.inSection
                             }
 
                             MouseArea {
+                                id: sectionMouse
                                 anchors.fill: parent
+                                hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: {
                                     root.selSection = index
@@ -255,6 +248,7 @@ FloatingWindow {
                     anchors.margins: root.colSpacing
                     contentHeight: contentCol.height
                     clip: true
+                    boundsBehavior: Flickable.StopAtBounds
 
                     Column {
                         id: contentCol
@@ -266,15 +260,12 @@ FloatingWindow {
                             height: root.headerHeight
                             color: Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
 
-                            Text {
+                            ThemeText {
                                 text: root.sections[root.selSection]?.name ?? ""
                                 anchors {
                                     left: parent.left; leftMargin: Theme.margin
                                     verticalCenter: parent.verticalCenter
                                 }
-                                color: Colors.foreground
-                                font.pixelSize: Theme.fontPixelSize
-                                font.family: Theme.fontFamily
                                 font.bold: true
                             }
                         }

@@ -137,7 +137,7 @@ Panel {
 
                 Rectangle {
                     anchors.fill: parent
-                    color: root.inSection && index === root.selDevice ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
+                    color: (root.inSection && index === root.selDevice) || wifiMouse.containsMouse ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
                 }
 
                 ThemeText {
@@ -178,7 +178,9 @@ Panel {
                 }
 
                 MouseArea {
+                    id: wifiMouse
                     anchors.fill: parent
+                    hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
                         if (!root.inSection) { root.inSection = true; root.selDevice = index }
@@ -214,7 +216,7 @@ Panel {
 
                 Rectangle {
                     anchors.fill: parent
-                    color: root.inSection && index === root.selDevice ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
+                    color: (root.inSection && index === root.selDevice) || ethMouse.containsMouse ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
                 }
 
                 ThemeText {
@@ -243,7 +245,9 @@ Panel {
                 }
 
                 MouseArea {
+                    id: ethMouse
                     anchors.fill: parent
+                    hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
                         if (!root.inSection) { root.inSection = true; root.selDevice = index }
@@ -282,7 +286,7 @@ Panel {
         Rectangle {
             width: parent.width
             height: root.rowHeight
-            color: root.inSection && 0 === root.selDevice ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
+            color: (root.inSection && 0 === root.selDevice) || wifiToggleMouse.containsMouse ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
 
             ThemeText {
                 text: "Wi-Fi: " + (root.wifiEnabled ? "On" : "Off")
@@ -290,7 +294,9 @@ Panel {
             }
 
             MouseArea {
+                id: wifiToggleMouse
                 anchors.fill: parent
+                hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
                     if (!root.inSection) { root.inSection = true; root.selDevice = 0 }
@@ -331,7 +337,7 @@ Panel {
         Rectangle {
             width: parent.width
             height: root.rowHeight
-            color: root.inSection && 0 === root.selDevice ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
+            color: (root.inSection && 0 === root.selDevice) || connectivityMouse.containsMouse ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
 
             ThemeText {
                 text: "Connectivity: " + (root.connectivityState || "--")
@@ -339,7 +345,9 @@ Panel {
             }
 
             MouseArea {
+                id: connectivityMouse
                 anchors.fill: parent
+                hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
                     if (!root.inSection) { root.inSection = true; root.selDevice = 0 }
@@ -351,7 +359,7 @@ Panel {
         Rectangle {
             width: parent.width
             height: root.rowHeight
-            color: root.inSection && 1 === root.selDevice ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
+            color: (root.inSection && 1 === root.selDevice) || nmtuiMouse.containsMouse ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
 
             ThemeText {
                 text: "nmtui"
@@ -359,7 +367,9 @@ Panel {
             }
 
             MouseArea {
+                id: nmtuiMouse
                 anchors.fill: parent
+                hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
                     if (!root.inSection) { root.inSection = true; root.selDevice = 1 }

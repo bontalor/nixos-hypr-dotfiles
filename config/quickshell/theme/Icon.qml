@@ -28,7 +28,7 @@ Singleton {
     property string chevronCollapse: "\u{f0143}" // Nerd Font chevron-down-circle
 
     // Transport (media)
-    property string play: "\u25b6"
+    property string play: chevronRight  // same U+25B6 \u25b6 \u2014 alias to avoid duplicate codepoint
     property string pause: "\u23f8"
     property string prev: "\u23ee"
     property string next: "\u23ed"

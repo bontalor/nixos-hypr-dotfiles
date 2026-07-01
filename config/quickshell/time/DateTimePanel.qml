@@ -163,7 +163,7 @@ Panel {
                     width: calendarGrid.width / 7
                     height: root.cellHeight
                     color: {
-                        if (root.inSection && root.selDevice === index)
+                        if ((root.inSection && root.selDevice === index) || cellMouse.containsMouse)
                             return Qt.alpha(Colors.base01, Theme.alphaSelected)
                         var today = modelData.getDate() === root.now.getDate()
                                  && modelData.getMonth() === root._month
@@ -181,7 +181,9 @@ Panel {
                     }
 
                     MouseArea {
+                        id: cellMouse
                         anchors.fill: parent
+                        hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
                             root.selSection = 2

@@ -373,7 +373,7 @@ Panel {
                 anchors.fill: parent
                 // Simplified: the prior (!configExpanded || configExpanded)
                 // OR collapsed to just `inSection && selConfigItem match`.
-                color: root.inSection && root.cfgItemCity === root.selConfigItem
+                color: (root.inSection && root.cfgItemCity === root.selConfigItem) || cityMouse.containsMouse
                        ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
             }
 
@@ -390,7 +390,9 @@ Panel {
                     }
 
                     MouseArea {
+                        id: cityMouse
                         anchors.fill: parent
+                        hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
                             if (!root.inSection) root.inSection = true
@@ -415,7 +417,9 @@ Panel {
                         height: Theme.searchRowHeight
                         color: 0 === root.selConfigProfile
                                 ? Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
-                                : Qt.alpha(Colors.base00, Theme.alphaBackground)
+                                : cityAutoMouse.containsMouse
+                                    ? Qt.alpha(Colors.base01, Theme.alphaSelected)
+                                    : Qt.alpha(Colors.base00, Theme.alphaBackground)
 
                         ThemeText {
                             text: "Auto (IP)"
@@ -423,7 +427,9 @@ Panel {
                         }
 
                         MouseArea {
+                            id: cityAutoMouse
                             anchors.fill: parent
+                            hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
                                 if (root.inSection) root.activateConfigItem()
@@ -436,7 +442,9 @@ Panel {
                         height: Theme.searchRowHeight
                         color: !root.cityEditing && 1 === root.selConfigProfile
                                 ? Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
-                                : Qt.alpha(Colors.base00, Theme.alphaBackground)
+                                : cityCustomMouse.containsMouse
+                                    ? Qt.alpha(Colors.base01, Theme.alphaSelected)
+                                    : Qt.alpha(Colors.base00, Theme.alphaBackground)
 
                         ThemeText {
                             text: "Custom..."
@@ -469,7 +477,9 @@ Panel {
                         }
 
                         MouseArea {
+                            id: cityCustomMouse
                             anchors.fill: parent
+                            hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
                                 if (root.inSection && !root.cityEditing) {
@@ -493,7 +503,7 @@ Panel {
 
             Rectangle {
                 anchors.fill: parent
-                color: root.inSection && root.cfgItemUnit === root.selConfigItem
+                color: (root.inSection && root.cfgItemUnit === root.selConfigItem) || unitMouse.containsMouse
                        ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
             }
 
@@ -510,7 +520,9 @@ Panel {
                     }
 
                     MouseArea {
+                        id: unitMouse
                         anchors.fill: parent
+                        hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
                             if (!root.inSection) root.inSection = true
@@ -535,7 +547,9 @@ Panel {
                         height: Theme.searchRowHeight
                         color: 0 === root.selConfigProfile
                                 ? Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
-                                : Qt.alpha(Colors.base00, Theme.alphaBackground)
+                                : unitFMouse.containsMouse
+                                    ? Qt.alpha(Colors.base01, Theme.alphaSelected)
+                                    : Qt.alpha(Colors.base00, Theme.alphaBackground)
 
                         ThemeText {
                             text: "Fahrenheit"
@@ -543,7 +557,9 @@ Panel {
                         }
 
                         MouseArea {
+                            id: unitFMouse
                             anchors.fill: parent
+                            hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
                                 if (root.inSection) {
@@ -559,7 +575,9 @@ Panel {
                         height: Theme.searchRowHeight
                         color: 1 === root.selConfigProfile
                                 ? Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
-                                : Qt.alpha(Colors.base00, Theme.alphaBackground)
+                                : unitCMouse.containsMouse
+                                    ? Qt.alpha(Colors.base01, Theme.alphaSelected)
+                                    : Qt.alpha(Colors.base00, Theme.alphaBackground)
 
                         ThemeText {
                             text: "Celsius"
@@ -567,7 +585,9 @@ Panel {
                         }
 
                         MouseArea {
+                            id: unitCMouse
                             anchors.fill: parent
+                            hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
                                 if (root.inSection) {

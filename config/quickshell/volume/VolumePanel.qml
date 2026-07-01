@@ -330,7 +330,14 @@ Panel {
 
                 Rectangle {
                     anchors.fill: parent
-                    color: root.inSection && index === root.selDevice ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
+                    color: (root.inSection && index === root.selDevice) || nodeHover.containsMouse ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
+                }
+
+                MouseArea {
+                    id: nodeHover
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    acceptedButtons: Qt.NoButton
                 }
 
                 ThemeText {
@@ -442,9 +449,7 @@ Panel {
 
                 Rectangle {
                     anchors.fill: parent
-                    // Simplified: the prior (!configExpanded || configExpanded)
-                    // OR collapsed to just `inSection && selConfigDevice match`.
-                    color: root.inSection && index === root.selConfigDevice
+                    color: (root.inSection && index === root.selConfigDevice) || configDevMouse.containsMouse
                            ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
                 }
 
@@ -484,7 +489,9 @@ Panel {
                         }
 
                         MouseArea {
+                            id: configDevMouse
                             anchors.fill: parent
+                            hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
                                 if (!root.inSection) root.inSection = true
@@ -509,18 +516,22 @@ Panel {
                             height: Theme.searchRowHeight
                             color: index === root.selConfigProfile
                                    ? Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
-                                   : Qt.alpha(Colors.base00, Theme.alphaBackground)
+                                   : configProfileMouse.containsMouse
+                                       ? Qt.alpha(Colors.base01, Theme.alphaSelected)
+                                       : Qt.alpha(Colors.base00, Theme.alphaBackground)
 
                             ThemeText {
                                 text: modelData.description || modelData.name
                                 anchors {
-                                    left: parent.left; leftMargin: 30
+                                    left: parent.left; leftMargin: 3 * Theme.margin
                                     verticalCenter: parent.verticalCenter
                                 }
                             }
 
                             MouseArea {
+                                id: configProfileMouse
                                 anchors.fill: parent
+                                hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: {
                                     if (root.inSection)

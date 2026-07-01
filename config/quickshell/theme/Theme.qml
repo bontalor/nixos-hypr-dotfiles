@@ -47,6 +47,7 @@ Singleton {
     property real alphaSelected: 0.75       // Qt.alpha(Colors.base01, 0.75)
     property real alphaSectionHeader: 0.75  // Qt.alpha(Colors.base0d, 0.75)
     property real alphaHover: 0.25          // Qt.alpha(Colors.foreground, alphaHover) — bar widget hover
+    property real alphaWindow: 0.76         // Qt.alpha(Colors.background, alphaWindow) — bar/popup solid bg
 
     // --- Battery thresholds ---
     property int batteryCritical: 15
@@ -58,6 +59,7 @@ Singleton {
 
     // --- OSD ---
     property int osdHideInterval: 3000
+    property int osdBarHeight: 8           // value bar thickness in OsdPopup
     property real volumeStep: 0.05
     property int brightnessStep: 5
     property real volumeGlyphThreshold: 0.5

@@ -20,7 +20,7 @@ import Quickshell.Io
 
 Scope {
     Bar{}
-    Notifications{}
+    ReloadNotif{}
     NotifPopup{}
     OsdPopup{}
 

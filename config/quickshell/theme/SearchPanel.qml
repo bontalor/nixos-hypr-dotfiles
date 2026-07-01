@@ -142,6 +142,7 @@ FloatingWindow {
                     anchors.margins: Theme.margin
                     contentHeight: resultCol.height
                     clip: true
+                    boundsBehavior: Flickable.StopAtBounds
 
                     Column {
                         id: resultCol

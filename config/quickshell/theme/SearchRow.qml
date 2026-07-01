@@ -31,7 +31,7 @@ Rectangle {
     color: {
         var panel = row.searchPanel
         if (!panel) return "transparent"
-        return row.index === panel.selectedIndex
+        return row.index === panel.selectedIndex || rowMouse.containsMouse
             ? Qt.alpha(Colors.base01, Theme.alphaSelected)
             : "transparent"
     }
@@ -47,7 +47,9 @@ Rectangle {
     }
 
     MouseArea {
+        id: rowMouse
         anchors.fill: parent
+        hoverEnabled: true
         cursorShape: Qt.PointingHandCursor
         onClicked: if (row.searchPanel) row.searchPanel.selectAndLaunch(row.index)
     }
