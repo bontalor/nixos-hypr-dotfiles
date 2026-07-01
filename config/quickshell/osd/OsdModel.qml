@@ -79,7 +79,7 @@ Singleton {
 
     function showVolume() {
         root.activeKind = "volume"
-        root.value = root.volume
+        root.value = root.muted ? 0 : root.volume
         root.glyph = root.volumeGlyph()
         root.visible = true
         hideTimer.restart()

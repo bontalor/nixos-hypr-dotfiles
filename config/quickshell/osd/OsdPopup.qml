@@ -40,20 +40,26 @@ PanelWindow {
                     margins: Theme.margin
                 }
 
-                Text {
-                    id: icon
+                Item {
+                    id: iconSlot
+                    width: Theme.fontPixelSizeLarge + Theme.margin
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
-                    text: OsdModel.glyph
-                    color: Colors.foreground
-                    font.family: Theme.fontFamily
-                    font.pixelSize: Theme.fontPixelSizeLarge
+                    height: Theme.fontPixelSizeLarge
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: OsdModel.glyph
+                        color: Colors.foreground
+                        font.family: Theme.fontFamily
+                        font.pixelSize: Theme.fontPixelSizeLarge
+                    }
                 }
 
                 Rectangle {
                     id: bar
                     anchors {
-                        left: icon.right
+                        left: iconSlot.right
                         leftMargin: Theme.margin
                         right: parent.right
                         verticalCenter: parent.verticalCenter

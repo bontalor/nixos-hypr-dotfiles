@@ -60,7 +60,7 @@ Singleton {
 
     // --- OSD ---
     property int osdHideInterval: 3000
-    property int osdBarHeight: 8           // value bar thickness in OsdPopup
+    property int osdBarHeight: 10          // value bar thickness in OsdPopup
     property real volumeStep: 0.05
     property real peakDecay: 0.05
     property int marqueeSpeed: 25       // ms per pixel — lower is faster
