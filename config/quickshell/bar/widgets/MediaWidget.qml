@@ -11,8 +11,6 @@ Item {
     height: Theme.barHeight
     clip: true
 
-    // Use the shared currentPlayer binding (auto-tracks Mpris property
-    // changes — no refreshCounter / `void` hack required).
     property var currentPlayer: MprisSelector.currentPlayer
 
     property string trackTitle: currentPlayer ? (currentPlayer.trackTitle ?? "") : ""
@@ -24,13 +22,8 @@ Item {
     property string displayText: currentPlayer
         ? (trackArtist ? trackArtist + " - " + trackTitle : trackTitle)
         : ""
-    property string scrollText: displayText ? displayText + " " + displayText : ""
-    property int scrollPos: 0
 
     property var peakNode: findPeakNode(Pipewire.nodes)
-    // Decorative peak visualizer. A single PwNodePeakMonitor.peak scalar
-    // is spread across `Theme.peakBands` bands with per-band random
-    // sensitivity/decay — this is NOT a real spectrum, just motion.
     property var peakLevels: Array(Theme.peakBands).fill(0)
 
     function findPeakNode(nodes) {
@@ -44,14 +37,11 @@ Item {
     }
 
     onPlaybackStateChanged: {
-        if (playbackState === MprisPlaybackState.Playing) startScroll()
-        else {
-            scrollPos = 0
-            scrollTimer.running = false
+        if (playbackState !== MprisPlaybackState.Playing)
             root.peakLevels = Array(Theme.peakBands).fill(0)
-        }
     }
 
+    // Fixed clip width — 8 "M" chars, same as the original maxChars approach.
     TextMetrics {
         id: textMetrics
         font.family: Theme.fontFamily
@@ -59,12 +49,37 @@ Item {
         text: "M".repeat(maxChars)
     }
 
+    // Width of one full scroll period: the display text plus a 3-space gap.
+    // The marquee text is "displayText + sep + displayText" so scrolling
+    // exactly halfPeriod.width pixels returns to the identical start frame.
+    TextMetrics {
+        id: halfPeriod
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.fontPixelSize
+        text: root.displayText + "   "
+    }
+
+    // Scroll only when playing and text overflows the clip area.
+    property bool needsScroll: playbackState === MprisPlaybackState.Playing
+        && root.displayText !== ""
+        && halfPeriod.width > textMetrics.width
+
+    function resetScroll() {
+        scrollAnim.stop()
+        marqueeText.x = 0
+        if (needsScroll) scrollAnim.start()
+    }
+
+    onNeedsScrollChanged: resetScroll()
+    onDisplayTextChanged: resetScroll()
+
     PwNodePeakMonitor {
         id: peakMon
         node: peakNode
         enabled: root.visible
     }
 
+    // Peak visualizer — decorative, not a real spectrum.
     Timer {
         interval: 1500 / Theme.peakFps
         running: root.visible && playbackState === MprisPlaybackState.Playing
@@ -86,8 +101,6 @@ Item {
             root.peakLevels = arr
         }
     }
-
-    Component.onCompleted: startScroll()
 
     Rectangle {
         x: contentRow.x - Theme.margin
@@ -140,38 +153,28 @@ Item {
             clip: true
 
             Text {
-                id: sliceText
+                id: marqueeText
                 anchors.verticalCenter: parent.verticalCenter
                 x: 0
-                text: {
-                    if (!root.displayText) return "--------"
-                    var chars = Array.from(root.scrollText)
-                    var slice = chars.slice(root.scrollPos, root.scrollPos + root.maxChars).join("")
-                    while (slice.length < root.maxChars) slice += " "
-                    return slice
-                }
+                // Doubled text with separator — the animation scrolls exactly
+                // one half-period so looping back to x=0 is seamless.
+                text: root.displayText !== "" ? root.displayText + "   " + root.displayText : "--------"
                 font.pixelSize: Theme.fontPixelSize
                 font.family: Theme.fontFamily
                 color: Colors.foreground
             }
-        }
-    }
 
-    function startScroll() {
-        if (playbackState !== MprisPlaybackState.Playing) return
-        if (Array.from(root.displayText).length <= root.maxChars) return
-        scrollTimer.start()
-    }
-
-    Timer {
-        id: scrollTimer
-        interval: 250
-        repeat: true
-        running: false
-        onTriggered: {
-            var clen = Array.from(root.displayText).length
-            if (root.scrollPos >= clen) root.scrollPos = 0
-            else root.scrollPos++
+            NumberAnimation {
+                id: scrollAnim
+                target: marqueeText
+                property: "x"
+                from: 0
+                to: -halfPeriod.width
+                duration: halfPeriod.width * Theme.marqueeSpeed
+                loops: Animation.Infinite
+                running: false
+                easing.type: Easing.Linear
+            }
         }
     }
 

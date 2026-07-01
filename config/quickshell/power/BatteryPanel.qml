@@ -38,7 +38,7 @@ Panel {
         spacing: root.colSpacing
         visible: root.selSection === 0
 
-        Text {
+        ThemeText {
             width: parent.width
             height: Theme.searchRowHeight
             visible: BatteryModel.batteryDevices.length === 0
@@ -46,8 +46,6 @@ Panel {
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
-            font.pixelSize: Theme.fontPixelSize
-            font.family: Theme.fontFamily
         }
 
         Repeater {
@@ -67,28 +65,24 @@ Panel {
                     color: (root.inSection && index === root.selDevice) || batteryDevMouse.containsMouse ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
                 }
 
-                Text {
+                ThemeText {
                     id: devName
                     text: BatteryModel.deviceName(modelData)
                     anchors { left: parent.left; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
                     color: isActive ? Colors.base0b : Colors.foreground
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
                     font.bold: isActive
                 }
 
-                Text {
+                ThemeText {
                     text: pct + "%"
                     anchors { left: devName.right; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
                     color: pct <= Theme.batteryCritical ? Colors.critical
                         : pct <= Theme.batteryWarning ? Colors.base09
                         : Colors.foreground
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
                     font.bold: true
                 }
 
-                Text {
+                ThemeText {
                     text: {
                         var s = BatteryModel.stateText(modelData)
                         return s ? s.charAt(0).toUpperCase() + s.slice(1) : ""
@@ -96,8 +90,6 @@ Panel {
                     anchors { right: parent.right; rightMargin: Theme.margin; verticalCenter: parent.verticalCenter }
                     color: modelData.state === UPowerDeviceState.Charging ? Colors.base0b
                         : Qt.alpha(Colors.foreground, Theme.alphaBackground)
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
                 }
 
                 MouseArea {
@@ -120,7 +112,7 @@ Panel {
         spacing: root.colSpacing
         visible: root.selSection === 1
 
-        Text {
+        ThemeText {
             width: parent.width
             height: Theme.searchRowHeight
             visible: !root.profileDaemonAvailable
@@ -128,8 +120,6 @@ Panel {
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
-            font.pixelSize: Theme.fontPixelSize
-            font.family: Theme.fontFamily
         }
 
         Repeater {
@@ -155,30 +145,24 @@ Panel {
                     anchors { left: parent.left; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
                     spacing: 8
 
-                    Text {
+                    ThemeText {
                         text: icon
                         color: isActive ? Colors.base0b : Qt.alpha(Colors.foreground, Theme.alphaBackground)
-                        font.pixelSize: Theme.fontPixelSize
-                        font.family: Theme.fontFamily
                         verticalAlignment: Text.AlignVCenter
                     }
 
-                    Text {
+                    ThemeText {
                         text: name
                         color: isActive ? Colors.base0b : Colors.foreground
-                        font.pixelSize: Theme.fontPixelSize
-                        font.family: Theme.fontFamily
                         font.bold: isActive
                         verticalAlignment: Text.AlignVCenter
                     }
                 }
 
-                Text {
+                ThemeText {
                     text: isActive ? "Active" : ""
                     anchors { right: parent.right; rightMargin: Theme.margin; verticalCenter: parent.verticalCenter }
                     color: Colors.base0b
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
                     font.bold: true
                 }
 

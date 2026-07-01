@@ -39,6 +39,22 @@ Singleton {
         proc.running = true
     }
 
+    // Read multiple keys under the same feature in parallel, calling back
+    // with a { key: value } object once all reads complete.
+    function readAll(feature, keys, callback) {
+        var results = {}
+        var pending = keys.length
+        if (pending === 0) { callback(results); return }
+        for (var i = 0; i < keys.length; i++) {
+            (function(key) {
+                read(feature, key, function(text) {
+                    results[key] = text
+                    if (--pending === 0) callback(results)
+                })
+            })(keys[i])
+        }
+    }
+
     Process {
         id: writer
         running: false

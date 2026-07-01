@@ -50,7 +50,7 @@ Rectangle {
         y: (parent.height - Theme.panelHeight) / 2
         width: Theme.panelWidth - Theme.margin
         height: Theme.panelHeight - Theme.margin
-        color: Qt.alpha(Colors.background, Theme.alphaBackground)
+        color: Qt.alpha(Colors.background, Theme.alphaWindow)
         Column {
             anchors.centerIn: parent
             width: 420
@@ -68,18 +68,14 @@ Rectangle {
                     font.pixelSize: 32
                     font.family: Theme.fontFamily
                     font.bold: true
-
                     text: Qt.formatDateTime(clock.date, "HH:mm:ss")
                 }
             }
             Item {
                 width: parent.width
                 height: 20
-                Text {
+                ThemeText {
                     anchors.centerIn: parent
-                    color: Colors.foreground
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
                     text: root.formattedDate
                 }
             }
@@ -110,7 +106,7 @@ Rectangle {
                         font.family: Theme.fontFamily
                         focus: true
                         echoMode: TextInput.Password
-                        passwordCharacter: "\u25A0"
+                        passwordCharacter: "■"
                         inputMethodHints: Qt.ImhSensitiveData
                         onTextChanged: root.context.currentText = this.text
                         onAccepted: root.context.tryUnlock()
@@ -146,12 +142,10 @@ Rectangle {
                     color: context.fingerprintFailed
                         ? Qt.alpha(Colors.critical, Theme.alphaBackground)
                         : Qt.alpha(Colors.background, Theme.alphaBackground)
-                    Text {
+                    ThemeText {
                         anchors.centerIn: parent
                         text: "\u{F0237}"
-                        color: Colors.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontPixelSizeLarge
+                        size: "large"
                     }
                 }
             }
@@ -168,12 +162,10 @@ Rectangle {
                             height: 45
                             anchors.horizontalCenter: parent.horizontalCenter
                             color: btnMouse.containsMouse ? Qt.alpha(Colors.critical, Theme.alphaBackground) : Qt.alpha(Colors.background, Theme.alphaBackground)
-                            Text {
+                            ThemeText {
                                 anchors.centerIn: parent
                                 text: modelData?.glyph ?? ""
-                                color: Colors.foreground
-                                font.family: Theme.fontFamily
-                                font.pixelSize: Theme.fontPixelSizeLarge
+                                size: "large"
                             }
                             MouseArea {
                                 id: btnMouse
@@ -186,13 +178,10 @@ Rectangle {
                                 }
                             }
                         }
-                        Text {
+                        ThemeText {
                             width: parent.width
                             horizontalAlignment: Text.AlignHCenter
                             text: modelData?.name ?? ""
-                            color: Colors.foreground
-                            font.pixelSize: Theme.fontPixelSize
-                            font.family: Theme.fontFamily
                         }
                     }
                 }
@@ -200,28 +189,22 @@ Rectangle {
             Item {
                 width: parent.width
                 height: 20
-                Text {
+                ThemeText {
                     anchors.horizontalCenter: parent.horizontalCenter
                     visible: context.fingerprintScanning
                     text: "waiting for scan..."
-                    color: Colors.foreground
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
                 }
             }
         }
         // Incorrect password — pinned to the bottom center of the panel,
         // 10px from the bottom edge, so it never overlaps the "waiting for
         // scan..." text in the centered Column above.
-        Text {
+        ThemeText {
             anchors.bottom: parent.bottom
             anchors.bottomMargin: Theme.margin
             anchors.horizontalCenter: parent.horizontalCenter
             visible: context.showFailure
             text: "Incorrect password"
-            color: Colors.foreground
-            font.pixelSize: Theme.fontPixelSize
-            font.family: Theme.fontFamily
         }
     }
     DropShadow {

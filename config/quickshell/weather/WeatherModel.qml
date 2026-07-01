@@ -185,15 +185,11 @@ Singleton {
     }
 
     Component.onCompleted: {
-        // Read both persisted keys; the second read triggers the first
-        // fetch once both are loaded.
-        PrefStore.read("weather", "unit", function(text) {
-            if (text) root.degreeUnit = text
-            PrefStore.read("weather", "city", function(text) {
-                if (text) root.customCity = text
-                root.ready = true
-                fetchWeather()
-            })
+        PrefStore.readAll("weather", ["unit", "city"], function(results) {
+            if (results.unit) root.degreeUnit = results.unit
+            if (results.city) root.customCity = results.city
+            root.ready = true
+            fetchWeather()
         })
     }
 }

@@ -423,7 +423,7 @@ Panel {
 
                         ThemeText {
                             text: "Auto (IP)"
-                            anchors { left: parent.left; leftMargin: 30; verticalCenter: parent.verticalCenter }
+                            anchors { left: parent.left; leftMargin: 3 * Theme.margin; verticalCenter: parent.verticalCenter }
                         }
 
                         MouseArea {
@@ -448,13 +448,13 @@ Panel {
 
                         ThemeText {
                             text: "Custom..."
-                            anchors { left: parent.left; leftMargin: 30; right: parent.right; rightMargin: Theme.margin; verticalCenter: parent.verticalCenter }
+                            anchors { left: parent.left; leftMargin: 3 * Theme.margin; right: parent.right; rightMargin: Theme.margin; verticalCenter: parent.verticalCenter }
                             visible: !root.cityEditing
                         }
 
                         TextInput {
                             visible: root.cityEditing
-                            anchors { left: parent.left; leftMargin: 30; right: parent.right; rightMargin: Theme.margin; verticalCenter: parent.verticalCenter }
+                            anchors { left: parent.left; leftMargin: 3 * Theme.margin; right: parent.right; rightMargin: Theme.margin; verticalCenter: parent.verticalCenter }
                             color: Colors.foreground
                             font.pixelSize: Theme.fontPixelSize
                             font.family: Theme.fontFamily
@@ -553,7 +553,7 @@ Panel {
 
                         ThemeText {
                             text: "Fahrenheit"
-                            anchors { left: parent.left; leftMargin: 30; verticalCenter: parent.verticalCenter }
+                            anchors { left: parent.left; leftMargin: 3 * Theme.margin; verticalCenter: parent.verticalCenter }
                         }
 
                         MouseArea {
@@ -581,7 +581,7 @@ Panel {
 
                         ThemeText {
                             text: "Celsius"
-                            anchors { left: parent.left; leftMargin: 30; verticalCenter: parent.verticalCenter }
+                            anchors { left: parent.left; leftMargin: 3 * Theme.margin; verticalCenter: parent.verticalCenter }
                         }
 
                         MouseArea {

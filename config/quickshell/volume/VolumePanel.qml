@@ -61,7 +61,7 @@ Panel {
 
     // VU-meter peak polling. Uses Theme.peakFps (was a local copy).
     readonly property int peakFps: Theme.peakFps
-    readonly property real peakDecay: 0.05
+    readonly property real peakDecay: Theme.peakDecay
 
     Timer {
         interval: 1000 / Math.max(1, root.peakFps)
