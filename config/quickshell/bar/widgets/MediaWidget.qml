@@ -1,14 +1,13 @@
 import "../../theme"
 import "../../util"
 import QtQuick
-import Quickshell
 import Quickshell.Services.Mpris
 
-Item {
+WidgetButton {
     id: root
     width: 30 + Theme.margin + textMetrics.width + 2 * Theme.margin
-    height: Theme.barHeight
     clip: true
+    panel: Panels.media
 
     property var currentPlayer: MprisSelector.currentPlayer
 
@@ -27,6 +26,8 @@ Item {
             root.peakLevels = Array(Theme.peakBands).fill(0)
     }
 
+    // Fixed marquee clip width — the widget shows at most ~8 characters
+    // and scrolls longer titles through it.
     TextMetrics {
         id: textMetrics
         font.family: Theme.fontFamily
@@ -51,8 +52,8 @@ Item {
     onDisplayTextChanged: resetScroll()
 
     // Peak visualizer — decorative, not a real spectrum.
-    // Raw peak comes from OsdModel.sinkPeak (one shared PwNodePeakMonitor
-    // for all screens) instead of a per-instance monitor.
+    // Raw peak comes from MprisSelector.sinkPeak (one shared
+    // PwNodePeakMonitor for all screens) instead of a per-instance monitor.
     Timer {
         interval: 1000 / Theme.peakFps
         running: root.visible && playbackState === MprisPlaybackState.Playing
@@ -69,16 +70,6 @@ Item {
             }
             root.peakLevels = arr
         }
-    }
-
-    Rectangle {
-        x: contentRow.x - Theme.margin
-        y: 0
-        width: contentRow.width + 2 * Theme.margin
-        height: Theme.barHeight
-        color: mouseArea.containsMouse
-            ? Qt.alpha(Colors.foreground, Theme.alphaHover)
-            : "transparent"
     }
 
     Item {
@@ -126,25 +117,16 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 x: 0
 
-                Text {
+                ThemeText {
                     id: t1
                     text: root.displayText !== "" ? root.displayText : "--------"
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
-                    color: Colors.foreground
                 }
-                Text {
+                ThemeText {
                     id: sep
                     text: root.displayText !== "" ? " " : ""
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
-                    color: Colors.foreground
                 }
-                Text {
+                ThemeText {
                     text: root.displayText !== "" ? root.displayText : ""
-                    font.pixelSize: Theme.fontPixelSize
-                    font.family: Theme.fontFamily
-                    color: Colors.foreground
                 }
             }
 
@@ -160,13 +142,5 @@ Item {
                 easing.type: Easing.Linear
             }
         }
-    }
-
-    MouseArea {
-        id: mouseArea
-        anchors.fill: parent
-        hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
-        onClicked: Panels.toggle(Panels.media)
     }
 }

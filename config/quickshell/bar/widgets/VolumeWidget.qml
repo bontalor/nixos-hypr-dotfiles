@@ -7,8 +7,6 @@ import Quickshell.Services.Pipewire
 WidgetButton {
     id: root
 
-    width: volText.width + 2 * Theme.margin
-
     PwObjectTracker {
         objects: [Pipewire.defaultAudioSink]
     }
@@ -35,14 +33,5 @@ WidgetButton {
             var newVol = Pipewire.defaultAudioSink.audio.volume + (wheel.angleDelta.y > 0 ? step : -step)
             Pipewire.defaultAudioSink.audio.volume = Math.max(0, Math.min(1, newVol))
         }
-    }
-
-    // Hidden text for width measurement (WidgetButton owns the visible label).
-    Text {
-        id: volText
-        visible: false
-        text: root.label
-        font.pixelSize: Theme.fontPixelSize
-        font.family: Theme.fontFamily
     }
 }

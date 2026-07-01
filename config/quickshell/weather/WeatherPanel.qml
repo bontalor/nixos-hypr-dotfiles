@@ -1,10 +1,6 @@
 import "../theme"
-import "../util"
 import "."
 import QtQuick
-import QtQuick.Controls
-import Quickshell
-import Quickshell.Io
 
 Panel {
     id: root
@@ -16,9 +12,6 @@ Panel {
         { name: "Configuration" }
     ]
 
-    useDefaultKeys: false
-    autoScroll: false
-
     // --- Named section/config indices (replace magic numbers) ---
     readonly property int secWeather: 0
     readonly property int secAstronomy: 1
@@ -29,9 +22,15 @@ Panel {
     readonly property int cfgItemUnit: 1
     readonly property int maxConfigProfiles: 2
 
-    property bool configExpanded: false
-    property int selConfigItem: 0
-    property int selConfigProfile: 0
+    // Panel's expandable-config mode drives all keyboard navigation for
+    // the Configuration section. Only the inline city TextInput flow
+    // (cityEditing) is panel-specific.
+    expandSection: secConfig
+    configItemCount: function() { return 2 }
+    configProfileCount: function() { return root.maxConfigProfiles }
+    onConfigActivated: root.activateConfigItem()
+
+    currentModelLength: function() { return WeatherModel.dataReady ? 1 : 0 }
 
     property bool cityEditing: false
     property string cityInputText: ""
@@ -41,40 +40,9 @@ Panel {
     // to the previous zero-interval Timer workaround.
     function deferredFocus() { Qt.callLater(root.forceFocus) }
 
-    function currentModelLength() {
-        if (root.selSection === root.secConfig) return 2
-        return WeatherModel.dataReady ? 1 : 0
-    }
-
     onShown: {
         WeatherModel.fetchWeather()
-        root.configExpanded = false
         root.cityEditing = false
-    }
-
-    onSelDeviceChanged: root.scrollSelectionIntoView()
-    onSelConfigItemChanged: root.scrollSelectionIntoView()
-    onSelConfigProfileChanged: root.scrollSelectionIntoView()
-    onInSectionChanged: if (root.inSection) root.scrollSelectionIntoView()
-    onConfigExpandedChanged: if (root.inSection && root.configExpanded) root.scrollSelectionIntoView()
-
-    function scrollSelectionIntoView() {
-        if (!root.inSection) return
-        var y, h
-        if (root.selSection < root.secConfig) {
-            y = root.headerHeight + root.colSpacing
-            h = root.rowHeight
-        } else if (root.configExpanded) {
-            y = root.headerHeight + root.colSpacing
-              + root.selConfigItem * (root.rowHeight + root.colSpacing)
-              + root.rowHeight + root.selConfigProfile * Theme.searchRowHeight
-            h = Theme.searchRowHeight
-        } else {
-            y = root.headerHeight + root.colSpacing
-              + root.selConfigItem * (root.rowHeight + root.colSpacing)
-            h = root.rowHeight
-        }
-        root.scrollToVisible(y, h)
     }
 
     readonly property var cc: {
@@ -99,32 +67,6 @@ Panel {
         if (!a0.region || !a0.region.length) return null
         if (!a0.country || !a0.country.length) return null
         return a0
-    }
-
-    // --- Navigation helpers ---
-
-    function navDown() {
-        if (root.selSection === root.secConfig && root.configExpanded && root.inSection) {
-            root.selConfigProfile = Scroll.clamp(root.selConfigProfile + 1, 0, root.maxConfigProfiles - 1)
-        } else if (root.selSection === root.secConfig && root.inSection) {
-            root.selConfigItem = Scroll.clamp(root.selConfigItem + 1, 0, 1)
-        } else if (root.inSection) {
-            root.selDevice = Scroll.step(root.selDevice, 1, root.currentModelLength())
-        } else {
-            root.selSection = Scroll.clamp(root.selSection + 1, 0, root.sections.length - 1)
-        }
-    }
-
-    function navUp() {
-        if (root.selSection === root.secConfig && root.configExpanded && root.inSection) {
-            root.selConfigProfile = Scroll.clamp(root.selConfigProfile - 1, 0, root.maxConfigProfiles - 1)
-        } else if (root.selSection === root.secConfig && root.inSection) {
-            root.selConfigItem = Scroll.clamp(root.selConfigItem - 1, 0, 1)
-        } else if (root.inSection) {
-            root.selDevice = Scroll.step(root.selDevice, -1, root.currentModelLength())
-        } else {
-            root.selSection = Scroll.clamp(root.selSection - 1, 0, root.sections.length - 1)
-        }
     }
 
     function activateConfigItem() {
@@ -152,207 +94,113 @@ Panel {
         }
     }
 
+    // Escape / Shift+Tab back out of the city-editing flow before the
+    // default handler collapses anything. Runs before Panel.handleKey;
+    // accepting the event pre-empts it.
     onKeyPressed: function(event) {
-        switch (event.key) {
-        case Qt.Key_Tab:
-            if (event.modifiers & Qt.ShiftModifier) {
-                if (root.cityEditing) { root.cityEditing = false; root.deferredFocus() }
-                else if (root.selSection === root.secConfig && root.configExpanded) root.configExpanded = false
-                else if (root.inSection) root.inSection = false
-                else root.selSection = Scroll.clamp(root.selSection - 1, 0, root.sections.length - 1)
-            } else if (root.selSection === root.secConfig && root.inSection) {
-                if (root.configExpanded) root.configExpanded = false
-                else { root.configExpanded = true; root.selConfigProfile = 0 }
-            } else if (root.inSection) {
-                root.selDevice = Scroll.step(root.selDevice, 1, root.currentModelLength())
-            } else {
-                root.inSection = true; root.selDevice = 0
-            }
-            event.accepted = true; break
-        case Qt.Key_Backtab:
-            if (root.selSection === root.secConfig && root.configExpanded) root.configExpanded = false
-            else if (root.inSection) root.inSection = false
-            event.accepted = true; break
-        case Qt.Key_Return:
-        case Qt.Key_Enter:
-            if (root.selSection === root.secConfig && root.inSection && root.configExpanded) {
-                root.activateConfigItem()
-            } else if (root.selSection === root.secConfig && root.inSection && !root.configExpanded) {
-                root.configExpanded = true; root.selConfigProfile = 0
-            } else if (!root.inSection) {
-                root.inSection = true; root.selDevice = 0
-            }
-            event.accepted = true; break
-        case Qt.Key_J:
-        case Qt.Key_Down:
-            root.navDown(); event.accepted = true; break
-        case Qt.Key_K:
-        case Qt.Key_Up:
-            root.navUp(); event.accepted = true; break
-        case Qt.Key_Escape:
-            if (root.cityEditing) { root.cityEditing = false; root.deferredFocus() }
-            else if (root.selSection === root.secConfig && root.configExpanded) root.configExpanded = false
-            else root.visible = false
-            event.accepted = true; break
+        if (!root.cityEditing) return
+        if (event.key === Qt.Key_Escape
+            || (event.key === Qt.Key_Tab && (event.modifiers & Qt.ShiftModifier))
+            || event.key === Qt.Key_Backtab) {
+            root.cityEditing = false
+            root.deferredFocus()
+            event.accepted = true
         }
     }
 
     // ---- Section 0: Current conditions ----
     Column {
         width: parent.width
-        spacing: root.colSpacing
+        spacing: Theme.margin
         visible: root.selSection === root.secWeather
 
-        // Height derived from content count, not a magic `30 * 10`.
-        Item {
+        Column {
             width: parent.width
-            height: WeatherModel.dataReady ? 10 * (Theme.fontPixelSize + Theme.margin) : Theme.searchRowHeight
+            spacing: Theme.margin
+            visible: WeatherModel.dataReady
 
-            Column {
-                anchors.fill: parent
-                spacing: Theme.margin
-
-                ThemeText {
-                    visible: WeatherModel.dataReady
-                    text: WeatherModel.currentSummary
-                    font.pixelSize: 32
-                    font.bold: true
-                }
-
-                ThemeText {
-                    visible: WeatherModel.dataReady
-                    text: root.cc ? WeatherCodes.desc(root.cc.weatherCode) : ""
-                }
-
-                ThemeText {
-                    visible: WeatherModel.dataReady
-                    text: root.cc ? "Feels like " + (WeatherModel.degreeUnit === "F" ? root.cc.FeelsLikeF : root.cc.FeelsLikeC) + "°" + WeatherModel.degreeUnit : ""
-                }
-
-                ThemeText {
-                    visible: WeatherModel.dataReady
-                    text: root.cc ? "Humidity: " + root.cc.humidity + "%" : ""
-                }
-
-                ThemeText {
-                    visible: WeatherModel.dataReady
-                    text: root.cc ? "Wind: " + root.cc.windspeedKmph + " km/h " + root.cc.winddir16Point : ""
-                }
-
-                ThemeText {
-                    visible: WeatherModel.dataReady
-                    text: root.cc ? "UV Index: " + root.cc.uvIndex : ""
-                }
-
-                ThemeText {
-                    visible: WeatherModel.dataReady
-                    text: root.cc ? "Pressure: " + root.cc.pressure + " mb" : ""
-                }
-
-                ThemeText {
-                    visible: WeatherModel.dataReady
-                    text: root.cc ? "Visibility: " + root.cc.visibility + " km" : ""
-                }
-
-                ThemeText {
-                    visible: WeatherModel.dataReady
-                    text: root.cc ? "Cloud cover: " + root.cc.cloudcover + "%" : ""
-                }
-
-                ThemeText {
-                    visible: !WeatherModel.dataReady
-                    text: WeatherModel.fetchError ? "Fetch failed: " + WeatherModel.fetchError : "Fetching weather data..."
-                    color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
-                }
+            ThemeText {
+                text: WeatherModel.currentSummary
+                font.pixelSize: 32
+                font.bold: true
             }
+
+            ThemeText { text: root.cc ? WeatherCodes.desc(root.cc.weatherCode) : "" }
+            ThemeText { text: root.cc ? "Feels like " + (WeatherModel.degreeUnit === "F" ? root.cc.FeelsLikeF : root.cc.FeelsLikeC) + "°" + WeatherModel.degreeUnit : "" }
+            ThemeText { text: root.cc ? "Humidity: " + root.cc.humidity + "%" : "" }
+            ThemeText { text: root.cc ? "Wind: " + root.cc.windspeedKmph + " km/h " + root.cc.winddir16Point : "" }
+            ThemeText { text: root.cc ? "UV Index: " + root.cc.uvIndex : "" }
+            ThemeText { text: root.cc ? "Pressure: " + root.cc.pressure + " mb" : "" }
+            ThemeText { text: root.cc ? "Visibility: " + root.cc.visibility + " km" : "" }
+            ThemeText { text: root.cc ? "Cloud cover: " + root.cc.cloudcover + "%" : "" }
+        }
+
+        ThemeText {
+            visible: !WeatherModel.dataReady
+            text: WeatherModel.fetchError ? "Fetch failed: " + WeatherModel.fetchError : "Fetching weather data..."
+            color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
         }
     }
 
     // ---- Section 1: Astronomy ----
     Column {
         width: parent.width
-        spacing: root.colSpacing
+        spacing: Theme.margin
         visible: root.selSection === root.secAstronomy
 
-        Item {
+        Column {
             width: parent.width
-            height: WeatherModel.dataReady ? 6 * (Theme.fontPixelSize + Theme.margin) : Theme.searchRowHeight
+            spacing: Theme.margin
+            visible: WeatherModel.dataReady
 
-            Column {
-                anchors.fill: parent
-                spacing: Theme.margin
-
-                ThemeText {
-                    visible: WeatherModel.dataReady
-                    text: WeatherModel.dataReady ? WeatherModel.moonIcon + " " + WeatherModel.moonPhase : ""
-                    font.pixelSize: 32
-                    font.bold: true
-                }
-
-                ThemeText {
-                    visible: WeatherModel.dataReady
-                    text: WeatherModel.dataReady ? "Illumination: " + WeatherModel.moonIllumination + "%" : ""
-                }
-
-                ThemeText {
-                    visible: WeatherModel.dataReady && root.astro !== null
-                    text: root.astro ? "Moonrise: " + root.astro.moonrise : ""
-                }
-
-                ThemeText {
-                    visible: WeatherModel.dataReady && root.astro !== null
-                    text: root.astro ? "Moonset: " + root.astro.moonset : ""
-                }
-
-                ThemeText {
-                    visible: WeatherModel.dataReady
-                    text: WeatherModel.dataReady ? "Next full moon: " + WeatherModel.nextFullMoon : ""
-                }
-
-                ThemeText {
-                    visible: !WeatherModel.dataReady
-                    text: "Fetching astronomy data..."
-                    color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
-                }
+            ThemeText {
+                text: WeatherModel.moonIcon + " " + WeatherModel.moonPhase
+                font.pixelSize: 32
+                font.bold: true
             }
+
+            ThemeText { text: "Illumination: " + WeatherModel.moonIllumination + "%" }
+
+            ThemeText {
+                visible: root.astro !== null
+                text: root.astro ? "Moonrise: " + root.astro.moonrise : ""
+            }
+
+            ThemeText {
+                visible: root.astro !== null
+                text: root.astro ? "Moonset: " + root.astro.moonset : ""
+            }
+
+            ThemeText { text: "Next full moon: " + WeatherModel.nextFullMoon }
+        }
+
+        ThemeText {
+            visible: !WeatherModel.dataReady
+            text: "Fetching astronomy data..."
+            color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
         }
     }
 
     // ---- Section 2: Location ----
     Column {
         width: parent.width
-        spacing: root.colSpacing
+        spacing: Theme.margin
         visible: root.selSection === root.secLocation
 
-        Item {
+        Column {
             width: parent.width
-            height: WeatherModel.dataReady ? 3 * (Theme.fontPixelSize + Theme.margin) : Theme.searchRowHeight
+            spacing: Theme.margin
+            visible: WeatherModel.dataReady
 
-            Column {
-                anchors.fill: parent
-                spacing: Theme.margin
+            ThemeText { text: root.area ? root.area.areaName[0].value : "" }
+            ThemeText { text: root.area ? root.area.region[0].value + ", " + root.area.country[0].value : "" }
+            ThemeText { text: "Using: " + (WeatherModel.customCity || "Auto (IP)") }
+        }
 
-                ThemeText {
-                    visible: WeatherModel.dataReady
-                    text: root.area ? root.area.areaName[0].value : ""
-                }
-
-                ThemeText {
-                    visible: WeatherModel.dataReady
-                    text: root.area ? root.area.region[0].value + ", " + root.area.country[0].value : ""
-                }
-
-                ThemeText {
-                    visible: WeatherModel.dataReady
-                    text: "Using: " + (WeatherModel.customCity || "Auto (IP)")
-                }
-
-                ThemeText {
-                    visible: !WeatherModel.dataReady
-                    text: "Fetching location data..."
-                    color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
-                }
-            }
+        ThemeText {
+            visible: !WeatherModel.dataReady
+            text: "Fetching location data..."
+            color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
         }
     }
 

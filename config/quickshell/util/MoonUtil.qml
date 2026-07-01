@@ -2,7 +2,6 @@ pragma Singleton
 
 import QtQuick
 import Quickshell
-import "../theme"  // FormatUtil
 
 // Lunar / moon-phase math. Pure functions over a small set of constants.
 // Split out of the former Util.qml so astronomy has a home separate from

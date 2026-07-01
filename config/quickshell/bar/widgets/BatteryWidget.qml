@@ -8,9 +8,13 @@ WidgetButton {
 
     property int batteryPercent: BatteryModel.percentage
     property bool isCharging: BatteryModel.charging
-    property string activeProfile: BatteryModel.activeProfile
 
-    label: computeStatusText(batteryPercent, isCharging, activeProfile)
+    // Glyph comes straight from the shared profiles table — no
+    // string-name → icon mapping to keep in sync.
+    property string profileSymbol: BatteryModel.profileIndex >= 0
+        ? BatteryModel.profiles[BatteryModel.profileIndex].icon : ""
+
+    label: computeStatusText(batteryPercent, isCharging, profileSymbol)
     labelColor: {
         if (batteryPercent < 0) return Colors.foreground
         if (batteryPercent <= Theme.batteryCritical) return Colors.critical
@@ -19,18 +23,9 @@ WidgetButton {
     }
     panel: Panels.battery
 
-    function computeStatusText(pct, charging, profile) {
-        var profileSymbol = ""
-        var p = (profile || "").toLowerCase()
-        if (p === "performance") profileSymbol = Icon.bolt
-        else if (p === "balanced") profileSymbol = Icon.balance
-        else if (p === "power-saver") profileSymbol = Icon.leaf
-
+    function computeStatusText(pct, charging, profileSymbol) {
         if (pct < 0) return "Bat ---- " + profileSymbol
-
         var plugSymbol = charging ? Icon.plug + " " : ""
-        var pctStr = FormatUtil.padNum(pct, 3)
-
-        return "Bat " + pctStr + "% " + profileSymbol + " " + plugSymbol
+        return "Bat " + FormatUtil.padNum(pct, 3) + "% " + profileSymbol + " " + plugSymbol
     }
 }

@@ -5,6 +5,7 @@
 //
 // Properties:
 //   label        — header row text (computed by caller, e.g. "City: Auto")
+//   sublabel     — optional dimmed second line (e.g. the active profile)
 //   isSelected   — whether this item is keyboard-selected (for highlight)
 //   isExpanded   — whether the profile sub-list is currently open
 //   profileCount — number of profile rows (drives the height calculation)
@@ -19,6 +20,7 @@ import QtQuick
 Item {
     id: root
     property string label: ""
+    property string sublabel: ""
     property bool isSelected: false
     property bool isExpanded: false
     property int profileCount: 0
@@ -47,7 +49,25 @@ Item {
 
             ThemeText {
                 text: root.label
-                anchors { left: parent.left; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
+                anchors {
+                    left: parent.left; leftMargin: Theme.margin
+                    right: parent.right; rightMargin: Theme.margin
+                }
+                anchors.verticalCenter: root.sublabel === "" ? parent.verticalCenter : undefined
+                y: root.sublabel === "" ? 0 : 4
+                elide: Text.ElideRight
+            }
+
+            ThemeText {
+                visible: root.sublabel !== ""
+                text: root.sublabel
+                anchors {
+                    left: parent.left; leftMargin: Theme.margin
+                    right: parent.right; rightMargin: Theme.margin
+                    top: parent.top; topMargin: 24
+                }
+                color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
+                elide: Text.ElideRight
             }
 
             MouseArea {

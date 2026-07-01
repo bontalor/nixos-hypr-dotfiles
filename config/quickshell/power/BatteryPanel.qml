@@ -17,7 +17,7 @@ Panel {
     currentModelLength: function() {
         switch (root.selSection) {
         case 0: return BatteryModel.batteryDevices.length
-        case 1: return root.powerProfiles.count
+        case 1: return root.powerProfiles.length
         default: return 0
         }
     }
@@ -27,7 +27,7 @@ Panel {
             var dev = BatteryModel.batteryDevices[idx]
             if (dev) BatteryModel.selectDevice(dev.nativePath)
         } else if (root.selSection === 1) {
-            var entry = root.powerProfiles.get(idx)
+            var entry = root.powerProfiles[idx]
             if (entry) BatteryModel.setProfile(entry.enumVal)
         }
     }
@@ -119,17 +119,15 @@ Panel {
             delegate: PanelRow {
                 width: parent.width
                 height: root.rowHeight
-                required property string name
-                required property int enumVal
-                required property string icon
+                required property var modelData
                 required property int index
 
-                property bool isActive: BatteryModel.profileIndex === enumVal
+                property bool isActive: BatteryModel.profileIndex === modelData.enumVal
 
                 selected: root.inSection && index === root.selDevice
                 onClicked: {
                     if (!root.inSection) { root.inSection = true; root.selDevice = index }
-                    if (!isActive) BatteryModel.setProfile(enumVal)
+                    if (!isActive) BatteryModel.setProfile(modelData.enumVal)
                 }
 
                 Row {
@@ -137,13 +135,13 @@ Panel {
                     spacing: 8
 
                     ThemeText {
-                        text: icon
+                        text: modelData.icon
                         color: isActive ? Colors.base0b : Qt.alpha(Colors.foreground, Theme.alphaBackground)
                         verticalAlignment: Text.AlignVCenter
                     }
 
                     ThemeText {
-                        text: name
+                        text: modelData.name
                         color: isActive ? Colors.base0b : Colors.foreground
                         font.bold: isActive
                         verticalAlignment: Text.AlignVCenter

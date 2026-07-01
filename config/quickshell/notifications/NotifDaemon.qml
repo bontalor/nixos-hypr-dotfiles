@@ -30,6 +30,10 @@ Singleton {
     // anti-pattern (no static analysis, per-notif QObject allocation).
     property var pendingExpiries: ({})
 
+    // Mirror of the map's size (plain-object mutations don't notify) so
+    // the scan timer only runs while something is actually pending.
+    property int pendingCount: 0
+
     NotificationServer {
         id: server
         keepOnReload: true
@@ -44,10 +48,11 @@ Singleton {
 
     // Single recurring timer that scans pendingExpiries for due entries.
     // 1s granularity matches the OSD hide timer and is fine for 5s expiries.
+    // Gated on pendingCount so the shell is fully idle with no popups up.
     Timer {
         interval: 1000
         repeat: true
-        running: true
+        running: root.pendingCount > 0
         onTriggered: root.scanExpiries()
     }
 
@@ -90,6 +95,7 @@ Singleton {
             notification: notification,
             expireAt: Date.now() + ms
         }
+        root.pendingCount = Object.keys(root.pendingExpiries).length
     }
 
     function scanExpiries() {
@@ -103,6 +109,7 @@ Singleton {
             delete root.pendingExpiries[due[i]]
             try { entry.notification.expire() } catch (e) {}
         }
+        root.pendingCount = Object.keys(root.pendingExpiries).length
     }
 
     function dismissPopup(notifId) {

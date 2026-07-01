@@ -20,16 +20,10 @@ FloatingWindow {
     property int selected: 0
     property int columns: 4
 
-    // The last-applied wallpaper path, persisted across sessions. Loaded
-    // on startup; used to set `selected` to the matching index when the
+    // The last-applied wallpaper path, persisted across sessions via
+    // PrefStore; used to set `selected` to the matching index when the
     // picker opens.
-    property string lastWallpaper: ""
-
-    Component.onCompleted: {
-        PrefStore.read("wallpaper", "selected", function(text) {
-            root.lastWallpaper = text
-        })
-    }
+    property string lastWallpaper: PrefStore.wallpaper
 
     // Cache the wallpaper list once per scan instead of rescanning the
     // directory every time the picker is opened. FolderListModel watches
@@ -62,7 +56,7 @@ FloatingWindow {
 
     FolderListModel {
         id: wallpaperModel
-        folder: "file://" + Quickshell.env("HOME") + "/walls"
+        folder: "file://" + Paths.wallpaperDir
         nameFilters: ["*.jpg", "*.jpeg", "*.png", "*.gif", "*.webp", "*.bmp"]
         sortField: FolderListModel.Name
         showDirs: false
@@ -105,12 +99,11 @@ FloatingWindow {
         function applyWallpaper() {
             if (wallpaperList.length === 0) return
             var path = wallpaperList[root.selected].path
-            setter.command = [Quickshell.env("HOME") + "/.local/bin/setwall", path]
+            setter.command = [Paths.setwallBin, path]
             setter.running = true
             // Persist the selected path so the picker reopens at the
-            // last-applied wallpaper.
-            root.lastWallpaper = path
-            PrefStore.write("wallpaper", "selected", path)
+            // last-applied wallpaper (lastWallpaper follows via binding).
+            PrefStore.wallpaper = path
             root.visible = false
         }
 

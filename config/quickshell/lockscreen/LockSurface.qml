@@ -14,7 +14,7 @@ Rectangle {
 
     FileView {
         id: wallpaperFile
-        path: Quickshell.env("HOME") + "/.cache/wal/wal"
+        path: Paths.walWallpaper
         watchChanges: true
         onLoaded: root.wallpaperPath = text().trim()
         onFileChanged: root.wallpaperPath = text().trim()

@@ -20,9 +20,8 @@ import "../theme"
 //   deviceName(d)         human-readable name for a device
 //   stateText(d)          human-readable state string
 //   selectDevice(path)    pick which device the widget tracks (persisted)
-//   activeProfile         string ("power-saver"/"balanced"/"performance")
 //   profileIndex          int index into `profiles`
-//   profiles              ListModel of { name, enumVal, icon }
+//   profiles              array of { name, enumVal, icon }
 //   setProfile(index)     switch the active profile by list index
 
 Singleton {
@@ -46,9 +45,9 @@ Singleton {
     }
 
     // Persisted selection by nativePath (stable across device add/remove).
-    // Falls back to the first available battery device. Set via
-    // selectDevice() (which persists) or primed at startup by PrefStore.
-    property string selectedNativePath: ""
+    // Falls back to the first available battery device. selectDevice()
+    // writes the pref; the binding keeps this in sync with the store.
+    readonly property string selectedNativePath: PrefStore.batteryDevice
 
     readonly property var activeDevice: {
         if (root.selectedNativePath) {
@@ -94,21 +93,11 @@ Singleton {
     }
 
     function selectDevice(nativePath) {
-        root.selectedNativePath = nativePath
-        PrefStore.write("battery", "selected", nativePath)
+        PrefStore.batteryDevice = nativePath
     }
 
     // --- Power profiles ---
     readonly property var _profileEnum: PowerProfiles.profile
-
-    readonly property string activeProfile: {
-        switch (root._profileEnum) {
-        case PowerProfile.Performance: return "performance"
-        case PowerProfile.Balanced:    return "balanced"
-        case PowerProfile.PowerSaver:  return "power-saver"
-        default:                       return ""
-        }
-    }
 
     readonly property int profileIndex: {
         switch (root._profileEnum) {
@@ -120,12 +109,13 @@ Singleton {
     }
 
     // Single source of truth for profile metadata: name, enum value,
-    // and icon glyph. profileIndex/setProfile index into this list.
-    property var profiles: ListModel {
-        ListElement { name: "Performance"; enumVal: 0; icon: "\uf0e7" }
-        ListElement { name: "Balanced";    enumVal: 1; icon: "\uf0eb" }
-        ListElement { name: "Power Saver"; enumVal: 2; icon: "\uf06c" }
-    }
+    // and icon glyph (shared with the bar via Icon rather than
+    // duplicating codepoints). profileIndex/setProfile index into this.
+    readonly property var profiles: [
+        { name: "Performance", enumVal: 0, icon: Icon.bolt },
+        { name: "Balanced",    enumVal: 1, icon: Icon.balance },
+        { name: "Power Saver", enumVal: 2, icon: Icon.leaf }
+    ]
 
     function setProfile(index) {
         switch (index) {
@@ -133,11 +123,5 @@ Singleton {
         case 1: PowerProfiles.profile = PowerProfile.Balanced; break
         case 2: PowerProfiles.profile = PowerProfile.PowerSaver; break
         }
-    }
-
-    Component.onCompleted: {
-        PrefStore.read("battery", "selected", function(text) {
-            if (text) root.selectedNativePath = text
-        })
     }
 }

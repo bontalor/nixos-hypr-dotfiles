@@ -1,10 +1,8 @@
 import "../theme"
 import "../util"
 import QtQuick
-import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Pipewire
-import Quickshell.Widgets
 
 Panel {
     id: root
@@ -17,10 +15,24 @@ Panel {
         { name: "Configuration" }
     ]
 
-    useDefaultKeys: false
-    autoScroll: false
-
     readonly property int secConfig: 4
+
+    // Panel's expandable-config mode drives all keyboard navigation for
+    // the Configuration section (expand/collapse, profile selection,
+    // scroll-into-view). Only the H/L volume keys are panel-specific.
+    expandSection: secConfig
+    configItemCount: function() { return root.configDevices.length }
+    configProfileCount: function() {
+        var dev = root.configDevices[root.selConfigItem]
+        return dev ? dev.profiles.length : 0
+    }
+    onConfigActivated: {
+        var dev = root.configDevices[root.selConfigItem]
+        if (dev && root.selConfigProfile < dev.profiles.length)
+            root.setConfigProfile(dev.id, dev.profiles[root.selConfigProfile].index)
+    }
+
+    currentModelLength: function() { return root.currentModel().length }
 
     PwObjectTracker {
         id: nodeTracker
@@ -55,9 +67,6 @@ Panel {
     property var sourceNodes: allNodes.sourceNodes
 
     property var configDevices: []
-    property int selConfigDevice: 0
-    property bool configExpanded: false
-    property int selConfigProfile: 0
 
     Timer {
         interval: 1000 / Math.max(1, Theme.peakFps)
@@ -178,115 +187,22 @@ Panel {
         }
     }
 
-    onSelDeviceChanged: root.scrollSelectionIntoView()
-    onSelConfigDeviceChanged: root.scrollSelectionIntoView()
-    onSelConfigProfileChanged: root.scrollSelectionIntoView()
-    onInSectionChanged: if (root.inSection) root.scrollSelectionIntoView()
-    onConfigExpandedChanged: if (root.inSection && root.configExpanded) root.scrollSelectionIntoView()
+    onShown: refreshConfigDevices()
 
-    function scrollSelectionIntoView() {
-        if (!root.inSection) return
-        var y, h
-        if (root.selSection < root.secConfig) {
-            y = root.headerHeight + root.colSpacing + root.selDevice * (root.rowHeight + root.colSpacing)
-            h = root.rowHeight
-        } else if (root.configExpanded) {
-            y = root.headerHeight + root.colSpacing + root.selConfigDevice * (root.rowHeight + root.colSpacing) + root.rowHeight + root.selConfigProfile * Theme.searchRowHeight
-            h = Theme.searchRowHeight
-        } else {
-            y = root.headerHeight + root.colSpacing + root.selConfigDevice * (root.rowHeight + root.colSpacing)
-            h = root.rowHeight
-        }
-        root.scrollToVisible(y, h)
-    }
-
-    onShown: {
-        refreshConfigDevices()
-        root.configExpanded = false
-    }
-
-    // --- Navigation helpers ---
-
-    function navDown() {
-        if (root.selSection === root.secConfig && root.configExpanded && root.inSection && root.selConfigDevice < root.configDevices.length) {
-            var profiles = root.configDevices[root.selConfigDevice].profiles
-            root.selConfigProfile = Scroll.clamp(root.selConfigProfile + 1, 0, profiles.length - 1)
-        } else if (root.selSection === root.secConfig && root.inSection) {
-            root.selConfigDevice = Scroll.clamp(root.selConfigDevice + 1, 0, Math.max(0, root.configDevices.length - 1))
-        } else if (root.inSection) {
-            root.selDevice = Scroll.step(root.selDevice, 1, root.currentModel().length)
-        } else {
-            root.selSection = Scroll.clamp(root.selSection + 1, 0, root.sections.length - 1)
-        }
-    }
-
-    function navUp() {
-        if (root.selSection === root.secConfig && root.configExpanded && root.inSection && root.selConfigDevice < root.configDevices.length) {
-            var profiles = root.configDevices[root.selConfigDevice].profiles
-            root.selConfigProfile = Scroll.clamp(root.selConfigProfile - 1, 0, profiles.length - 1)
-        } else if (root.selSection === root.secConfig && root.inSection) {
-            root.selConfigDevice = Scroll.clamp(root.selConfigDevice - 1, 0, Math.max(0, root.configDevices.length - 1))
-        } else if (root.inSection) {
-            root.selDevice = Scroll.step(root.selDevice, -1, root.currentModel().length)
-        } else {
-            root.selSection = Scroll.clamp(root.selSection - 1, 0, root.sections.length - 1)
-        }
-    }
-
+    // H/L adjust the selected node's volume in the Pipewire sections.
+    // Runs before Panel's default handler; accepting the event stops the
+    // (no-op) base H/L case from double-handling it.
     onKeyPressed: function(event) {
         switch (event.key) {
-        case Qt.Key_Tab:
-            if (root.selSection === root.secConfig && root.inSection) {
-                if (root.configExpanded) root.configExpanded = false
-                else { root.configExpanded = true; root.selConfigProfile = 0 }
-            } else if (root.selSection === root.secConfig && !root.inSection) {
-                root.inSection = true
-            } else if (event.modifiers & Qt.ShiftModifier) {
-                if (root.inSection) root.inSection = false
-                else root.selSection = Scroll.clamp(root.selSection - 1, 0, root.sections.length - 1)
-            } else if (root.inSection) {
-                root.selDevice = Scroll.step(root.selDevice, 1, root.currentModel().length)
-            } else {
-                root.inSection = true; root.selDevice = 0
-            }
-            event.accepted = true; break
-        case Qt.Key_Backtab:
-            if (root.selSection === root.secConfig && root.configExpanded) root.configExpanded = false
-            else if (root.inSection) root.inSection = false
-            event.accepted = true; break
         case Qt.Key_H:
         case Qt.Key_Left:
-            if (root.inSection && root.selSection < root.secConfig) root.changeVolume(-Theme.volumeStep)
+            if (root.inSection && root.selSection < root.secConfig)
+                root.changeVolume(-Theme.volumeStep)
             event.accepted = true; break
         case Qt.Key_L:
         case Qt.Key_Right:
-            if (root.inSection && root.selSection < root.secConfig) root.changeVolume(Theme.volumeStep)
-            event.accepted = true; break
-        case Qt.Key_Return:
-        case Qt.Key_Enter:
-            if (root.selSection === root.secConfig && root.inSection) {
-                if (root.configExpanded && root.selConfigDevice < root.configDevices.length) {
-                    var profiles = root.configDevices[root.selConfigDevice].profiles
-                    if (root.selConfigProfile >= 0 && root.selConfigProfile < profiles.length)
-                        root.setConfigProfile(root.configDevices[root.selConfigDevice].id, profiles[root.selConfigProfile].index)
-                } else if (!root.configExpanded && root.configDevices.length > 0) {
-                    root.configExpanded = true; root.selConfigProfile = 0
-                }
-            } else if (!root.inSection) {
-                root.inSection = true
-                if (root.selSection < root.secConfig) root.selDevice = 0
-            }
-            event.accepted = true; break
-        case Qt.Key_J:
-        case Qt.Key_Down:
-            root.navDown(); event.accepted = true; break
-        case Qt.Key_K:
-        case Qt.Key_Up:
-            root.navUp(); event.accepted = true; break
-        case Qt.Key_Escape:
-            if (root.selSection === root.secConfig && root.configExpanded) root.configExpanded = false
-            else if (root.inSection) root.inSection = false
-            else root.visible = false
+            if (root.inSection && root.selSection < root.secConfig)
+                root.changeVolume(Theme.volumeStep)
             event.accepted = true; break
         }
     }
@@ -444,102 +360,61 @@ Panel {
         Repeater {
             model: root.configDevices
 
-            delegate: Item {
-                width: parent.width
-                height: (root.configExpanded && index === root.selConfigDevice && root.inSection && root.selConfigDevice < root.configDevices.length)
-                        ? root.rowHeight + root.configDevices[root.selConfigDevice].profiles.length * Theme.searchRowHeight
-                        : root.rowHeight
+            delegate: ConfigExpandItem {
+                id: deviceItem
 
-                Rectangle {
-                    anchors.fill: parent
-                    color: (root.inSection && index === root.selConfigDevice) || configDevMouse.containsMouse
-                           ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
+                function currentProfileDesc() {
+                    for (var i = 0; i < modelData.profiles.length; i++) {
+                        if (modelData.profiles[i].index === modelData.currentProfile)
+                            return modelData.profiles[i].description
+                    }
+                    return ""
                 }
 
-                Column {
-                    width: parent.width
+                label: modelData.description
+                sublabel: currentProfileDesc()
+                isSelected: root.inSection && index === root.selConfigItem
+                isExpanded: root.configExpanded && root.inSection && index === root.selConfigItem
+                profileCount: modelData.profiles.length
+                onToggled: {
+                    if (!root.inSection) root.inSection = true
+                    if (root.configExpanded && root.selConfigItem === index) {
+                        root.configExpanded = false
+                    } else {
+                        root.selConfigItem = index
+                        root.configExpanded = true
+                        root.selConfigProfile = 0
+                    }
+                }
 
-                    Item {
+                Repeater {
+                    model: deviceItem.isExpanded ? modelData.profiles : []
+
+                    delegate: Rectangle {
                         width: parent.width
-                        height: root.rowHeight
+                        height: Theme.searchRowHeight
+                        color: index === root.selConfigProfile
+                               ? Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
+                               : configProfileMouse.containsMouse
+                                   ? Qt.alpha(Colors.base01, Theme.alphaSelected)
+                                   : Qt.alpha(Colors.base00, Theme.alphaBackground)
 
                         ThemeText {
-                            text: modelData.description
+                            text: modelData.description || modelData.name
                             anchors {
-                                left: parent.left; leftMargin: Theme.margin
-                                top: parent.top; topMargin: 4
+                                left: parent.left; leftMargin: 3 * Theme.margin
+                                verticalCenter: parent.verticalCenter
                             }
-                            elide: Text.ElideRight
-                            width: parent.width - 2 * Theme.margin
-                        }
-
-                        ThemeText {
-                            function currentProfileDesc() {
-                                for (var i = 0; i < modelData.profiles.length; i++) {
-                                    if (modelData.profiles[i].index === modelData.currentProfile)
-                                        return modelData.profiles[i].description
-                                }
-                                return ""
-                            }
-                            text: currentProfileDesc()
-                            anchors {
-                                left: parent.left; leftMargin: Theme.margin
-                                top: parent.top; topMargin: 24
-                            }
-                            color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
-                            elide: Text.ElideRight
-                            width: parent.width - 2 * Theme.margin
                         }
 
                         MouseArea {
-                            id: configDevMouse
+                            id: configProfileMouse
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
-                                if (!root.inSection) root.inSection = true
-                                if (root.configExpanded && root.selConfigDevice === index) {
-                                    root.configExpanded = false
-                                } else {
-                                    root.selConfigDevice = index
-                                    root.configExpanded = true
-                                    root.selConfigProfile = 0
-                                }
-                            }
-                        }
-                    }
-
-                    Repeater {
-                        model: root.configExpanded && root.inSection && index === root.selConfigDevice && root.selConfigDevice < root.configDevices.length
-                               ? root.configDevices[root.selConfigDevice].profiles
-                               : []
-
-                        delegate: Rectangle {
-                            width: parent.width
-                            height: Theme.searchRowHeight
-                            color: index === root.selConfigProfile
-                                   ? Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
-                                   : configProfileMouse.containsMouse
-                                       ? Qt.alpha(Colors.base01, Theme.alphaSelected)
-                                       : Qt.alpha(Colors.base00, Theme.alphaBackground)
-
-                            ThemeText {
-                                text: modelData.description || modelData.name
-                                anchors {
-                                    left: parent.left; leftMargin: 3 * Theme.margin
-                                    verticalCenter: parent.verticalCenter
-                                }
-                            }
-
-                            MouseArea {
-                                id: configProfileMouse
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    if (root.inSection)
-                                        root.setConfigProfile(root.configDevices[root.selConfigDevice].id, modelData.index)
-                                }
+                                if (root.inSection)
+                                    root.setConfigProfile(root.configDevices[root.selConfigItem].id, modelData.index)
                             }
                         }
                     }

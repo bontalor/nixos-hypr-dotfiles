@@ -2,7 +2,13 @@
   "permissions": {
     "allow": [
       "Bash(sed -i '/    \\\\/\\\\/ Moon phases/,/    property string moonWaningCrescent/d' /home/bonta/.config/quickshell/theme/Icon.qml)",
-      "Bash(sed -i '/^$/N;/^\\\\n$/d' /home/bonta/.config/quickshell/theme/Icon.qml)"
+      "Bash(sed -i '/^$/N;/^\\\\n$/d' /home/bonta/.config/quickshell/theme/Icon.qml)",
+      "Read(//home/bonta/.local/state/**)",
+      "Read(//home/bonta/.local/state/quickshell/**)",
+      "Bash(qs log *)",
+      "Bash(journalctl --user -u quickshell --no-pager -n 40)",
+      "Bash(timeout 6 qs -p lockscreen/test.qml)",
+      "Bash(grep -iv \"^\\\\s*$\")"
     ]
   }
 }

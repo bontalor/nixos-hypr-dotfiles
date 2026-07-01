@@ -1,4 +1,5 @@
 import "../theme"
+import "../util"
 import "."
 import QtQuick
 import Quickshell
@@ -12,7 +13,7 @@ SearchPanel {
     property var allEmojis: []
 
     FileView {
-        path: Quickshell.env("HOME") + "/.local/share/emoji-test.txt"
+        path: Paths.emojiData
         watchChanges: true
         onLoaded: root.parseEmojis(text())
         onFileChanged: root.parseEmojis(text())

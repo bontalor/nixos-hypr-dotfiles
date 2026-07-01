@@ -2,11 +2,11 @@ pragma Singleton
 
 import QtQuick
 import Quickshell
-import Quickshell.Io
 import "../util"
 import "../theme"
 
-// Wttr.in-backed weather state. Fetches JSON on demand, computes moon
+// Wttr.in-backed weather state. Fetches JSON on demand via
+// XMLHttpRequest (built into QML — no curl dependency), computes moon
 // phase once per fetch (rather than recomputing every minute), and
 // refreshes on a long interval gated on `dataReady` so a newly-spawned
 // shell doesn't fire a second network request before the first completes.
@@ -38,7 +38,7 @@ Singleton {
         var c = cc[0]
         var icon = isNight ? (moonIcon + " ") : ""
         return icon + WeatherCodes.icon(c.weatherCode) + " "
-             + (degreeUnit === "F" ? c.temp_F : c.temp_C) + "\u00b0" + degreeUnit
+             + (degreeUnit === "F" ? c.temp_F : c.temp_C) + "°" + degreeUnit
     }
 
     property bool ready: false
@@ -58,32 +58,35 @@ Singleton {
         fetchRunning = true
         fetchError = ""
         var url = "https://wttr.in/"
-        if (customCity && !retryingFallback) url += encodeURIComponent(customCity) + "?format=j1"
-        else url += "?format=j1"
-        fetchProc.command = ["curl", "-s", "-m", "10", url]
-        fetchProc.running = true
-    }
+        if (customCity && !retryingFallback) url += encodeURIComponent(customCity)
+        url += "?format=j1"
 
-    Process {
-        id: fetchProc
-        running: false
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: {
-                fetchRunning = false
-                parseWeather(text)
-                if (!dataReady && customCity && !retryingFallback) {
-                    retryingFallback = true
-                    fetchWeather()
-                    return
-                }
-                retryingFallback = false
-                if (needsRefetch) {
-                    needsRefetch = false
-                    fetchWeather()
-                }
+        var xhr = new XMLHttpRequest()
+        xhr.timeout = 10000
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState !== XMLHttpRequest.DONE) return
+            fetchRunning = false
+            if (xhr.status === 200) {
+                parseWeather(xhr.responseText)
+            } else if (!dataReady) {
+                // status 0 covers timeouts and network-down.
+                fetchError = xhr.status ? "HTTP " + xhr.status : "no network"
+            }
+            // A custom city that fails (bad name, wttr.in hiccup) falls
+            // back to one auto-location (IP-based) attempt.
+            if (!dataReady && customCity && !retryingFallback) {
+                retryingFallback = true
+                fetchWeather()
+                return
+            }
+            retryingFallback = false
+            if (needsRefetch) {
+                needsRefetch = false
+                fetchWeather()
             }
         }
+        xhr.open("GET", url)
+        xhr.send()
     }
 
     function parseWeather(text) {
@@ -91,7 +94,7 @@ Singleton {
         try {
             json = JSON.parse(text)
         } catch (e) {
-            // curl returned an error page or empty string; leave prior
+            // wttr.in returned an error page or empty body; leave prior
             // data intact but surface the failure so the panel can show
             // "fetch failed" and the retry timer can fire.
             if (!dataReady) fetchError = "fetch failed"
@@ -174,22 +177,15 @@ Singleton {
         onTriggered: fetchWeather()
     }
 
-    onDegreeUnitChanged: {
-        if (!ready) return
-        PrefStore.write("weather", "unit", degreeUnit)
-    }
-
-    onCustomCityChanged: {
-        if (!ready) return
-        PrefStore.write("weather", "city", customCity)
-    }
+    onDegreeUnitChanged: if (ready) PrefStore.weatherUnit = degreeUnit
+    onCustomCityChanged: if (ready) PrefStore.weatherCity = customCity
 
     Component.onCompleted: {
-        PrefStore.readAll("weather", ["unit", "city"], function(results) {
-            if (results.unit) root.degreeUnit = results.unit
-            if (results.city) root.customCity = results.city
-            root.ready = true
-            fetchWeather()
-        })
+        // PrefStore loads synchronously (FileView blockLoading), so the
+        // persisted values are available immediately.
+        if (PrefStore.weatherUnit) root.degreeUnit = PrefStore.weatherUnit
+        if (PrefStore.weatherCity) root.customCity = PrefStore.weatherCity
+        root.ready = true
+        fetchWeather()
     }
 }

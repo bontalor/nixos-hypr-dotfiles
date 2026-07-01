@@ -3,6 +3,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "../util"
 
 Singleton {
     property alias special: jsonAdapter.special
@@ -38,7 +39,7 @@ Singleton {
     property string base0f: colors.color15
 
     FileView {
-        path: Quickshell.env("HOME") + "/.cache/wal/colors.json"
+        path: Paths.walColors
         watchChanges: true
         onFileChanged: reload()
 
