@@ -3,7 +3,6 @@ import "../../util"
 import QtQuick
 import Quickshell
 import Quickshell.Services.Mpris
-import Quickshell.Services.Pipewire
 
 Item {
     id: root
@@ -23,18 +22,7 @@ Item {
         ? (trackArtist ? trackArtist + " - " + trackTitle : trackTitle)
         : ""
 
-    property var peakNode: findPeakNode(Pipewire.nodes)
     property var peakLevels: Array(Theme.peakBands).fill(0)
-
-    function findPeakNode(nodes) {
-        if (!nodes) return null
-        var vals = nodes.values
-        for (var i = 0; i < vals.length; i++) {
-            var n = vals[i]
-            if (n.audio && !n.isStream && n.isSink) return n
-        }
-        return null
-    }
 
     onPlaybackStateChanged: {
         if (playbackState !== MprisPlaybackState.Playing)
@@ -49,54 +37,38 @@ Item {
         text: "M".repeat(maxChars)
     }
 
-    // Width of one full scroll period: the display text plus a 3-space gap.
-    // The marquee text is "displayText + sep + displayText" so scrolling
-    // exactly halfPeriod.width pixels returns to the identical start frame.
-    TextMetrics {
-        id: halfPeriod
-        font.family: Theme.fontFamily
-        font.pixelSize: Theme.fontPixelSize
-        text: root.displayText + "   "
-    }
-
     // Scroll only when playing and text overflows the clip area.
+    // t1.implicitWidth is the actual rendered pixel width — used instead of
+    // TextMetrics so the loop distance is guaranteed to match the rendered text.
     property bool needsScroll: playbackState === MprisPlaybackState.Playing
         && root.displayText !== ""
-        && halfPeriod.width > textMetrics.width
+        && t1.implicitWidth > textMetrics.width
 
     function resetScroll() {
         scrollAnim.stop()
-        marqueeText.x = 0
+        scrollRow.x = 0
         if (needsScroll) scrollAnim.start()
     }
 
     onNeedsScrollChanged: resetScroll()
     onDisplayTextChanged: resetScroll()
 
-    PwNodePeakMonitor {
-        id: peakMon
-        node: peakNode
-        enabled: root.visible
-    }
-
     // Peak visualizer — decorative, not a real spectrum.
+    // Raw peak comes from OsdModel.sinkPeak (one shared PwNodePeakMonitor
+    // for all screens) instead of a per-instance monitor.
     Timer {
         interval: 1500 / Theme.peakFps
         running: root.visible && playbackState === MprisPlaybackState.Playing
         repeat: true
         onTriggered: {
             var arr = root.peakLevels.slice()
-            if (peakNode) {
-                var raw = Math.min(1, peakMon.peak)
-                for (let i = 0; i < Theme.peakBands; i++) {
-                    var sensitivity = 0.3 + Math.random() * 1.2
-                    var decay = 0.01 + Math.random() * 0.05
-                    var target = Math.min(1, raw * sensitivity * 1.2)
-                    if (target > arr[i]) arr[i] = target
-                    else if (arr[i] > 0) arr[i] = Math.max(0, arr[i] - decay)
-                }
-            } else {
-                for (let j = 0; j < Theme.peakBands; j++) arr[j] = 0
+            var raw = Math.min(1, MprisSelector.sinkPeak)
+            for (let i = 0; i < Theme.peakBands; i++) {
+                var sensitivity = 0.3 + Math.random() * 1.2
+                var decay = 0.01 + Math.random() * 0.05
+                var target = Math.min(1, raw * sensitivity * 1.2)
+                if (target > arr[i]) arr[i] = target
+                else if (arr[i] > 0) arr[i] = Math.max(0, arr[i] - decay)
             }
             root.peakLevels = arr
         }
@@ -152,25 +124,40 @@ Item {
             height: parent.height
             clip: true
 
-            Text {
-                id: marqueeText
+            Row {
+                id: scrollRow
                 anchors.verticalCenter: parent.verticalCenter
                 x: 0
-                // Doubled text with separator — the animation scrolls exactly
-                // one half-period so looping back to x=0 is seamless.
-                text: root.displayText !== "" ? root.displayText + "   " + root.displayText : "--------"
-                font.pixelSize: Theme.fontPixelSize
-                font.family: Theme.fontFamily
-                color: Colors.foreground
+
+                Text {
+                    id: t1
+                    text: root.displayText !== "" ? root.displayText : "--------"
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
+                    color: Colors.foreground
+                }
+                Text {
+                    id: sep
+                    text: root.displayText !== "" ? " " : ""
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
+                    color: Colors.foreground
+                }
+                Text {
+                    text: root.displayText !== "" ? root.displayText : ""
+                    font.pixelSize: Theme.fontPixelSize
+                    font.family: Theme.fontFamily
+                    color: Colors.foreground
+                }
             }
 
             NumberAnimation {
                 id: scrollAnim
-                target: marqueeText
+                target: scrollRow
                 property: "x"
                 from: 0
-                to: -halfPeriod.width
-                duration: halfPeriod.width * Theme.marqueeSpeed
+                to: -(t1.implicitWidth + sep.implicitWidth)
+                duration: (t1.implicitWidth + sep.implicitWidth) * Theme.marqueeSpeed
                 loops: Animation.Infinite
                 running: false
                 easing.type: Easing.Linear

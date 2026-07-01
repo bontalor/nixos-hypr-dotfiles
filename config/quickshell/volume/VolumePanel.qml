@@ -85,6 +85,7 @@ Panel {
     function isMonitorNode(n) {
         if (n.name) {
             if (n.name === "quickshell") return true
+            if (n.name.startsWith(".quickshell")) return true
             if (n.name.indexOf("quickshell-peak-monitor") >= 0) return true
         }
         if (n.properties) {

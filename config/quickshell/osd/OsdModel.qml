@@ -31,6 +31,7 @@ Singleton {
         objects: [Pipewire.defaultAudioSink]
     }
 
+
     property bool _show: false   // true when a media-key step should pop the OSD
 
     Timer {
