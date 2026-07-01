@@ -14,18 +14,14 @@ PanelWindow {
 
     color: "transparent"
     implicitWidth: Theme.popupWidthWithShadow
-    implicitHeight: totalHeight
+    implicitHeight: popupColumn.implicitHeight
     visible: NotifDaemon.activePopups.count > 0 && !fullscreenActive
 
     property bool fullscreenActive: ToplevelManager.activeToplevel
         ? ToplevelManager.activeToplevel.fullscreen : false
 
-    property int totalHeight: {
-        var count = NotifDaemon.activePopups.count
-        return count * Theme.popupHeight + Math.max(0, count - 1) * Theme.margin
-    }
-
     Column {
+        id: popupColumn
         width: parent.width
         spacing: Theme.margin
 
@@ -42,17 +38,23 @@ PanelWindow {
                 required property int urgency
 
                 width: parent.width
-                height: Theme.popupHeight
+                // bg height + drop-shadow extent below it.
+                height: bg.height + Theme.margin
 
                 Rectangle {
                     id: bg
                     width: parent.width - Theme.margin
-                    height: parent.height - Theme.margin
+                    // Grows with the (line-capped) text; never smaller
+                    // than the standard popup so short notifications
+                    // keep the usual shape.
+                    height: Math.max(Theme.popupHeight - Theme.margin,
+                                     contentRow.implicitHeight + 2 * Theme.margin)
                     color: Qt.alpha(Colors.background, Theme.alphaWindow)
                     border.width: urgency === NotificationUrgency.Critical ? 2 : 0
                     border.color: Colors.critical
 
                     Row {
+                        id: contentRow
                         anchors {
                             left: parent.left; right: parent.right; top: parent.top
                             leftMargin: Theme.margin; rightMargin: Theme.margin; topMargin: Theme.margin
@@ -66,30 +68,27 @@ PanelWindow {
                             source: appIcon
                             visible: status === Image.Ready
                             width: 16; height: 16
-                            anchors.verticalCenter: parent.verticalCenter
                         }
 
                         Column {
                             width: parent.width - (appIcon ? 22 : 0)
                             spacing: 4
 
-                            Text {
+                            ThemeText {
                                 width: parent.width
                                 text: summary || ""
-                                color: Colors.foreground
-                                font.pixelSize: Theme.fontPixelSize
-                                font.family: Theme.fontFamily
                                 font.bold: true
                                 wrapMode: Text.WordWrap
+                                maximumLineCount: Theme.notifSummaryMaxLines
+                                elide: Text.ElideRight
                             }
 
-                            Text {
+                            ThemeText {
                                 width: parent.width
                                 text: body || ""
-                                color: Colors.foreground
-                                font.pixelSize: Theme.fontPixelSize
-                                font.family: Theme.fontFamily
                                 wrapMode: Text.WordWrap
+                                maximumLineCount: Theme.notifBodyMaxLines
+                                elide: Text.ElideRight
                                 visible: text !== ""
                             }
                         }

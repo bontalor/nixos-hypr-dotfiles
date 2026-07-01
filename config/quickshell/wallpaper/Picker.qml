@@ -18,7 +18,11 @@ FloatingWindow {
     onClosed: visible = false
 
     property int selected: 0
-    property int columns: 4
+
+    // Columns actually laid out by the GridView (as many cells as fit
+    // its width), so J/K row jumps stay correct when the window is
+    // resized. Previously a hardcoded 4.
+    readonly property int columns: Math.max(1, Math.floor(grid.width / grid.cellWidth))
 
     // The last-applied wallpaper path, persisted across sessions via
     // PrefStore; used to set `selected` to the matching index when the
@@ -67,6 +71,17 @@ FloatingWindow {
 
     onVisibleChanged: if (visible) root.restoreSelection()
 
+    function applyWallpaper() {
+        if (wallpaperList.length === 0) return
+        var path = wallpaperList[root.selected].path
+        setter.command = [Paths.setwallBin, path]
+        setter.running = true
+        // Persist the selected path so the picker reopens at the
+        // last-applied wallpaper (lastWallpaper follows via binding).
+        PrefStore.wallpaper = path
+        root.visible = false
+    }
+
     Rectangle {
         anchors.fill: parent
         color: "transparent"
@@ -88,23 +103,12 @@ FloatingWindow {
                 break
                 case Qt.Key_Return:
                 case Qt.Key_Enter:
-                applyWallpaper()
+                root.applyWallpaper()
                 break
                 case Qt.Key_Escape:
                 root.visible = false
                 break
             }
-        }
-
-        function applyWallpaper() {
-            if (wallpaperList.length === 0) return
-            var path = wallpaperList[root.selected].path
-            setter.command = [Paths.setwallBin, path]
-            setter.running = true
-            // Persist the selected path so the picker reopens at the
-            // last-applied wallpaper (lastWallpaper follows via binding).
-            PrefStore.wallpaper = path
-            root.visible = false
         }
 
         Rectangle {
@@ -115,14 +119,22 @@ FloatingWindow {
             GridView {
                 id: grid
                 anchors.fill: parent
-                anchors { leftMargin: Theme.margin; rightMargin: 0; topMargin: Theme.margin; bottomMargin: Theme.margin }
+                // Right/bottom anchor margins stay 0 — each cell already
+                // carries Theme.margin of padding on those sides (the
+                // delegate is cellWidth/Height - 10), so adding anchor
+                // margins would double them at the edges.
+                anchors { leftMargin: Theme.margin; rightMargin: 0; topMargin: Theme.margin; bottomMargin: 0 }
                 model: root.wallpaperList
                 cellWidth: 205
                 cellHeight: 140
                 clip: true
-                interactive: false
-                highlightRangeMode: GridView.StrictlyEnforceRange
-                snapMode: GridView.SnapToRow
+                // Interactive so the mouse wheel / touchpad scrolls the
+                // grid; keyboard selection still repositions the view
+                // via Scroll.scrollIntoView below. StopAtBounds matches
+                // the no-overshoot scrolling of every other panel's
+                // Flickable.
+                interactive: true
+                boundsBehavior: Flickable.StopAtBounds
 
                 // Off-screen thumbnails are dropped from Qt's image cache to
                 // avoid retaining hundreds of decoded bitmaps when the
@@ -142,11 +154,25 @@ FloatingWindow {
                         smooth: true
                     }
 
+                    // Same border for keyboard selection and mouse hover,
+                    // matching the selected-or-hovered highlight used by
+                    // rows elsewhere in the shell.
                     Rectangle {
                         anchors.fill: parent
                         color: "transparent"
-                        border.width: index === root.selected ? 5 : 0
+                        border.width: index === root.selected || cellMouse.containsMouse ? 5 : 0
                         border.color: Colors.base05
+                    }
+
+                    MouseArea {
+                        id: cellMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            root.selected = index
+                            root.applyWallpaper()
+                        }
                     }
                 }
             }
@@ -158,7 +184,14 @@ FloatingWindow {
         running: false
     }
 
+    // Keep the keyboard selection visible via the shared Scroll helper
+    // (same as SearchPanel/Panel). Passing the full cellHeight — which
+    // includes the cell's built-in Theme.margin of bottom padding — means
+    // downward scrolls rest with a 10px gap under the thumbnail, matching
+    // the launcher's feel. GridView.Contain left the thumbnail flush
+    // with the viewport edge instead.
     onSelectedChanged: {
-        grid.positionViewAtIndex(root.selected, GridView.Contain)
+        var row = Math.floor(root.selected / root.columns)
+        Scroll.scrollIntoView(grid, row * grid.cellHeight, grid.cellHeight)
     }
 }

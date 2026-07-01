@@ -1,8 +1,14 @@
 // Notification history panel — opens from the bar button.
 //
 // Extends the shared theme/Panel scaffold with one section listing all
-// entries from `NotifDaemon.history` (newest first). Enter dismisses
-// the selected entry from history; Escape closes the panel as usual.
+// entries from `NotifDaemon.history` (newest first).
+//
+// Long entries are truncated (Theme.notifBodyMaxLines); Tab, Enter, or
+// click toggles the selected entry open to its full text (a chevron
+// marks entries with more to read), mirroring the VolumePanel
+// configuration section: Shift+Tab or Escape collapses first, then
+// backs out as usual. The Clear All row is the only way to remove
+// entries.
 //
 // Uses custom scrolling (autoScroll: false) because notification entries
 // have variable heights — the base Panel's scrollToSelection assumes a
@@ -25,22 +31,57 @@ Panel {
 
     property var historyList: NotifDaemon.history
 
+    // History index (0-based) of the entry currently expanded to full
+    // text, or -1. One entry at a time keeps the list scannable.
+    property int expandedIndex: -1
+
     currentModelLength: function() {
         return root.historyList.count + (root.historyList.count > 0 ? 1 : 0)
     }
 
-    onShown: { /* nothing — history is live */ }
+    onShown: root.expandedIndex = -1
+
+    function toggleExpand(idx) {
+        root.expandedIndex = root.expandedIndex === idx ? -1 : idx
+    }
+
+    function clearAll() {
+        root.expandedIndex = -1
+        NotifDaemon.clearHistory()
+    }
 
     onDeviceActivated: function(idx) {
         if (idx === 0) {
-            NotifDaemon.clearHistory()
+            root.clearAll()
         } else if (idx > 0 && idx - 1 < root.historyList.count) {
-            NotifDaemon.removeFromHistory(idx - 1)
+            root.toggleExpand(idx - 1)
+        }
+    }
+
+    // Tab toggles the selected entry's expansion; Shift+Tab and Escape
+    // collapse first — the same feel as VolumePanel's config section.
+    // Unaccepted keys fall through to Panel's default handler.
+    onKeyPressed: function(event) {
+        switch (event.key) {
+        case Qt.Key_Tab:
+            if (event.modifiers & Qt.ShiftModifier) {
+                if (root.expandedIndex >= 0) { root.expandedIndex = -1; event.accepted = true }
+            } else if (root.inSection && root.selDevice > 0) {
+                root.toggleExpand(root.selDevice - 1)
+                event.accepted = true
+            }
+            break
+        case Qt.Key_Backtab:
+        case Qt.Key_Escape:
+            if (root.expandedIndex >= 0) { root.expandedIndex = -1; event.accepted = true }
+            break
         }
     }
 
     onSelDeviceChanged: root.scrollHistoryIntoView()
     onInSectionChanged: if (root.inSection) root.scrollHistoryIntoView()
+    // Re-scroll after an expansion settles so the grown entry stays visible.
+    onExpandedIndexChanged: Qt.callLater(root.scrollHistoryIntoView)
 
     // Scroll the Flickable to keep the selected entry visible. Unlike
     // Panel.scrollToSelection (which assumes fixed rowHeight), this reads
@@ -84,7 +125,7 @@ Panel {
             selected: root.inSection && root.selDevice === 0
             onClicked: {
                 if (!root.inSection) { root.inSection = true; root.selDevice = 0 }
-                NotifDaemon.clearHistory()
+                root.clearAll()
             }
 
             ThemeText {
@@ -105,12 +146,16 @@ Panel {
                 required property var timestamp
                 required property int index
 
+                property bool expanded: index === root.expandedIndex
+                // More to read than the collapsed entry shows?
+                property bool expandable: expanded || summaryText.truncated || bodyText.truncated
+
                 width: parent.width
                 height: Math.max(root.rowHeight, col.implicitHeight + 2 * Theme.margin)
                 selected: root.inSection && root.selDevice - 1 === index
                 onClicked: {
                     if (!root.inSection) { root.inSection = true; root.selDevice = index + 1 }
-                    NotifDaemon.removeFromHistory(index)
+                    root.toggleExpand(index)
                 }
 
                 Column {
@@ -120,17 +165,21 @@ Panel {
                     spacing: 4
 
                     ThemeText {
+                        id: summaryText
                         width: parent.width
-                        text: summary || "(no summary)"
+                        text: entry.summary || "(no summary)"
                         font.bold: true
+                        wrapMode: Text.WordWrap
+                        maximumLineCount: entry.expanded ? 9999 : 1
                         elide: Text.ElideRight
                     }
 
                     ThemeText {
+                        id: bodyText
                         width: parent.width
-                        text: body || ""
+                        text: entry.body || ""
                         wrapMode: Text.WordWrap
-                        maximumLineCount: 3
+                        maximumLineCount: entry.expanded ? 9999 : Theme.notifBodyMaxLines
                         elide: Text.ElideRight
                         visible: text !== ""
                     }
@@ -143,7 +192,16 @@ Panel {
                             id: appNameLbl
                             anchors.left: parent.left
                             anchors.verticalCenter: parent.verticalCenter
-                            text: appName || ""
+                            text: entry.appName || ""
+                            color: Qt.alpha(Colors.foreground, 0.5)
+                            size: "small"
+                        }
+
+                        ThemeText {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            anchors.verticalCenter: parent.verticalCenter
+                            visible: entry.expandable
+                            text: entry.expanded ? Icon.chevronCollapse : Icon.chevronExpand
                             color: Qt.alpha(Colors.foreground, 0.5)
                             size: "small"
                         }
@@ -152,7 +210,7 @@ Panel {
                             id: tsLbl
                             anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
-                            text: root.fmtTimestamp(timestamp)
+                            text: root.fmtTimestamp(entry.timestamp)
                             color: Qt.alpha(Colors.foreground, 0.5)
                             size: "small"
                             horizontalAlignment: Text.AlignRight

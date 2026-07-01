@@ -132,12 +132,6 @@ Singleton {
 
     function clearHistory() { root.history.clear() }
 
-    // Remove a single history entry by index. View code should call
-    // this instead of mutating the singleton model directly.
-    function removeFromHistory(idx) {
-        if (idx >= 0 && idx < root.history.count) root.history.remove(idx)
-    }
-
     // Single schema for both history and activePopups snapshots —
     // includes appIcon/image so the panel can render them too.
     function snapshot(n) {

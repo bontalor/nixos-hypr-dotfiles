@@ -70,6 +70,10 @@ Singleton {
     // --- Notifications ---
     property int notifExpireMillis: 5000
     property int maxPopups: 3
+    // Body lines shown before truncation (popup and collapsed history
+    // entry alike); the history panel expands to the full text.
+    property int notifBodyMaxLines: 3
+    property int notifSummaryMaxLines: 2
 
     // --- Weather refresh ---
     property int weatherRefreshMillis: 600000
