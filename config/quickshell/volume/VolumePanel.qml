@@ -59,12 +59,8 @@ Panel {
     property bool configExpanded: false
     property int selConfigProfile: 0
 
-    // VU-meter peak polling. Uses Theme.peakFps (was a local copy).
-    readonly property int peakFps: Theme.peakFps
-    readonly property real peakDecay: Theme.peakDecay
-
     Timer {
-        interval: 1000 / Math.max(1, root.peakFps)
+        interval: 1000 / Math.max(1, Theme.peakFps)
         running: root.visible
         repeat: true
         onTriggered: {
@@ -76,7 +72,7 @@ Panel {
                 if (target > item.displayedPeak) {
                     item.displayedPeak = target
                 } else if (item.displayedPeak > 0) {
-                    item.displayedPeak = Math.max(0, item.displayedPeak - root.peakDecay)
+                    item.displayedPeak = Math.max(0, item.displayedPeak - Theme.peakDecay)
                 }
             }
         }
@@ -209,6 +205,34 @@ Panel {
         root.configExpanded = false
     }
 
+    // --- Navigation helpers ---
+
+    function navDown() {
+        if (root.selSection === root.secConfig && root.configExpanded && root.inSection && root.selConfigDevice < root.configDevices.length) {
+            var profiles = root.configDevices[root.selConfigDevice].profiles
+            root.selConfigProfile = Scroll.clamp(root.selConfigProfile + 1, 0, profiles.length - 1)
+        } else if (root.selSection === root.secConfig && root.inSection) {
+            root.selConfigDevice = Scroll.clamp(root.selConfigDevice + 1, 0, Math.max(0, root.configDevices.length - 1))
+        } else if (root.inSection) {
+            root.selDevice = Scroll.step(root.selDevice, 1, root.currentModel().length)
+        } else {
+            root.selSection = Scroll.clamp(root.selSection + 1, 0, root.sections.length - 1)
+        }
+    }
+
+    function navUp() {
+        if (root.selSection === root.secConfig && root.configExpanded && root.inSection && root.selConfigDevice < root.configDevices.length) {
+            var profiles = root.configDevices[root.selConfigDevice].profiles
+            root.selConfigProfile = Scroll.clamp(root.selConfigProfile - 1, 0, profiles.length - 1)
+        } else if (root.selSection === root.secConfig && root.inSection) {
+            root.selConfigDevice = Scroll.clamp(root.selConfigDevice - 1, 0, Math.max(0, root.configDevices.length - 1))
+        } else if (root.inSection) {
+            root.selDevice = Scroll.step(root.selDevice, -1, root.currentModel().length)
+        } else {
+            root.selSection = Scroll.clamp(root.selSection - 1, 0, root.sections.length - 1)
+        }
+    }
+
     onKeyPressed: function(event) {
         switch (event.key) {
         case Qt.Key_Tab:
@@ -255,32 +279,10 @@ Panel {
             event.accepted = true; break
         case Qt.Key_J:
         case Qt.Key_Down:
-            if (root.selSection === root.secConfig && root.configExpanded && root.inSection && root.selConfigDevice < root.configDevices.length) {
-                var profiles = root.configDevices[root.selConfigDevice].profiles
-                root.selConfigProfile = Scroll.clamp(root.selConfigProfile + 1, 0, profiles.length - 1)
-            } else if (root.selSection === root.secConfig && root.inSection) {
-                root.selConfigDevice = Scroll.clamp(root.selConfigDevice + 1, 0, Math.max(0, root.configDevices.length - 1))
-            } else if (root.inSection && root.selSection < root.secConfig) {
-                root.selDevice = Scroll.step(root.selDevice, 1, root.currentModel().length)
-            } else {
-                root.selSection = Scroll.clamp(root.selSection + 1, 0, root.sections.length - 1)
-            }
-            event.accepted = true; break
+            root.navDown(); event.accepted = true; break
         case Qt.Key_K:
         case Qt.Key_Up:
-            if (root.selSection === root.secConfig && root.configExpanded && root.inSection) {
-                if (root.selConfigDevice < root.configDevices.length) {
-                    var profiles = root.configDevices[root.selConfigDevice].profiles
-                    root.selConfigProfile = Scroll.clamp(root.selConfigProfile - 1, 0, profiles.length - 1)
-                }
-            } else if (root.selSection === root.secConfig && root.inSection) {
-                root.selConfigDevice = Scroll.clamp(root.selConfigDevice - 1, 0, Math.max(0, root.configDevices.length - 1))
-            } else if (root.inSection && root.selSection < root.secConfig) {
-                root.selDevice = Scroll.step(root.selDevice, -1, root.currentModel().length)
-            } else {
-                root.selSection = Scroll.clamp(root.selSection - 1, 0, root.sections.length - 1)
-            }
-            event.accepted = true; break
+            root.navUp(); event.accepted = true; break
         case Qt.Key_Escape:
             if (root.selSection === root.secConfig && root.configExpanded) root.configExpanded = false
             else if (root.inSection) root.inSection = false

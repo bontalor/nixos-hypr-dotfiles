@@ -14,7 +14,7 @@ WidgetButton {
     labelColor: {
         if (batteryPercent < 0) return Colors.foreground
         if (batteryPercent <= Theme.batteryCritical) return Colors.critical
-        if (batteryPercent <= Theme.batteryWarning) return Colors.base09
+        if (batteryPercent <= Theme.batteryWarning) return Colors.warning
         return Colors.foreground
     }
     panel: Panels.battery

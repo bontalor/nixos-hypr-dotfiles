@@ -17,8 +17,6 @@ import "../theme"
 //   activeDevice          the device the widget shows (user-picked or first)
 //   percentage            int 0..100, or -1 if no battery
 //   charging              bool (state == Charging)
-//   discharging           bool (state == Discharging)
-//   onBattery             bool (UPower.onBattery)
 //   deviceName(d)         human-readable name for a device
 //   stateText(d)          human-readable state string
 //   selectDevice(path)    pick which device the widget tracks (persisted)
@@ -63,18 +61,12 @@ Singleton {
         return null
     }
 
-    readonly property bool hasBattery: root.activeDevice !== null
-
     // Quickshell's UPower service scales the D-Bus percentage (0-100) down to
     // a 0.0-1.0 fraction, so multiply back by 100.
     readonly property int percentage: root.activeDevice ? Math.round(root.activeDevice.percentage * 100) : -1
     readonly property bool charging: root.activeDevice
         ? root.activeDevice.state === UPowerDeviceState.Charging
         : false
-    readonly property bool discharging: root.activeDevice
-        ? root.activeDevice.state === UPowerDeviceState.Discharging
-        : false
-    readonly property bool onBattery: UPower.onBattery
 
     function deviceName(device) {
         if (!device) return ""

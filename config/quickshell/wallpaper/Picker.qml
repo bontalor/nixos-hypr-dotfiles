@@ -71,8 +71,6 @@ FloatingWindow {
         onCountChanged: if (status === FolderListModel.Ready) root.syncFromModel()
     }
 
-    property alias wallpaperDir: wallpaperModel
-
     onVisibleChanged: if (visible) root.restoreSelection()
 
     Rectangle {

@@ -51,7 +51,7 @@ Panel {
         Repeater {
             model: BatteryModel.batteryDevices
 
-            delegate: Item {
+            delegate: PanelRow {
                 width: parent.width
                 height: root.rowHeight
                 required property var modelData
@@ -60,9 +60,10 @@ Panel {
                 property bool isActive: BatteryModel.activeDevice === modelData
                 property int pct: Math.round(modelData.percentage * 100)
 
-                Rectangle {
-                    anchors.fill: parent
-                    color: (root.inSection && index === root.selDevice) || batteryDevMouse.containsMouse ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
+                selected: root.inSection && index === root.selDevice
+                onClicked: {
+                    if (!root.inSection) { root.inSection = true; root.selDevice = index }
+                    BatteryModel.selectDevice(modelData.nativePath)
                 }
 
                 ThemeText {
@@ -77,7 +78,7 @@ Panel {
                     text: pct + "%"
                     anchors { left: devName.right; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
                     color: pct <= Theme.batteryCritical ? Colors.critical
-                        : pct <= Theme.batteryWarning ? Colors.base09
+                        : pct <= Theme.batteryWarning ? Colors.warning
                         : Colors.foreground
                     font.bold: true
                 }
@@ -90,17 +91,6 @@ Panel {
                     anchors { right: parent.right; rightMargin: Theme.margin; verticalCenter: parent.verticalCenter }
                     color: modelData.state === UPowerDeviceState.Charging ? Colors.base0b
                         : Qt.alpha(Colors.foreground, Theme.alphaBackground)
-                }
-
-                MouseArea {
-                    id: batteryDevMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        if (!root.inSection) { root.inSection = true; root.selDevice = index }
-                        BatteryModel.selectDevice(modelData.nativePath)
-                    }
                 }
             }
         }
@@ -126,7 +116,7 @@ Panel {
             model: root.powerProfiles
             visible: root.profileDaemonAvailable
 
-            delegate: Item {
+            delegate: PanelRow {
                 width: parent.width
                 height: root.rowHeight
                 required property string name
@@ -136,9 +126,10 @@ Panel {
 
                 property bool isActive: BatteryModel.profileIndex === enumVal
 
-                Rectangle {
-                    anchors.fill: parent
-                    color: (root.inSection && index === root.selDevice) || profileMouse.containsMouse ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
+                selected: root.inSection && index === root.selDevice
+                onClicked: {
+                    if (!root.inSection) { root.inSection = true; root.selDevice = index }
+                    if (!isActive) BatteryModel.setProfile(enumVal)
                 }
 
                 Row {
@@ -164,17 +155,6 @@ Panel {
                     anchors { right: parent.right; rightMargin: Theme.margin; verticalCenter: parent.verticalCenter }
                     color: Colors.base0b
                     font.bold: true
-                }
-
-                MouseArea {
-                    id: profileMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        if (!root.inSection) { root.inSection = true; root.selDevice = index }
-                        if (!isActive) BatteryModel.setProfile(enumVal)
-                    }
                 }
             }
         }

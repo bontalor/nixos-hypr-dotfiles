@@ -16,6 +16,7 @@ Singleton {
     // Semantic aliases — name the palette slot by role so consumers
     // don't hardcode `base08` for "critical" / `base0d` for "accent".
     property string critical: colors.color8      // base08
+    property string warning: colors.color9       // base09
     property string accent: colors.color13        // base0d
     property string selected: colors.color1       // base01
 

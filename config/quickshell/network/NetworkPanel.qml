@@ -129,15 +129,15 @@ Panel {
             model: root.wifiNetworks
             visible: root.wifiEnabled
 
-            delegate: Item {
+            delegate: PanelRow {
                 id: wifiItem
                 width: parent.width
                 height: root.rowHeight
                 property int wifiSignal: modelData.signal || 0
-
-                Rectangle {
-                    anchors.fill: parent
-                    color: (root.inSection && index === root.selDevice) || wifiMouse.containsMouse ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
+                selected: root.inSection && index === root.selDevice
+                onClicked: {
+                    if (!root.inSection) { root.inSection = true; root.selDevice = index }
+                    root.toggleWifiNetwork(index)
                 }
 
                 ThemeText {
@@ -176,17 +176,6 @@ Panel {
                     color: modelData.active ? Colors.base0b : Qt.alpha(Colors.foreground, Theme.alphaBackground)
                     font.bold: modelData.active
                 }
-
-                MouseArea {
-                    id: wifiMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        if (!root.inSection) { root.inSection = true; root.selDevice = index }
-                        root.toggleWifiNetwork(index)
-                    }
-                }
             }
         }
 
@@ -210,13 +199,13 @@ Panel {
         Repeater {
             model: root.wiredDevices
 
-            delegate: Item {
+            delegate: PanelRow {
                 width: parent.width
                 height: root.rowHeight
-
-                Rectangle {
-                    anchors.fill: parent
-                    color: (root.inSection && index === root.selDevice) || ethMouse.containsMouse ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
+                selected: root.inSection && index === root.selDevice
+                onClicked: {
+                    if (!root.inSection) { root.inSection = true; root.selDevice = index }
+                    root.toggleEthernet(index)
                 }
 
                 ThemeText {
@@ -242,17 +231,6 @@ Panel {
                         : modelData.connected ? "Connected" : "Off"
                     color: modelData.connected ? Colors.base0b : Colors.foreground
                     font.bold: modelData.connected
-                }
-
-                MouseArea {
-                    id: ethMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        if (!root.inSection) { root.inSection = true; root.selDevice = index }
-                        root.toggleEthernet(index)
-                    }
                 }
             }
         }
@@ -283,25 +261,18 @@ Panel {
             font.bold: true
         }
 
-        Rectangle {
+        PanelRow {
             width: parent.width
             height: root.rowHeight
-            color: (root.inSection && 0 === root.selDevice) || wifiToggleMouse.containsMouse ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
+            selected: root.inSection && 0 === root.selDevice
+            onClicked: {
+                if (!root.inSection) { root.inSection = true; root.selDevice = 0 }
+                root.setWifiEnabled(!root.wifiEnabled)
+            }
 
             ThemeText {
                 text: "Wi-Fi: " + (root.wifiEnabled ? "On" : "Off")
                 anchors { left: parent.left; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
-            }
-
-            MouseArea {
-                id: wifiToggleMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    if (!root.inSection) { root.inSection = true; root.selDevice = 0 }
-                    root.setWifiEnabled(!root.wifiEnabled)
-                }
             }
         }
 
@@ -314,12 +285,12 @@ Panel {
             font.bold: true
         }
 
-        Rectangle {
+        // Index 1 — currentModelLength returns 2 for this section,
+        // so valid selDevice indices are 0 and 1.
+        PanelRow {
             width: parent.width
             height: root.rowHeight
-            // Index 1 (not 2) — currentModelLength returns 2 for this
-            // section, so valid selDevice indices are 0 and 1.
-            color: root.inSection && 1 === root.selDevice ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
+            selected: root.inSection && 1 === root.selDevice
 
             ThemeText {
                 text: "Ethernet: " + (root.wiredDevices.some(function(d) { return d.connected }) ? "Connected" : "Disconnected")
@@ -334,47 +305,33 @@ Panel {
         spacing: root.colSpacing
         visible: root.selSection === 3
 
-        Rectangle {
+        PanelRow {
             width: parent.width
             height: root.rowHeight
-            color: (root.inSection && 0 === root.selDevice) || connectivityMouse.containsMouse ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
+            selected: root.inSection && 0 === root.selDevice
+            onClicked: {
+                if (!root.inSection) { root.inSection = true; root.selDevice = 0 }
+                root.checkConnectivity()
+            }
 
             ThemeText {
                 text: "Connectivity: " + (root.connectivityState || "--")
                 anchors { left: parent.left; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
             }
-
-            MouseArea {
-                id: connectivityMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    if (!root.inSection) { root.inSection = true; root.selDevice = 0 }
-                    root.checkConnectivity()
-                }
-            }
         }
 
-        Rectangle {
+        PanelRow {
             width: parent.width
             height: root.rowHeight
-            color: (root.inSection && 1 === root.selDevice) || nmtuiMouse.containsMouse ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
+            selected: root.inSection && 1 === root.selDevice
+            onClicked: {
+                if (!root.inSection) { root.inSection = true; root.selDevice = 1 }
+                root.launchNmtui()
+            }
 
             ThemeText {
                 text: "nmtui"
                 anchors { left: parent.left; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
-            }
-
-            MouseArea {
-                id: nmtuiMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    if (!root.inSection) { root.inSection = true; root.selDevice = 1 }
-                    root.launchNmtui()
-                }
             }
         }
     }

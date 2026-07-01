@@ -50,7 +50,6 @@ Panel {
         if (!root.inSection) return
         var baseY = historyColumn.y
         if (root.selDevice === 0) {
-            // "Clear All" row
             root.scrollToVisible(baseY + clearAllRow.y, clearAllRow.height)
         } else {
             var idx = root.selDevice - 1
@@ -77,29 +76,20 @@ Panel {
             verticalAlignment: Text.AlignVCenter
         }
 
-        Rectangle {
+        PanelRow {
             id: clearAllRow
             width: parent.width
             height: root.rowHeight
-            color: (root.inSection && root.selDevice === 0) || clearAllMouse.containsMouse
-                   ? Qt.alpha(Colors.base01, Theme.alphaSelected)
-                   : "transparent"
             visible: root.historyList.count > 0
+            selected: root.inSection && root.selDevice === 0
+            onClicked: {
+                if (!root.inSection) { root.inSection = true; root.selDevice = 0 }
+                NotifDaemon.clearHistory()
+            }
 
             ThemeText {
                 anchors { left: parent.left; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
                 text: "Clear All"
-            }
-
-            MouseArea {
-                id: clearAllMouse
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: {
-                    if (!root.inSection) { root.inSection = true; root.selDevice = 0 }
-                    NotifDaemon.clearHistory()
-                }
             }
         }
 
@@ -107,7 +97,7 @@ Panel {
             id: historyRepeater
             model: root.historyList
 
-            delegate: Rectangle {
+            delegate: PanelRow {
                 id: entry
                 required property string summary
                 required property string body
@@ -117,9 +107,11 @@ Panel {
 
                 width: parent.width
                 height: Math.max(root.rowHeight, col.implicitHeight + 2 * Theme.margin)
-                color: (root.inSection && root.selDevice - 1 === index) || entryMouse.containsMouse
-                       ? Qt.alpha(Colors.base01, Theme.alphaSelected)
-                       : "transparent"
+                selected: root.inSection && root.selDevice - 1 === index
+                onClicked: {
+                    if (!root.inSection) { root.inSection = true; root.selDevice = index + 1 }
+                    NotifDaemon.removeFromHistory(index)
+                }
 
                 Column {
                     id: col
@@ -165,17 +157,6 @@ Panel {
                             size: "small"
                             horizontalAlignment: Text.AlignRight
                         }
-                    }
-                }
-
-                MouseArea {
-                    id: entryMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        if (!root.inSection) { root.inSection = true; root.selDevice = index + 1 }
-                        NotifDaemon.removeFromHistory(index)
                     }
                 }
             }

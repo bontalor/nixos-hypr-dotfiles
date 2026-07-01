@@ -16,8 +16,6 @@ Item {
     property string trackArtist: currentPlayer ? (currentPlayer.trackArtist ?? "") : ""
     property int playbackState: currentPlayer ? currentPlayer.playbackState : MprisPlaybackState.Stopped
 
-    property int maxChars: 8
-
     property string displayText: currentPlayer
         ? (trackArtist ? trackArtist + " - " + trackTitle : trackTitle)
         : ""
@@ -29,12 +27,11 @@ Item {
             root.peakLevels = Array(Theme.peakBands).fill(0)
     }
 
-    // Fixed clip width — 8 "M" chars, same as the original maxChars approach.
     TextMetrics {
         id: textMetrics
         font.family: Theme.fontFamily
         font.pixelSize: Theme.fontPixelSize
-        text: "M".repeat(maxChars)
+        text: "M".repeat(8)
     }
 
     // Scroll only when playing and text overflows the clip area.
@@ -57,7 +54,7 @@ Item {
     // Raw peak comes from OsdModel.sinkPeak (one shared PwNodePeakMonitor
     // for all screens) instead of a per-instance monitor.
     Timer {
-        interval: 1500 / Theme.peakFps
+        interval: 1000 / Theme.peakFps
         running: root.visible && playbackState === MprisPlaybackState.Playing
         repeat: true
         onTriggered: {

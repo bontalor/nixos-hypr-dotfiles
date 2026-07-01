@@ -12,8 +12,7 @@ import Quickshell
 // Any widget or shortcut calls:
 //     Panels.toggle(Panels.media)
 //
-// Toggling shows/hides the named panel and hides all others (singleton
-// overlay behaviour previously implemented in shell.qml:togglePanel).
+// Toggling shows/hides the named panel and hides all others.
 //
 // Named string constants (Panels.media, Panels.launcher, …) replace the
 // raw string keys that were hardcoded in ~12 places — a typo in a magic
@@ -38,22 +37,6 @@ Singleton {
 
     function register(name, panel) {
         panels[name] = panel
-        registryChanged()
-    }
-
-    function unregister(name) {
-        if (panels[name] !== undefined) {
-            delete panels[name]
-            registryChanged()
-        }
-    }
-
-    function isRegistered(name) {
-        return panels[name] !== undefined
-    }
-
-    function get(name) {
-        return panels[name] || null
     }
 
     function toggle(name) {
@@ -71,7 +54,4 @@ Singleton {
         })
     }
 
-    // Emitted whenever the registry mutates (register/unregister). Lets
-    // hot-reload tear down stale entries cleanly.
-    signal registryChanged()
 }

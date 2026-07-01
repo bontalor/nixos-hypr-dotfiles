@@ -37,9 +37,6 @@ Rectangle {
         return Qt.formatDateTime(d, "dddd, MMMM ") + FormatUtil.ordinal(d.getDate()) + Qt.formatDateTime(d, ", yyyy")
     }
 
-    // Power actions from the shared PowerActions singleton (now reachable
-    // via the lockscreen/util + lockscreen/models symlinks). Filter out
-    // "Lock" since we're already on the lockscreen.
     property var lockActions: PowerActions.actions.filter(function(a) {
         return a.name !== "Lock"
     })
@@ -82,9 +79,6 @@ Rectangle {
             Row {
                 width: parent.width
                 height: Theme.headerHeight
-                // 10px gap when the fingerprint square is shown; collapse to
-                // 0 when fprintd is unavailable so the password box fills
-                // the whole row.
                 spacing: context.fingerprintEnabled ? Theme.margin : 0
                 Rectangle {
                     width: parent.width - (context.fingerprintEnabled ? 40 : 0)
@@ -132,9 +126,6 @@ Rectangle {
                         }
                     }
                 }
-                // 30x30 fingerprint readiness indicator. Presence = reader
-                // armed; hidden when fprintd is unusable. Tints red on a
-                // transient no-match failure.
                 Rectangle {
                     width: context.fingerprintEnabled ? 30 : 0
                     height: Theme.headerHeight
@@ -196,9 +187,6 @@ Rectangle {
                 }
             }
         }
-        // Incorrect password — pinned to the bottom center of the panel,
-        // 10px from the bottom edge, so it never overlaps the "waiting for
-        // scan..." text in the centered Column above.
         ThemeText {
             anchors.bottom: parent.bottom
             anchors.bottomMargin: Theme.margin
