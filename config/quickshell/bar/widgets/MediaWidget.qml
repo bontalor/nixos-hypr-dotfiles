@@ -10,9 +10,10 @@ WidgetButton {
     clip: true
     panel: Panels.media
 
-    // Dot-matrix geometry: 2px dots on a 4px vertical stride, in a
-    // fixed 60x30 area left of the marquee. Theme.peakBands columns
-    // spread evenly across the width; rows fill the bar height.
+    // Dot-matrix geometry: 2px dots on a 4px stride both ways, in a
+    // fixed 60x30 area left of the marquee. 15 columns on the integer
+    // stride span 58px, centered by 1px padding — every gap is exactly
+    // 2px (a fractional stride antialiased the dots unevenly).
     readonly property int dotStride: 4
     readonly property int vizWidth: 60
     readonly property int dotRows: Math.floor((Theme.barHeight - 2) / dotStride) + 1
@@ -69,7 +70,7 @@ WidgetButton {
                 model: Theme.peakBands
                 delegate: Item {
                     property int colIdx: index
-                    x: colIdx * (root.vizWidth - 2) / (Theme.peakBands - 1)
+                    x: 1 + colIdx * root.dotStride
                     width: 2
                     height: parent.height
 

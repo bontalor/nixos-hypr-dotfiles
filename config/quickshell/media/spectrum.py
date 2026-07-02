@@ -6,14 +6,15 @@ and computes BANDS log-spaced frequency bands from a real FFT — plain
 stdlib, no numpy, no cava. Prints one frame per 1/FPS seconds as
 semicolon-separated ints 0-100 on stdout, flushed, bass first.
 
-The band edges tile the full 40 Hz .. 16 kHz range with no gaps: every
-FFT bin in that range contributes to exactly one column, so the whole
-spectrum is represented. A mild treble tilt and square-root compression
-counteract music's natural 1/f energy slope so all columns participate.
+The band edges tile the full 50 Hz .. 16 kHz range with no gaps: every
+FFT bin in that range contributes to exactly one column (~half an
+octave each at 15 bands), so the whole spectrum is represented. A mild
+treble tilt and square-root compression counteract music's natural 1/f
+energy slope so all columns participate.
 
-Latency is one analysis window (~23 ms) plus PipeWire's quantum; there
+Latency is one analysis window (~43 ms) plus PipeWire's quantum; there
 is no smoothing filter on the attack path — a band rises the same frame
-its frequency appears, and falls with a ~50 ms half-life so the dots
+its frequency appears, and falls with DECAY_HALF_LIFE so the dots
 don't strobe (fps-independent feel).
 
 Usage: spectrum.py [bands] [fps]   (defaults 8, 20)
@@ -29,19 +30,27 @@ BANDS = int(sys.argv[1]) if len(sys.argv) > 1 else 8
 FPS = max(1, int(sys.argv[2])) if len(sys.argv) > 2 else 20
 
 RATE = 48000
-WINDOW = 1024                     # FFT size: ~23 ms, 43 Hz bins
+WINDOW = 2048                     # FFT size: ~43 ms, 23 Hz bins —
+                                  # resolves 15 independent bands at FMIN
 HOP = max(1, RATE // FPS)         # samples consumed per displayed frame
 AU_HEADER = 24                    # pw-record writes an AU header on stdout
-FMIN, FMAX = 40.0, 16000.0
-TILT = 0.4                        # treble boost exponent vs. band center
-COMPRESS = 0.25                   # amplitude compression exponent — lower
-                                  # lifts quiet content (more sensitive)
+FMIN, FMAX = 50.0, 16000.0
+# Treble boost vs. band center. 0.5 exactly compensates a pink (1/f)
+# spectrum, so typical music reads near-flat with a natural gentle
+# roll-off at the very top.
+TILT = 0.5
+# Amplitude compression: v = (band/peak)^COMPRESS. 0.4 maps a band at
+# -20 dB of the frame peak to ~3 of the 8 dot rows, while leaving
+# -40 dB leakage/noise at ~1 dot. (0.25 rendered -40 dB skirts at 2-3
+# dots — sensitive, but it flattened real dynamics.)
+COMPRESS = 0.4
 
 # fps-independent envelopes: bands fall with DECAY_HALF_LIFE (rise is
-# instant), auto-gain releases ~20%/s.
+# instant), auto-gain releases ~30%/s so quiet passages renormalize
+# within a second or two without pumping.
 DECAY_HALF_LIFE = 0.25  # seconds for a band to fall halfway
 DECAY = 0.5 ** (1.0 / (FPS * DECAY_HALF_LIFE))
-GAIN_DECAY = 0.8 ** (1.0 / FPS)
+GAIN_DECAY = 0.7 ** (1.0 / FPS)
 
 hann = [0.5 - 0.5 * math.cos(2.0 * math.pi * n / (WINDOW - 1)) for n in range(WINDOW)]
 

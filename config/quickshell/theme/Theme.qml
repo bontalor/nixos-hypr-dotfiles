@@ -58,7 +58,7 @@ Singleton {
     // peakFps drives both the spectrum helper's frame rate (spectrum.py
     // restarts with the new value on reload) and VolumePanel's meters.
     property int peakFps: 16
-    property int peakBands: 16
+    property int peakBands: 15
 
     // --- OSD ---
     property int osdHideInterval: 3000
