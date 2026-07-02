@@ -3,7 +3,6 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Services.Mpris
-import Quickshell.Services.Pipewire
 
 // Shared Mpris state and selection logic for the bar MediaWidget and the
 // MediaPanel. Previously duplicated nearly verbatim across both files.
@@ -99,17 +98,6 @@ Singleton {
     // during evaluation, so QML re-evaluates this automatically when any
     // of those change — no refreshCounter / `void` hack required.
     readonly property var currentPlayer: root.selectCurrent(root.allPlayers())
-
-    // Single shared peak monitor, enabled only while something is playing.
-    // Gating on playback state prevents PipeWire from scheduling the node
-    // when it's idle, which eliminates xruns at rest.
-    PwNodePeakMonitor {
-        id: sinkPeakMon
-        node: Pipewire.defaultAudioSink
-        enabled: root.currentPlayer?.playbackState === MprisPlaybackState.Playing
-    }
-
-    readonly property real sinkPeak: sinkPeakMon.peak
 
     Instantiator {
         model: Mpris.players

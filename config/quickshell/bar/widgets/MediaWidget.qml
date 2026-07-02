@@ -1,13 +1,21 @@
 import "../../theme"
 import "../../util"
+import "../../media"
 import QtQuick
 import Quickshell.Services.Mpris
 
 WidgetButton {
     id: root
-    width: 30 + Theme.margin + textMetrics.width + 2 * Theme.margin
+    width: root.vizWidth + Theme.margin + textMetrics.width + 2 * Theme.margin
     clip: true
     panel: Panels.media
+
+    // Dot-matrix geometry: 2px dots on a 4px vertical stride, in a
+    // fixed 60x30 area left of the marquee. Theme.peakBands columns
+    // spread evenly across the width; rows fill the bar height.
+    readonly property int dotStride: 4
+    readonly property int vizWidth: 60
+    readonly property int dotRows: Math.floor((Theme.barHeight - 2) / dotStride) + 1
 
     property var currentPlayer: MprisSelector.currentPlayer
 
@@ -18,13 +26,6 @@ WidgetButton {
     property string displayText: currentPlayer
         ? (trackArtist ? trackArtist + " - " + trackTitle : trackTitle)
         : ""
-
-    property var peakLevels: Array(Theme.peakBands).fill(0)
-
-    onPlaybackStateChanged: {
-        if (playbackState !== MprisPlaybackState.Playing)
-            root.peakLevels = Array(Theme.peakBands).fill(0)
-    }
 
     // Fixed marquee clip width — the widget shows at most ~8 characters
     // and scrolls longer titles through it.
@@ -51,55 +52,36 @@ WidgetButton {
     onNeedsScrollChanged: resetScroll()
     onDisplayTextChanged: resetScroll()
 
-    // Peak visualizer — decorative, not a real spectrum.
-    // Raw peak comes from MprisSelector.sinkPeak (one shared
-    // PwNodePeakMonitor for all screens) instead of a per-instance monitor.
-    Timer {
-        interval: 1000 / Theme.peakFps
-        running: root.visible && playbackState === MprisPlaybackState.Playing
-        repeat: true
-        onTriggered: {
-            var arr = root.peakLevels.slice()
-            var raw = Math.min(1, MprisSelector.sinkPeak)
-            for (let i = 0; i < Theme.peakBands; i++) {
-                var sensitivity = 0.3 + Math.random() * 1.2
-                var decay = 0.01 + Math.random() * 0.05
-                var target = Math.min(1, raw * sensitivity * 1.2)
-                if (target > arr[i]) arr[i] = target
-                else if (arr[i] > 0) arr[i] = Math.max(0, arr[i] - decay)
-            }
-            root.peakLevels = arr
-        }
-    }
-
     Item {
         id: contentRow
         anchors { left: parent.left; leftMargin: Theme.margin; right: parent.right; rightMargin: Theme.margin; verticalCenter: parent.verticalCenter }
         height: parent.height
 
+        // Real audio spectrum — one column per SpectrumModel band
+        // (bass on the left), dots lit up to the band's level.
         Item {
             id: vizArea
             anchors { left: parent.left; verticalCenter: parent.verticalCenter }
-            width: 30
+            width: root.vizWidth
             height: parent.height
 
             Repeater {
                 model: Theme.peakBands
                 delegate: Item {
                     property int colIdx: index
-                    x: colIdx * 4
+                    x: colIdx * (root.vizWidth - 2) / (Theme.peakBands - 1)
                     width: 2
                     height: parent.height
 
                     Repeater {
-                        model: Theme.peakBands
+                        model: root.dotRows
                         delegate: Rectangle {
                             required property int index
                             width: 2
                             height: 2
-                            y: parent.height - 2 - index * 4
+                            y: parent.height - 2 - index * root.dotStride
                             color: Colors.foreground
-                            opacity: index === 0 ? 1.0 : (index < Math.round(root.peakLevels[colIdx] * Theme.peakBands) ? 1.0 : 0.0)
+                            opacity: index === 0 ? 1.0 : (index < Math.round(SpectrumModel.bands[colIdx] * root.dotRows) ? 1.0 : 0.0)
                         }
                     }
                 }

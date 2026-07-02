@@ -12,7 +12,12 @@
       "Bash(notify-send \"Short one\" \"brief body\")",
       "Bash(notify-send \"This is a deliberately very long notification summary line that would previously overflow the fixed popup\" \"And this body is even longer: Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.\")",
       "Bash(awk '/Reloading configuration/{n=NR} {lines[NR]=$0} END{for\\(i=n;i<=NR;i++\\) print lines[i]}')",
-      "Bash(notify-send \"Expansion test\" \"Line one of a long body. Line two continues with more detail. Line three has even more. Line four should be hidden when collapsed in history — expand the entry to read this part. And a final fifth line for good measure.\")"
+      "Bash(notify-send \"Expansion test\" \"Line one of a long body. Line two continues with more detail. Line three has even more. Line four should be hidden when collapsed in history — expand the entry to read this part. And a final fifth line for good measure.\")",
+      "Bash(python3 -c \"import numpy\")",
+      "Bash(pw-cat --help)",
+      "Bash(timeout 3 pw-record -P '{ stream.capture.sink = true }' --format s16 --rate 22050 --channels 1 -)",
+      "Bash(timeout 2 pw-record -P '{ stream.capture.sink = true }' --format s16 --rate 22050 --channels 1 -)",
+      "Bash(python3 *)"
     ]
   }
 }
