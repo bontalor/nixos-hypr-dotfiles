@@ -107,14 +107,9 @@ Panel {
         spacing: root.colSpacing
         visible: root.selSection === 0
 
-        ThemeText {
-            width: parent.width
-            height: Theme.searchRowHeight
+        EmptyLabel {
             visible: root.historyList.count === 0
             text: "No notifications"
-            color: Qt.alpha(Colors.foreground, 0.5)
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
         }
 
         PanelRow {
@@ -193,7 +188,7 @@ Panel {
                             anchors.left: parent.left
                             anchors.verticalCenter: parent.verticalCenter
                             text: entry.appName || ""
-                            color: Qt.alpha(Colors.foreground, 0.5)
+                            color: Qt.alpha(Colors.foreground, Theme.alphaDim)
                             size: "small"
                         }
 
@@ -202,7 +197,7 @@ Panel {
                             anchors.verticalCenter: parent.verticalCenter
                             visible: entry.expandable
                             text: entry.expanded ? Icon.chevronCollapse : Icon.chevronExpand
-                            color: Qt.alpha(Colors.foreground, 0.5)
+                            color: Qt.alpha(Colors.foreground, Theme.alphaDim)
                             size: "small"
                         }
 
@@ -211,7 +206,7 @@ Panel {
                             anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
                             text: root.fmtTimestamp(entry.timestamp)
-                            color: Qt.alpha(Colors.foreground, 0.5)
+                            color: Qt.alpha(Colors.foreground, Theme.alphaDim)
                             size: "small"
                             horizontalAlignment: Text.AlignRight
                         }

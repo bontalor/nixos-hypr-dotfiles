@@ -48,7 +48,7 @@ Panel {
         switch (root.selSection) {
         case 0: return root.wifiEnabled ? root.wifiNetworks.length : 0
         case 1: return root.wiredDevices.length
-        case 2: return 2
+        case 2: return 1
         case 3: return 2
         default: return 0
         }
@@ -115,19 +115,15 @@ Panel {
         spacing: root.colSpacing
         visible: root.selSection === 0
 
-        ThemeText {
-            width: parent.width
-            height: Theme.searchRowHeight
+        EmptyLabel {
             visible: !root.wifiEnabled
             text: "Wi-Fi is turned off"
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
         }
 
         Repeater {
-            model: root.wifiNetworks
-            visible: root.wifiEnabled
+            // `visible` on a Repeater doesn't hide its delegates (they're
+            // parented to the Column) — gate the model instead.
+            model: root.wifiEnabled ? root.wifiNetworks : []
 
             delegate: PanelRow {
                 id: wifiItem
@@ -159,7 +155,7 @@ Panel {
                             width: 10
                             height: 10
                             color: index < Math.round(wifiItem.wifiSignal / 25)
-                                   ? Colors.foreground : Qt.alpha(Colors.foreground, 0.25)
+                                   ? Colors.foreground : Qt.alpha(Colors.foreground, Theme.alphaInactive)
                         }
                     }
                 }
@@ -179,14 +175,9 @@ Panel {
             }
         }
 
-        ThemeText {
-            width: parent.width
-            height: Theme.searchRowHeight
+        EmptyLabel {
             visible: root.wifiEnabled && root.wifiNetworks.length === 0
             text: "No Wi-Fi networks found"
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
         }
     }
 
@@ -235,14 +226,9 @@ Panel {
             }
         }
 
-        ThemeText {
-            width: parent.width
-            height: Theme.searchRowHeight
+        EmptyLabel {
             visible: root.wiredDevices.length === 0
             text: "No Ethernet devices"
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
         }
     }
 
@@ -285,12 +271,12 @@ Panel {
             font.bold: true
         }
 
-        // Index 1 — currentModelLength returns 2 for this section,
-        // so valid selDevice indices are 0 and 1.
-        PanelRow {
+        // Informational only — not selectable (currentModelLength returns
+        // 1 for this section: the Wi-Fi toggle above). Previously this was
+        // a selectable PanelRow with no activation handler.
+        Item {
             width: parent.width
             height: root.rowHeight
-            selected: root.inSection && 1 === root.selDevice
 
             ThemeText {
                 text: "Ethernet: " + (root.wiredDevices.some(function(d) { return d.connected }) ? "Connected" : "Disconnected")

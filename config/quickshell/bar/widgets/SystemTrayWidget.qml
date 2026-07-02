@@ -8,7 +8,7 @@ import Quickshell.Widgets
 Item {
     id: root
     width: trayContent.width
-    height: 30
+    height: Theme.barHeight
 
     property var parentWindow
 
@@ -20,12 +20,12 @@ Item {
         id: iconRoot
         required property var trayItem
         property var parentWindow
-        width: 30
-        height: 30
+        width: Theme.barHeight
+        height: Theme.barHeight
 
         Rectangle {
             anchors.fill: parent
-            color: iconMouse.containsMouse ? Qt.alpha(Colors.foreground, 0.25) : "transparent"
+            color: iconMouse.containsMouse ? Qt.alpha(Colors.foreground, Theme.alphaHover) : "transparent"
         }
 
         QsMenuAnchor {
@@ -38,11 +38,11 @@ Item {
 
         IconImage {
             anchors.centerIn: parent
-            width: 22
-            height: 22
+            width: Theme.iconSize
+            height: Theme.iconSize
             source: iconRoot.trayItem.icon
-            backer.sourceSize.width: 22 * Screen.devicePixelRatio
-            backer.sourceSize.height: 22 * Screen.devicePixelRatio
+            backer.sourceSize.width: Theme.iconSize * Screen.devicePixelRatio
+            backer.sourceSize.height: Theme.iconSize * Screen.devicePixelRatio
         }
 
         MouseArea {
@@ -65,7 +65,7 @@ Item {
 
     Row {
         id: trayContent
-        spacing: 10
+        spacing: Theme.margin
 
         // Up to `maxVisible` icons live directly in the bar.
         Repeater {
@@ -80,21 +80,19 @@ Item {
         // Chevron on the very right: only present when there's overflow.
         Item {
             id: chevronItem
-            width: 30
-            height: 30
+            width: Theme.barHeight
+            height: Theme.barHeight
             visible: SystemTray.items.values.length > root.maxVisible
 
             Rectangle {
                 anchors.fill: parent
-                color: chevronMouse.containsMouse ? Qt.alpha(Colors.foreground, 0.25) : "transparent"
+                color: chevronMouse.containsMouse ? Qt.alpha(Colors.foreground, Theme.alphaHover) : "transparent"
             }
 
-            Text {
+            ThemeText {
                 anchors.centerIn: parent
                 text: overflowPopup.visible ? Icon.chevronCollapse : Icon.chevronExpand
-                color: Colors.foreground
-                font.pixelSize: Theme.fontPixelSizeLarge
-                font.family: Theme.fontFamily
+                size: "large"
             }
 
             MouseArea {
@@ -112,8 +110,8 @@ Item {
         visible: false
         screen: root.parentWindow.screen
         color: "transparent"
-        implicitWidth: 30
-        implicitHeight: overflowColumn.height + 20
+        implicitWidth: Theme.barHeight
+        implicitHeight: overflowColumn.height + 2 * Theme.margin
         focusable: false
         exclusiveZone: 0
         exclusionMode: ExclusionMode.Ignore
@@ -151,13 +149,13 @@ Item {
         Rectangle {
             id: overflowBackground
             anchors.fill: parent
-            color: Qt.alpha(Colors.background, 0.76)
+            color: Qt.alpha(Colors.background, Theme.alphaWindow)
 
             Column {
                 id: overflowColumn
                 anchors.top: parent.top
-                anchors.topMargin: 10
-                spacing: 10
+                anchors.topMargin: Theme.margin
+                spacing: Theme.margin
 
                 Repeater {
                     model: Math.max(0, SystemTray.items.values.length - root.maxVisible)

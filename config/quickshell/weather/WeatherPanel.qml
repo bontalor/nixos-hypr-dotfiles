@@ -45,6 +45,11 @@ Panel {
         root.cityEditing = false
     }
 
+    // The dropdown collapsing (section switch, Escape, activation) always
+    // ends any in-progress city edit — otherwise the TextInput reappears
+    // in edit mode when the dropdown next opens.
+    onConfigExpandedChanged: if (!configExpanded) root.cityEditing = false
+
     readonly property var cc: {
         if (!WeatherModel.dataReady || !WeatherModel.weatherData.current_condition || !WeatherModel.weatherData.current_condition.length)
             return null
@@ -215,53 +220,26 @@ Panel {
             isSelected: root.inSection && root.cfgItemCity === root.selConfigItem
             isExpanded: root.configExpanded && root.cfgItemCity === root.selConfigItem
             profileCount: root.maxConfigProfiles
-            onToggled: {
-                if (!root.inSection) root.inSection = true
-                if (root.configExpanded && root.cfgItemCity === root.selConfigItem) {
-                    root.configExpanded = false
-                } else {
-                    root.selConfigItem = root.cfgItemCity
-                    root.configExpanded = true
-                    root.selConfigProfile = 0
+            panel: root
+            itemIndex: root.cfgItemCity
+
+            ConfigProfileRow {
+                label: "Auto (IP)"
+                isSelected: 0 === root.selConfigProfile
+                onClicked: {
+                    if (root.inSection) { root.selConfigProfile = 0; root.activateConfigItem() }
                 }
             }
 
-            Rectangle {
-                width: parent.width
-                height: Theme.searchRowHeight
-                color: 0 === root.selConfigProfile
-                        ? Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
-                        : cityAutoMouse.containsMouse
-                            ? Qt.alpha(Colors.base01, Theme.alphaSelected)
-                            : Qt.alpha(Colors.base00, Theme.alphaBackground)
-
-                ThemeText {
-                    text: "Auto (IP)"
-                    anchors { left: parent.left; leftMargin: 3 * Theme.margin; verticalCenter: parent.verticalCenter }
-                }
-
-                MouseArea {
-                    id: cityAutoMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: { if (root.inSection) root.activateConfigItem() }
-                }
-            }
-
-            Rectangle {
-                width: parent.width
-                height: Theme.searchRowHeight
-                color: !root.cityEditing && 1 === root.selConfigProfile
-                        ? Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
-                        : cityCustomMouse.containsMouse
-                            ? Qt.alpha(Colors.base01, Theme.alphaSelected)
-                            : Qt.alpha(Colors.base00, Theme.alphaBackground)
-
-                ThemeText {
-                    text: "Custom..."
-                    anchors { left: parent.left; leftMargin: 3 * Theme.margin; right: parent.right; rightMargin: Theme.margin; verticalCenter: parent.verticalCenter }
-                    visible: !root.cityEditing
+            ConfigProfileRow {
+                label: root.cityEditing ? "" : "Custom..."
+                isSelected: !root.cityEditing && 1 === root.selConfigProfile
+                onClicked: {
+                    if (root.inSection && !root.cityEditing) {
+                        root.selConfigProfile = 1
+                        root.cityEditing = true
+                        root.cityInputText = WeatherModel.customCity || ""
+                    }
                 }
 
                 TextInput {
@@ -287,20 +265,6 @@ Panel {
                         }
                     }
                 }
-
-                MouseArea {
-                    id: cityCustomMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        if (root.inSection && !root.cityEditing) {
-                            root.selConfigProfile = 1
-                            root.cityEditing = true
-                            root.cityInputText = WeatherModel.customCity || ""
-                        }
-                    }
-                }
             }
         }
 
@@ -309,64 +273,22 @@ Panel {
             isSelected: root.inSection && root.cfgItemUnit === root.selConfigItem
             isExpanded: root.configExpanded && root.cfgItemUnit === root.selConfigItem
             profileCount: root.maxConfigProfiles
-            onToggled: {
-                if (!root.inSection) root.inSection = true
-                if (root.configExpanded && root.cfgItemUnit === root.selConfigItem) {
-                    root.configExpanded = false
-                } else {
-                    root.selConfigItem = root.cfgItemUnit
-                    root.configExpanded = true
-                    root.selConfigProfile = 0
+            panel: root
+            itemIndex: root.cfgItemUnit
+
+            ConfigProfileRow {
+                label: "Fahrenheit"
+                isSelected: 0 === root.selConfigProfile
+                onClicked: {
+                    if (root.inSection) { root.selConfigProfile = 0; root.activateConfigItem() }
                 }
             }
 
-            Rectangle {
-                width: parent.width
-                height: Theme.searchRowHeight
-                color: 0 === root.selConfigProfile
-                        ? Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
-                        : unitFMouse.containsMouse
-                            ? Qt.alpha(Colors.base01, Theme.alphaSelected)
-                            : Qt.alpha(Colors.base00, Theme.alphaBackground)
-
-                ThemeText {
-                    text: "Fahrenheit"
-                    anchors { left: parent.left; leftMargin: 3 * Theme.margin; verticalCenter: parent.verticalCenter }
-                }
-
-                MouseArea {
-                    id: unitFMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        if (root.inSection) { root.selConfigProfile = 0; root.activateConfigItem() }
-                    }
-                }
-            }
-
-            Rectangle {
-                width: parent.width
-                height: Theme.searchRowHeight
-                color: 1 === root.selConfigProfile
-                        ? Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
-                        : unitCMouse.containsMouse
-                            ? Qt.alpha(Colors.base01, Theme.alphaSelected)
-                            : Qt.alpha(Colors.base00, Theme.alphaBackground)
-
-                ThemeText {
-                    text: "Celsius"
-                    anchors { left: parent.left; leftMargin: 3 * Theme.margin; verticalCenter: parent.verticalCenter }
-                }
-
-                MouseArea {
-                    id: unitCMouse
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        if (root.inSection) { root.selConfigProfile = 1; root.activateConfigItem() }
-                    }
+            ConfigProfileRow {
+                label: "Celsius"
+                isSelected: 1 === root.selConfigProfile
+                onClicked: {
+                    if (root.inSection) { root.selConfigProfile = 1; root.activateConfigItem() }
                 }
             }
         }

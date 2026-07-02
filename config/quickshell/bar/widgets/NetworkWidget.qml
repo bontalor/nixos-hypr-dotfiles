@@ -17,11 +17,8 @@ WidgetButton {
         anchors.centerIn: parent
         spacing: Theme.margin
 
-        Text {
+        ThemeText {
             text: NetworkModel.statusTextShort()
-            font.pixelSize: Theme.fontPixelSize
-            font.family: Theme.fontFamily
-            color: Colors.foreground
         }
 
         Row {
@@ -35,7 +32,7 @@ WidgetButton {
                     width: 4
                     height: 4
                     color: index < Math.round(NetworkModel.activeWifiSignal / 25)
-                           ? Colors.foreground : Qt.alpha(Colors.foreground, 0.25)
+                           ? Colors.foreground : Qt.alpha(Colors.foreground, Theme.alphaInactive)
                 }
             }
         }

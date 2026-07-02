@@ -79,9 +79,19 @@ FloatingWindow {
     signal sectionChanged(int idx)
     signal configActivated()
 
-    onSelSectionChanged: root.sectionChanged(root.selSection)
+    // Switching sections or leaving one collapses any open config
+    // dropdown. Without this, configExpanded stayed stale-true after a
+    // sidebar click — masked in panels whose isExpanded binding included
+    // inSection (VolumePanel), visible in those that didn't (WeatherPanel).
+    onSelSectionChanged: {
+        root.configExpanded = false
+        root.sectionChanged(root.selSection)
+    }
     onSelDeviceChanged: if (root.autoScroll && root.inSection) root.scrollToSelection()
-    onInSectionChanged: if (root.autoScroll && root.inSection) root.scrollToSelection()
+    onInSectionChanged: {
+        if (!root.inSection) root.configExpanded = false
+        if (root.autoScroll && root.inSection) root.scrollToSelection()
+    }
     onSelConfigItemChanged: if (root.autoScroll && root.inSection) root.scrollToSelection()
     onSelConfigProfileChanged: if (root.autoScroll && root.inSection) root.scrollToSelection()
     onConfigExpandedChanged: if (root.autoScroll && root.inSection && root.configExpanded) root.scrollToSelection()
@@ -132,6 +142,20 @@ FloatingWindow {
             h = root.rowHeight
         }
         Scroll.scrollIntoView(flick, y, h)
+    }
+
+    // Standard expand/collapse transition for a config item header click.
+    // ConfigExpandItem calls this via its `panel` property — previously
+    // the same body was hand-rolled in every onToggled handler.
+    function toggleConfigItem(idx) {
+        if (!root.inSection) root.inSection = true
+        if (root.configExpanded && idx === root.selConfigItem) {
+            root.configExpanded = false
+        } else {
+            root.selConfigItem = idx
+            root.configExpanded = true
+            root.selConfigProfile = 0
+        }
     }
 
     // Public scroll helper for subclasses with non-standard row geometry

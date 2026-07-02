@@ -47,12 +47,10 @@ PanelWindow {
                     anchors.verticalCenter: parent.verticalCenter
                     height: Theme.fontPixelSizeLarge
 
-                    Text {
+                    ThemeText {
                         anchors.centerIn: parent
                         text: OsdModel.glyph
-                        color: Colors.foreground
-                        font.family: Theme.fontFamily
-                        font.pixelSize: Theme.fontPixelSizeLarge
+                        size: "large"
                     }
                 }
 
@@ -65,7 +63,7 @@ PanelWindow {
                         verticalCenter: parent.verticalCenter
                     }
                     height: Theme.osdBarHeight
-                    color: Qt.alpha(Colors.foreground, 0.25)
+                    color: Qt.alpha(Colors.foreground, Theme.alphaInactive)
 
                     Rectangle {
                         width: parent.width * OsdModel.value

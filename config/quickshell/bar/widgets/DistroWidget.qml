@@ -52,12 +52,10 @@ WidgetButton {
         visible: status === Image.Ready
     }
 
-    Text {
+    ThemeText {
         anchors.centerIn: parent
         text: Icon.distroFallback
-        font.pixelSize: Theme.fontPixelSizeLarge
-        font.family: Theme.fontFamily
-        color: Colors.foreground
+        size: "large"
         visible: logoImage.status !== Image.Ready
     }
 }

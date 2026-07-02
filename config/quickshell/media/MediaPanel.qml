@@ -191,7 +191,7 @@ Panel {
                 Rectangle {
                     anchors { left: elapsedText.right; leftMargin: 9; right: remainingText.left; rightMargin: 9; verticalCenter: parent.verticalCenter }
                     height: 10
-                    color: Qt.alpha(Colors.foreground, 0.25)
+                    color: Qt.alpha(Colors.foreground, Theme.alphaInactive)
 
                     Rectangle {
                         height: parent.height

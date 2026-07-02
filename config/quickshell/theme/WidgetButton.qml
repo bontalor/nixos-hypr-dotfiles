@@ -50,14 +50,12 @@ Item {
             : "transparent"
     }
 
-    Text {
+    ThemeText {
         id: labelItem
         anchors.centerIn: parent
         text: root.label
         visible: root.label !== ""
         color: root.labelColor
-        font.pixelSize: Theme.fontPixelSize
-        font.family: Theme.fontFamily
     }
 
     Item {

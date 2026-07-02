@@ -9,10 +9,13 @@
 //   isSelected   — whether this item is keyboard-selected (for highlight)
 //   isExpanded   — whether the profile sub-list is currently open
 //   profileCount — number of profile rows (drives the height calculation)
+//   panel        — the owning Panel; when set, a header click runs the
+//                  standard panel.toggleConfigItem(itemIndex) transition
+//   itemIndex    — this item's index in the config section
 //
 // Signals:
-//   toggled()    — fired when the header row is clicked; caller handles
-//                  the expand/collapse state transitions
+//   toggled()    — fired when the header row is clicked, after the
+//                  standard transition (for caller side effects)
 
 import "."
 import QtQuick
@@ -24,6 +27,8 @@ Item {
     property bool isSelected: false
     property bool isExpanded: false
     property int profileCount: 0
+    property var panel: null
+    property int itemIndex: 0
 
     signal toggled()
 
@@ -75,7 +80,10 @@ Item {
                 anchors.fill: parent
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
-                onClicked: root.toggled()
+                onClicked: {
+                    if (root.panel) root.panel.toggleConfigItem(root.itemIndex)
+                    root.toggled()
+                }
             }
         }
 

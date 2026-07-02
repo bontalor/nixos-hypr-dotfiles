@@ -316,7 +316,7 @@ Panel {
                             width: 10
                             height: 10
                             color: index < Math.round(nodeItem.displayedPeak * peakRepeater.count)
-                                   ? Colors.foreground : Qt.alpha(Colors.foreground, 0.25)
+                                   ? Colors.foreground : Qt.alpha(Colors.foreground, Theme.alphaInactive)
                         }
                     }
                 }
@@ -340,14 +340,9 @@ Panel {
             }
         }
 
-        ThemeText {
-            width: parent.width
-            height: Theme.searchRowHeight
+        EmptyLabel {
             visible: root.currentModel().length === 0
             text: "No devices"
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
         }
     }
 
@@ -374,62 +369,29 @@ Panel {
                 label: modelData.description
                 sublabel: currentProfileDesc()
                 isSelected: root.inSection && index === root.selConfigItem
-                isExpanded: root.configExpanded && root.inSection && index === root.selConfigItem
+                isExpanded: root.configExpanded && index === root.selConfigItem
                 profileCount: modelData.profiles.length
-                onToggled: {
-                    if (!root.inSection) root.inSection = true
-                    if (root.configExpanded && root.selConfigItem === index) {
-                        root.configExpanded = false
-                    } else {
-                        root.selConfigItem = index
-                        root.configExpanded = true
-                        root.selConfigProfile = 0
-                    }
-                }
+                panel: root
+                itemIndex: index
 
                 Repeater {
                     model: deviceItem.isExpanded ? modelData.profiles : []
 
-                    delegate: Rectangle {
-                        width: parent.width
-                        height: Theme.searchRowHeight
-                        color: index === root.selConfigProfile
-                               ? Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
-                               : configProfileMouse.containsMouse
-                                   ? Qt.alpha(Colors.base01, Theme.alphaSelected)
-                                   : Qt.alpha(Colors.base00, Theme.alphaBackground)
-
-                        ThemeText {
-                            text: modelData.description || modelData.name
-                            anchors {
-                                left: parent.left; leftMargin: 3 * Theme.margin
-                                verticalCenter: parent.verticalCenter
-                            }
-                        }
-
-                        MouseArea {
-                            id: configProfileMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: {
-                                if (root.inSection)
-                                    root.setConfigProfile(root.configDevices[root.selConfigItem].id, modelData.index)
-                            }
+                    delegate: ConfigProfileRow {
+                        label: modelData.description || modelData.name
+                        isSelected: index === root.selConfigProfile
+                        onClicked: {
+                            if (root.inSection)
+                                root.setConfigProfile(root.configDevices[root.selConfigItem].id, modelData.index)
                         }
                     }
                 }
             }
         }
 
-        ThemeText {
-            width: parent.width
-            height: Theme.searchRowHeight
+        EmptyLabel {
             visible: root.configDevices.length === 0
             text: "No PipeWire devices"
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
         }
     }
 }

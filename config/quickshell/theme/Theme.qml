@@ -49,6 +49,8 @@ Singleton {
     property real alphaSectionHeader: 0.75  // Qt.alpha(Colors.base0d, 0.75)
     property real alphaHover: 0.25          // Qt.alpha(Colors.foreground, alphaHover) — bar widget hover
     property real alphaWindow: 0.76         // Qt.alpha(Colors.background, alphaWindow) — bar/popup solid bg
+    property real alphaInactive: 0.25       // Qt.alpha(Colors.foreground, alphaInactive) — unlit meter dots / empty bar track
+    property real alphaDim: 0.5             // Qt.alpha(Colors.foreground, alphaDim) — dimmed metadata text
 
     // --- Battery thresholds ---
     property int batteryCritical: 15
@@ -72,6 +74,9 @@ Singleton {
     // --- Notifications ---
     property int notifExpireMillis: 5000
     property int maxPopups: 3
+    // History entries kept (oldest dropped) so a long session doesn't
+    // accumulate snapshots unboundedly.
+    property int notifHistoryMax: 100
     // Body lines shown before truncation (popup and collapsed history
     // entry alike); the history panel expands to the full text.
     property int notifBodyMaxLines: 3

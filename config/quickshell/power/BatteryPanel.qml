@@ -38,14 +38,9 @@ Panel {
         spacing: root.colSpacing
         visible: root.selSection === 0
 
-        ThemeText {
-            width: parent.width
-            height: Theme.searchRowHeight
+        EmptyLabel {
             visible: BatteryModel.batteryDevices.length === 0
             text: "No batteries detected"
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
         }
 
         Repeater {
@@ -102,19 +97,15 @@ Panel {
         spacing: root.colSpacing
         visible: root.selSection === 1
 
-        ThemeText {
-            width: parent.width
-            height: Theme.searchRowHeight
+        EmptyLabel {
             visible: !root.profileDaemonAvailable
             text: "power-profiles-daemon not available"
-            horizontalAlignment: Text.AlignHCenter
-            verticalAlignment: Text.AlignVCenter
-            color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
         }
 
         Repeater {
-            model: root.powerProfiles
-            visible: root.profileDaemonAvailable
+            // `visible` on a Repeater doesn't hide its delegates (they're
+            // parented to the Column) — gate the model instead.
+            model: root.profileDaemonAvailable ? root.powerProfiles : []
 
             delegate: PanelRow {
                 width: parent.width

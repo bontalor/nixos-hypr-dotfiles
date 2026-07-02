@@ -60,6 +60,9 @@ Singleton {
         // Snapshot into history (newest first). Schema matches the
         // activePopups snapshot so the panel and popups see the same fields.
         root.history.insert(0, root.snapshot(notification))
+        while (root.history.count > Theme.notifHistoryMax) {
+            root.history.remove(root.history.count - 1)
+        }
 
         // Track the notification so its `closed` signal fires when
         // we expire/dismiss it.

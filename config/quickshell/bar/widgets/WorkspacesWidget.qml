@@ -50,12 +50,9 @@ Row {
                 color: hasToplevels ? Colors.foreground : "transparent"
             }
 
-            Text {
+            ThemeText {
                 anchors.centerIn: parent
                 text: wsId
-                font.pixelSize: Theme.fontPixelSize
-                font.family: Theme.fontFamily
-                color: Colors.foreground
             }
 
             MouseArea {
