@@ -1,7 +1,7 @@
 { config, lib, pkgs, inputs, ... }:
 
 let
-  mcsrPkgs = inputs.mcsr-nixos.packages.${pkgs.stdenv.hostPlatform.system};
+mcsrPkgs = inputs.mcsr-nixos.packages.${pkgs.stdenv.hostPlatform.system};
 in
 
 {
@@ -19,6 +19,7 @@ in
     boot.kernelParams = [
 	"threadirqs"
 	    ''acpi_osi="!Windows 2015"''
+	    "uinput"
     ];
 
 # Hardware
@@ -28,7 +29,10 @@ in
     };
     hardware.nvidia.open = true;
     hardware.nvidia.modesetting.enable = true;
-    hardware.nvidia.powerManagement.enable = true;
+    hardware.nvidia.powerManagement = {
+	enable = true;
+	kernelSuspendNotifier = true;
+    };
     hardware.bluetooth.enable = true;
     hardware.bluetooth.powerOnBoot = false;
     hardware.opentabletdriver = {
@@ -103,6 +107,7 @@ in
 
     programs.steam = {
 	enable = true;
+	protontricks.enable = true;
 	extraCompatPackages = with pkgs; [
 	    proton-ge-bin
 	];
@@ -111,22 +116,22 @@ in
     programs.obs-studio = {
 	enable = true;
 	package = (
-	    pkgs.obs-studio.override {
-	    cudaSupport = true;
-	    }
-	);
+		pkgs.obs-studio.override {
+		cudaSupport = true;
+		}
+		);
     };
 
     programs.nix-ld = {
-  enable = true;
-  libraries = with pkgs; [
-	libXtst 
-        libXt 
-        libX11
-        libxkbcommon
-        libxinerama
-  ];
-};
+	enable = true;
+	libraries = with pkgs; [
+	    libXtst 
+		libXt 
+		libX11
+		libxkbcommon
+		libxinerama
+	];
+    };
 
 # Users
     users.users.bonta = {
@@ -141,6 +146,7 @@ in
     };
 
 # Environment
+    environment.pathsToLink = [ "/share/applications" "/share/xdg-desktop-portal" ];
     environment.sessionVariables = {
 #NIXOS_OZONE_WL = "1";
     };
@@ -150,6 +156,7 @@ in
 	    wget
 	    foot
 	    git
+	    jq
 	    libarchive
 	    xrdb
 	    gcc
@@ -159,9 +166,9 @@ in
 	    icu
 	    mcsrPkgs.ninjabrain-bot
 	    (pkgs.prismlauncher.override {
-	      jdks = [ mcsrPkgs.graalvm-21 ];
-	      textToSpeechSupport = false;
-	    })
+	     jdks = [ mcsrPkgs.graalvm-21 jdk25 javaPackages.compiler.temurin-bin.jdk-25 ];
+	     textToSpeechSupport = false;
+	     })
     ];
 
 # Fonts
@@ -187,6 +194,14 @@ in
 # Nix
     nix.settings.experimental-features = [ "nix-command" "flakes" ];
     nixpkgs.config.allowUnfree = true;
+    # stupid fucking pnpm temp fix
+    nixpkgs.overlays = [
+	(final: _prev: {
+	 pnpm_10_29_2 = final.pnpm_10;
+	 })
+    ];
+
+
 
 # System
     system.stateVersion = "26.05";
