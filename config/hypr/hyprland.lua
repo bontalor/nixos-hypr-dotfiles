@@ -1,15 +1,15 @@
 ---- MONITORS ----
 
 hl.monitor({
-    output   = "DP-5",
+    output   = "DP-2",
     mode     = "1920x1080@144.000",
     position = "1600x0",
     scale    = "1",
-    vrr      = 1,
+    vrr      = 0,
 })
 
 hl.monitor({
-    output   = "DP-4",
+    output   = "DP-1",
     mode     = "1600x900@60.000",
     position = "0x0",
     scale    = "1",
@@ -35,7 +35,7 @@ local emoji       = "qs ipc call overlay toggle emoji"
 ---- AUTOSTART ----
 
 hl.on("hyprland.start", function()
-    hl.exec_cmd("xrandr --output DP-5 --primary")
+    hl.exec_cmd("xrandr --output DP-2 --primary")
     hl.exec_cmd("kbuildsycoca6")
     hl.exec_cmd("hypridle")
     hl.exec_cmd("awww-daemon --no-cache")
@@ -184,7 +184,7 @@ hl.config({
 
 hl.config({
     cursor = {
-        default_monitor = "DP-5",
+        default_monitor = "DP-2",
         no_break_fs_vrr = 1,
         min_refresh_rate = 144,
         no_hardware_cursors = 0,
@@ -236,13 +236,14 @@ hl.bind(mainMod .. " + CTRL + up", hl.dsp.window.move({ direction = "up" }), { r
 hl.bind(mainMod .. " + CTRL + K", hl.dsp.window.move({ direction = "up" }), { repeating = true })
 hl.bind(mainMod .. " + CTRL + down", hl.dsp.window.move({ direction = "down" }), { repeating = true })
 hl.bind(mainMod .. " + CTRL + J", hl.dsp.window.move({ direction = "down" }), { repeating = true })
-for i = 1, 10 do
-    local key = i % 10 -- 10 maps to key 0
+for i = 1, 9 do
+    local key = i % 10
     hl.bind(mainMod .. " + " .. key, hl.dsp.focus({ workspace = i }))
     hl.bind(mainMod .. " + SHIFT + " .. key, hl.dsp.window.move({ workspace = i, follow = false }))
 end
-hl.bind(mainMod .. " + Tab", hl.dsp.focus({ workspace = "e+1" }), { repeating = true })
-hl.bind(mainMod .. " + SHIFT + Tab", hl.dsp.focus({ workspace = "e-1" }), { repeating = true })
+hl.bind(mainMod .. " + Tab", hl.dsp.focus({ workspace = "+1" }), { repeating = true })
+hl.bind(mainMod .. " + SHIFT + Tab", hl.dsp.focus({ workspace = "-1" }), { repeating = true })
+
 hl.bind(mainMod .. " + mouse:272", hl.dsp.window.drag(), { mouse = true })
 hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 -- TODO: add bind to reset resize
@@ -271,13 +272,13 @@ hl.bind("XF86AudioPrev", hl.dsp.exec_cmd("playerctl previous"), { locked = true 
 for i = 1, 8 do
     hl.workspace_rule({
         workspace = tostring(i),
-        monitor   = "DP-5",
+        monitor   = "DP-2",
     })
 end
 
 hl.workspace_rule({
     workspace = "9",
-    monitor   = "DP-4",
+    monitor   = "DP-1",
 })
 
 hl.window_rule({
@@ -317,7 +318,7 @@ hl.window_rule({
     name = "quickshell-floating-windows",
     match = {
         title =
-        "Wallpaper Picker|App Launcher|Power Menu|Volume Control|Network Control|Battery & Power|Date & Time|Weather|Media|Emoji Picker|Notifications"
+        "Wallpaper Picker|App Launcher|Power Menu|Volume Control|Network Control|Battery & Power|Date & Time|Weather|Media|Emoji Picker|Notifications|Settings"
     },
     float = true,
     size = { 850, 450, },
