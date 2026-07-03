@@ -16,7 +16,6 @@ import Quickshell.Networking
 //   wifiEnabled / setWifiEnabled(bool)
 //   wifiHardwareEnabled
 //   wifiOn                               wifiEnabled && wifiHardwareEnabled
-//   connectivity                          full/limited/portal/none/unknown
 //   devices                               raw Networking.devices for panels
 //   wifiDevices                           filtered list of WifiDevice
 //   wiredDevices                          filtered list of WiredDevice
@@ -37,16 +36,6 @@ Singleton {
     readonly property bool wifiOn: wifiEnabled && wifiHardwareEnabled
 
     function setWifiEnabled(on) { Networking.wifiEnabled = on }
-
-    readonly property string connectivity: {
-        switch (Networking.connectivity) {
-        case NetworkConnectivity.Full:    return "full"
-        case NetworkConnectivity.Limited: return "limited"
-        case NetworkConnectivity.Portal:  return "portal"
-        case NetworkConnectivity.None:    return "none"
-        default:                          return "unknown"
-        }
-    }
 
     readonly property var devices: Networking.devices ? Networking.devices.values : []
 

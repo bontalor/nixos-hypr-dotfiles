@@ -14,6 +14,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Services.Notifications
 import "../theme"
+import "../util"
 
 Singleton {
     id: root
@@ -68,11 +69,17 @@ Singleton {
         // we expire/dismiss it.
         notification.tracked = true
 
-        root.activePopups.insert(0, root.snapshot(notification))
+        // Popups can be disabled in Settings (do-not-disturb); critical
+        // notifications always pop. History records either way, and the
+        // expire/close lifecycle below runs unchanged so senders see
+        // normal notification semantics.
+        if (PrefStore.notifPopups || notification.urgency === NotificationUrgency.Critical) {
+            root.activePopups.insert(0, root.snapshot(notification))
 
-        // Cap popup count (oldest popped off the bottom).
-        while (root.activePopups.count > root.maxPopups) {
-            root.activePopups.remove(root.activePopups.count - 1)
+            // Cap popup count (oldest popped off the bottom).
+            while (root.activePopups.count > root.maxPopups) {
+                root.activePopups.remove(root.activePopups.count - 1)
+            }
         }
 
         // Auto-expire per the sender's request, unless critical.

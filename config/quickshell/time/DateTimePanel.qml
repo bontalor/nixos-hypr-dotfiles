@@ -101,7 +101,7 @@ Panel {
                 spacing: Theme.margin
 
                 ThemeText {
-                    text: Qt.formatDateTime(root.now, "HH:mm:ss")
+                    text: Qt.formatDateTime(root.now, PrefStore.timeFormat === "24h" ? "HH:mm:ss" : "h:mm:ss AP")
                     font.pixelSize: 24
                     font.bold: true
                 }

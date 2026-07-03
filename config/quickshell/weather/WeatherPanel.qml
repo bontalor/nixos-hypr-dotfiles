@@ -28,6 +28,11 @@ Panel {
     expandSection: secConfig
     configItemCount: function() { return 2 }
     configProfileCount: function() { return root.maxConfigProfiles }
+    configCurrentProfile: function() {
+        if (root.selConfigItem === root.cfgItemCity)
+            return WeatherModel.customCity ? 1 : 0
+        return WeatherModel.degreeUnit === "F" ? 0 : 1
+    }
     onConfigActivated: root.activateConfigItem()
 
     currentModelLength: function() { return WeatherModel.dataReady ? 1 : 0 }

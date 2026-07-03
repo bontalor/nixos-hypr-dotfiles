@@ -17,7 +17,10 @@ import "../theme"
 Singleton {
     id: root
 
-    readonly property bool active: MprisSelector.currentPlayer?.playbackState === MprisPlaybackState.Playing
+    // Gated on the Settings visualizer pref — when off, the helper
+    // process never runs and bands stay zeroed.
+    readonly property bool active: PrefStore.visualizer
+        && MprisSelector.currentPlayer?.playbackState === MprisPlaybackState.Playing
 
     // 0..1 per band, bass first. Length Theme.peakBands.
     property var bands: Array(Theme.peakBands).fill(0)

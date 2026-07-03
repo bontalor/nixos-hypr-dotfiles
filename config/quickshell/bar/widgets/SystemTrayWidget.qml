@@ -1,4 +1,5 @@
 import "../../theme"
+import "../../util"
 import QtQuick
 import Quickshell
 import Quickshell.Wayland
@@ -128,9 +129,13 @@ Item {
         // layer-shell margins), so:
         //   dropdown top  = chevronY + 30  (chevron height, flush below)
         //   dropdown left = chevronX      (aligns with chevron left edge)
+        // With the bar at the bottom, the dropdown mirrors upward: its
+        // bottom edge sits flush above the chevron instead.
         onVisibleChanged: if (visible) {
             var pos = root.parentWindow.itemPosition(chevronItem)
-            margins.top = pos.y - Theme.margin
+            margins.top = root.parentWindow.barAtBottom
+                ? pos.y - Theme.margin - Theme.barHeight - overflowPopup.implicitHeight
+                : pos.y - Theme.margin
             margins.left = pos.x + Theme.margin
         }
 

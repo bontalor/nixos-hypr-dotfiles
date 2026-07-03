@@ -16,6 +16,9 @@ Rectangle {
     property string label: ""
     // Keyboard selection (caller compares against selConfigProfile).
     property bool isSelected: false
+    // Optional ▶ marker before the label (the Panel sidebar shows it on
+    // the chosen subsection while keyboard focus is in the content).
+    property bool marker: false
 
     signal clicked()
 
@@ -38,6 +41,16 @@ Rectangle {
             verticalCenter: parent.verticalCenter
         }
         elide: Text.ElideRight
+        leftPadding: root.marker ? Theme.iconSize - Theme.margin : 0
+    }
+
+    ThemeText {
+        text: Icon.chevronRight
+        anchors {
+            left: parent.left; leftMargin: 3 * Theme.margin
+            verticalCenter: parent.verticalCenter
+        }
+        visible: root.marker
     }
 
     Item {

@@ -32,6 +32,24 @@ Singleton {
     readonly property string media: "media"
     readonly property string emoji: "emoji"
     readonly property string notifications: "notifications"
+    readonly property string settings: "settings"
+
+    // Launcher-searchable entries, one per user-facing panel. The
+    // launcher merges these with desktop applications; genericName makes
+    // them all match a "quickshell" or "panel" query.
+    readonly property var launcherEntries: [
+        { name: "Quickshell Settings",  genericName: "Quickshell Panel", panelKey: settings },
+        { name: "Wallpaper Picker",     genericName: "Quickshell Panel", panelKey: picker },
+        { name: "Power Menu",           genericName: "Quickshell Panel", panelKey: powerMenu },
+        { name: "Volume Panel",         genericName: "Quickshell Panel", panelKey: volume },
+        { name: "Network Panel",        genericName: "Quickshell Panel", panelKey: network },
+        { name: "Battery & Power Panel", genericName: "Quickshell Panel", panelKey: battery },
+        { name: "Date & Time Panel",    genericName: "Quickshell Panel", panelKey: dateTime },
+        { name: "Weather Panel",        genericName: "Quickshell Panel", panelKey: weather },
+        { name: "Media Panel",          genericName: "Quickshell Panel", panelKey: media },
+        { name: "Emoji Picker",         genericName: "Quickshell Panel", panelKey: emoji },
+        { name: "Notification History", genericName: "Quickshell Panel", panelKey: notifications }
+    ]
 
     property var panels: ({})
 

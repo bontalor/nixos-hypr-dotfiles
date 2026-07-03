@@ -6,7 +6,10 @@ import Quickshell.Services.Mpris
 
 WidgetButton {
     id: root
-    width: root.vizWidth + Theme.margin + textMetrics.width + 2 * Theme.margin
+    // The spectrum area collapses entirely when the visualizer is
+    // disabled in Settings (SpectrumModel's helper process stops too).
+    readonly property bool vizOn: PrefStore.visualizer
+    width: (root.vizOn ? root.vizWidth + Theme.margin : 0) + textMetrics.width + 2 * Theme.margin
     clip: true
     panel: Panels.media
 
@@ -63,8 +66,9 @@ WidgetButton {
         Item {
             id: vizArea
             anchors { left: parent.left; verticalCenter: parent.verticalCenter }
-            width: root.vizWidth
+            width: root.vizOn ? root.vizWidth : 0
             height: parent.height
+            visible: root.vizOn
 
             Repeater {
                 model: Theme.peakBands
@@ -91,7 +95,7 @@ WidgetButton {
 
         Item {
             id: clipArea
-            anchors { left: vizArea.right; leftMargin: Theme.margin; right: parent.right; verticalCenter: parent.verticalCenter }
+            anchors { left: vizArea.right; leftMargin: root.vizOn ? Theme.margin : 0; right: parent.right; verticalCenter: parent.verticalCenter }
             height: parent.height
             clip: true
 

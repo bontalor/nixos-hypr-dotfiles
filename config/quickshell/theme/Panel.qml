@@ -4,6 +4,14 @@
 // header bar, plus J/K/Tab keyboard navigation in the common
 // "list of selectable rows per section" pattern.
 //
+// Sections may carry subsections: a `subs: [{name}, ...]` entry renders
+// the section as a sidebar dropdown with the same behavior as the
+// config dropdowns (ConfigExpandItem): J/K move the section highlight,
+// Tab/Shift+Tab (or a header click) open/close the dropdown, J/K then
+// move through the subsections — selSub tracks the choice and drives
+// the content. Closing the dropdown deselects. Sections without `subs`
+// behave exactly as before.
+//
 // Panels override behavior via property bindings:
 //   - currentModelLength: function() -> int   (rows in the current section)
 // And via signals:
@@ -45,6 +53,12 @@ FloatingWindow {
     property bool inSection: false
     property int selDevice: 0
 
+    // Subsection state: selSub is the chosen subsection within
+    // selSection (-1 when the section has none); expandedSection is the
+    // section whose sidebar dropdown is open (-1 when none).
+    property int selSub: -1
+    property int expandedSection: -1
+
     property int rowHeight: Theme.rowHeight
     property int headerHeight: Theme.headerHeight
     property int colSpacing: Theme.colSpacing
@@ -61,6 +75,10 @@ FloatingWindow {
     // and the profile count of the currently-selected item.
     property var configItemCount: function() { return 0 }
     property var configProfileCount: function() { return 0 }
+    // Profile index the dropdown should open on — panels override to
+    // return the currently-active option (e.g. the device's active
+    // profile) so expanding lands there instead of on the first row.
+    property var configCurrentProfile: function() { return 0 }
 
     // Selection is inside the expandable section's item list.
     readonly property bool inExpandSection: inSection && selSection === expandSection
@@ -87,6 +105,14 @@ FloatingWindow {
         root.configExpanded = false
         root.sectionChanged(root.selSection)
     }
+    // Switching subsections resets the config-expand state like a
+    // section switch does — the content list changed underneath it.
+    onSelSubChanged: {
+        if (root.selSub >= 0) root._lastSub[root.selSection] = root.selSub
+        root.configExpanded = false
+        root.selConfigItem = 0
+        root.selConfigProfile = 0
+    }
     onSelDeviceChanged: if (root.autoScroll && root.inSection) root.scrollToSelection()
     onInSectionChanged: {
         if (!root.inSection) root.configExpanded = false
@@ -111,6 +137,8 @@ FloatingWindow {
 
     onVisibleChanged: if (visible) {
         root.selSection = 0
+        root.selSub = -1
+        root.expandedSection = -1
         root.inSection = false
         root.selDevice = 0
         root.configExpanded = false
@@ -144,6 +172,34 @@ FloatingWindow {
         Scroll.scrollIntoView(flick, y, h)
     }
 
+    // Sidebar dropdown state for the selected section (sections with
+    // `subs`). Tab/Shift+Tab toggle it like every other dropdown; J/K
+    // move through the subsections while it's open, and the content
+    // follows selSub live. Closing deselects (blank content area).
+    function sectionSubs(i) {
+        var s = root.sections[i]
+        return (s && s.subs) ? s.subs : []
+    }
+
+    readonly property bool sidebarDropdownOpen: root.expandedSection === root.selSection
+                                                && sectionSubs(root.selSection).length > 0
+
+    // Last-chosen subsection per section, so reopening the dropdown
+    // lands where the user left off (there is no "current value" for
+    // subsections). Tracked in onSelSubChanged.
+    property var _lastSub: ({})
+
+    function toggleSidebarDropdown() {
+        if (root.expandedSection === root.selSection) {
+            root.expandedSection = -1
+            root.selSub = -1
+        } else {
+            root.expandedSection = root.selSection
+            var last = root._lastSub[root.selSection]
+            root.selSub = (last !== undefined && last < root.sectionSubs(root.selSection).length) ? last : 0
+        }
+    }
+
     // Standard expand/collapse transition for a config item header click.
     // ConfigExpandItem calls this via its `panel` property — previously
     // the same body was hand-rolled in every onToggled handler.
@@ -154,7 +210,7 @@ FloatingWindow {
         } else {
             root.selConfigItem = idx
             root.configExpanded = true
-            root.selConfigProfile = 0
+            root.selConfigProfile = Math.max(0, root.configCurrentProfile())
         }
     }
 
@@ -171,12 +227,15 @@ FloatingWindow {
             if (event.modifiers & Qt.ShiftModifier) {
                 if (root.inExpandSection && root.configExpanded) root.configExpanded = false
                 else if (root.inSection) root.inSection = false
+                else if (root.sidebarDropdownOpen) root.toggleSidebarDropdown()
                 else root.selSection = Scroll.clamp(root.selSection - 1, 0, root.sections.length - 1)
             } else if (root.inExpandSection) {
                 if (root.configExpanded) root.configExpanded = false
-                else { root.configExpanded = true; root.selConfigProfile = 0 }
+                else { root.configExpanded = true; root.selConfigProfile = Math.max(0, root.configCurrentProfile()) }
             } else if (root.inSection) {
                 root.selDevice = Scroll.step(root.selDevice, 1, root.currentModelLength())
+            } else if (root.sectionSubs(root.selSection).length > 0) {
+                root.toggleSidebarDropdown()
             } else {
                 root.inSection = true
                 root.selDevice = 0
@@ -186,6 +245,7 @@ FloatingWindow {
         case Qt.Key_Backtab:
             if (root.inExpandSection && root.configExpanded) root.configExpanded = false
             else if (root.inSection) root.inSection = false
+            else if (root.sidebarDropdownOpen) root.toggleSidebarDropdown()
             event.accepted = true; break
 
         case Qt.Key_J:
@@ -196,6 +256,8 @@ FloatingWindow {
                 root.selConfigItem = Scroll.step(root.selConfigItem, 1, root.configItemCount())
             else if (root.inSection)
                 root.selDevice = Scroll.step(root.selDevice, 1, root.currentModelLength())
+            else if (root.sidebarDropdownOpen)
+                root.selSub = Scroll.step(root.selSub, 1, root.sectionSubs(root.selSection).length)
             else
                 root.selSection = Scroll.clamp(root.selSection + 1, 0, root.sections.length - 1)
             event.accepted = true; break
@@ -208,6 +270,8 @@ FloatingWindow {
                 root.selConfigItem = Scroll.step(root.selConfigItem, -1, root.configItemCount())
             else if (root.inSection)
                 root.selDevice = Scroll.step(root.selDevice, -1, root.currentModelLength())
+            else if (root.sidebarDropdownOpen)
+                root.selSub = Scroll.step(root.selSub, -1, root.sectionSubs(root.selSection).length)
             else
                 root.selSection = Scroll.clamp(root.selSection - 1, 0, root.sections.length - 1)
             event.accepted = true; break
@@ -222,10 +286,14 @@ FloatingWindow {
         case Qt.Key_Enter:
             if (root.inExpandSection) {
                 if (root.configExpanded) root.configActivated()
-                else if (root.configItemCount() > 0) { root.configExpanded = true; root.selConfigProfile = 0 }
+                else if (root.configItemCount() > 0) { root.configExpanded = true; root.selConfigProfile = Math.max(0, root.configCurrentProfile()) }
             } else if (!root.inSection) {
-                root.inSection = true
-                root.selDevice = 0
+                if (root.sectionSubs(root.selSection).length > 0 && !root.sidebarDropdownOpen) {
+                    root.toggleSidebarDropdown()
+                } else if (root.sectionSubs(root.selSection).length === 0 || root.selSub >= 0) {
+                    root.inSection = true
+                    root.selDevice = 0
+                }
             } else {
                 root.deviceActivated(root.selDevice)
             }
@@ -234,6 +302,7 @@ FloatingWindow {
         case Qt.Key_Escape:
             if (root.selSection === root.expandSection && root.configExpanded) root.configExpanded = false
             else if (root.inSection) root.inSection = false
+            else if (root.sidebarDropdownOpen) root.toggleSidebarDropdown()
             else root.visible = false
             event.accepted = true; break
         }
@@ -287,40 +356,87 @@ FloatingWindow {
 
                     Repeater {
                         model: root.sections
-                        delegate: Rectangle {
+                        delegate: Column {
+                            id: sectionCol
                             width: parent.width
-                            height: root.headerHeight
-                            color: root.selSection === index || sectionMouse.containsMouse ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
+                            property int sectionIndex: index
+                            property var subs: modelData.subs ?? []
+                            property bool hasSubs: subs.length > 0
+                            property bool expanded: root.expandedSection === index
 
-                            ThemeText {
-                                text: modelData.name
-                                anchors {
-                                    left: parent.left; leftMargin: Theme.margin
-                                    right: parent.right; rightMargin: Theme.margin
-                                    verticalCenter: parent.verticalCenter
+                            // Subless section: plain selectable row.
+                            Rectangle {
+                                visible: !sectionCol.hasSubs
+                                width: parent.width
+                                height: root.headerHeight
+                                color: root.selSection === sectionCol.sectionIndex || sectionMouse.containsMouse
+                                       ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
+
+                                ThemeText {
+                                    text: modelData.name
+                                    anchors {
+                                        left: parent.left; leftMargin: Theme.margin
+                                        right: parent.right; rightMargin: Theme.margin
+                                        verticalCenter: parent.verticalCenter
+                                    }
+                                    elide: Text.ElideRight
+                                    leftPadding: (root.selSection === sectionCol.sectionIndex && root.inSection)
+                                                 ? Theme.iconSize - Theme.margin : 0
                                 }
-                                elide: Text.ElideRight
-                                leftPadding: (root.selSection === index && root.inSection) ? Theme.iconSize - Theme.margin : 0
+
+                                ThemeText {
+                                    text: Icon.chevronRight
+                                    anchors {
+                                        left: parent.left; leftMargin: Theme.margin
+                                        verticalCenter: parent.verticalCenter
+                                    }
+                                    visible: root.selSection === sectionCol.sectionIndex && root.inSection
+                                }
+
+                                MouseArea {
+                                    id: sectionMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        root.selSection = sectionCol.sectionIndex
+                                        root.selSub = -1
+                                        root.inSection = false
+                                        mainRect.forceActiveFocus()
+                                    }
+                                }
                             }
 
-                            ThemeText {
-                                text: Icon.chevronRight
-                                anchors {
-                                    left: parent.left; leftMargin: Theme.margin
-                                    verticalCenter: parent.verticalCenter
-                                }
-                                visible: root.selSection === index && root.inSection
-                            }
-
-                            MouseArea {
-                                id: sectionMouse
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: {
-                                    root.selSection = index
-                                    root.inSection = false
+                            // Section with subsections: the same expand/
+                            // collapse scaffold as the config dropdowns
+                            // (VolumePanel profiles, WeatherPanel city).
+                            // Highlighted while it is the selected
+                            // section, like any other section row.
+                            ConfigExpandItem {
+                                visible: sectionCol.hasSubs
+                                label: modelData.name
+                                isSelected: root.selSection === sectionCol.sectionIndex
+                                isExpanded: sectionCol.expanded
+                                profileCount: sectionCol.subs.length
+                                onToggled: {
+                                    root.selSection = sectionCol.sectionIndex
+                                    root.toggleSidebarDropdown()
                                     mainRect.forceActiveFocus()
+                                }
+
+                                Repeater {
+                                    model: sectionCol.subs
+                                    delegate: ConfigProfileRow {
+                                        label: modelData.name
+                                        isSelected: root.selSection === sectionCol.sectionIndex && root.selSub === index
+                                        marker: isSelected && root.inSection
+                                        onClicked: {
+                                            root.selSection = sectionCol.sectionIndex
+                                            root.selSub = index
+                                            root.inSection = false
+                                            mainRect.forceActiveFocus()
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -352,7 +468,10 @@ FloatingWindow {
                             color: Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
 
                             ThemeText {
-                                text: root.sections[root.selSection]?.name ?? ""
+                                // Subsection name when one is selected,
+                                // else the section name.
+                                text: root.sections[root.selSection]?.subs?.[root.selSub]?.name
+                                      ?? root.sections[root.selSection]?.name ?? ""
                                 anchors {
                                     left: parent.left; leftMargin: Theme.margin
                                     verticalCenter: parent.verticalCenter

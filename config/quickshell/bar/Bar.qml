@@ -1,4 +1,5 @@
 import "../theme"
+import "../util"
 import "./widgets"
 import Quickshell
 import Quickshell.Wayland
@@ -18,13 +19,21 @@ Scope {
             required property var modelData
             screen: modelData
             WlrLayershell.namespace: "quickshell:bar"
+
+            // Bar edge follows the Settings pref. The window's internal
+            // layout is identical either way: bar Rectangle at the top,
+            // drop shadow in the extra barMargin below it.
+            readonly property bool barAtBottom: PrefStore.barPosition === "bottom"
+
             anchors {
-                top: true
+                top: !panelWindow.barAtBottom
+                bottom: panelWindow.barAtBottom
                 left: true
                 right: true
             }
             margins {
-                top: Theme.barMargin
+                top: panelWindow.barAtBottom ? 0 : Theme.barMargin
+                bottom: panelWindow.barAtBottom ? Theme.barMargin : 0
                 right: Theme.barMargin
                 left: Theme.barMargin
             }

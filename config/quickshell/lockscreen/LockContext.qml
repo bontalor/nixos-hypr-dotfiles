@@ -1,3 +1,4 @@
+import "./util"
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -20,13 +21,15 @@ Scope {
     //
     // `fingerprintMatched` suppresses a late verify racing a password unlock;
     // `unlockInProgress` ignores the exit of a verify killed by tryUnlock;
-    // `fingerprintEnabled` latches false when fprintd is missing or has no
-    // usable device/enrolled prints.
+    // `fingerprintEnabled` starts from the Settings pref (PrefStore is the
+    // shared prefs file, visible to this separate lockscreen instance) and
+    // latches false when fprintd is missing or has no usable device/
+    // enrolled prints.
     // `fingerprintScanning` is true while fprintd-verify is running (the
     // reader is armed and waiting for a finger).
     // `fingerprintFailed` is true after a transient no-match; the UI tints
     // the fingerprint indicator red. Reset on re-arm or successful match.
-    property bool fingerprintEnabled: true
+    property bool fingerprintEnabled: PrefStore.fingerprintUnlock
     property bool fingerprintMatched: false
     property bool fingerprintScanning: fprintProc.running && root.fingerprintEnabled
     property bool fingerprintFailed: false

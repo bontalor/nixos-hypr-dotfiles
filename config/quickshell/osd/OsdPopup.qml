@@ -7,6 +7,7 @@
 // portion is Colors.foreground, remainder is Colors.foreground @ 0.25.
 
 import "../theme"
+import "../util"
 import "."
 import QtQuick
 import Quickshell
@@ -17,7 +18,12 @@ PanelWindow {
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.namespace: "quickshell:osd"
     WlrLayershell.anchors { bottom: true; left: true; right: true }
-    WlrLayershell.margins { bottom: Theme.margin }
+    // ExclusionMode.Ignore skips the bar's reserved zone, so when the
+    // bar sits at the bottom the OSD must clear it explicitly.
+    WlrLayershell.margins {
+        bottom: Theme.margin + (PrefStore.barPosition === "bottom"
+                                ? Theme.barHeight + 2 * Theme.barMargin : 0)
+    }
 
     color: "transparent"
     implicitHeight: Theme.popupHeightWithShadow

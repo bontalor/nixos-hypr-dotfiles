@@ -65,7 +65,7 @@ Rectangle {
                     font.pixelSize: 32
                     font.family: Theme.fontFamily
                     font.bold: true
-                    text: Qt.formatDateTime(clock.date, "HH:mm:ss")
+                    text: Qt.formatDateTime(clock.date, PrefStore.timeFormat === "24h" ? "HH:mm:ss" : "h:mm:ss AP")
                 }
             }
             Item {

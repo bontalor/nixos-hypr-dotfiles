@@ -11,6 +11,7 @@ import "./media"
 import "./bar"
 import "./emoji"
 import "./notifications"
+import "./settings"
 import "./osd"
 import "./theme"
 import "./models"
@@ -35,6 +36,7 @@ Scope {
     MediaPanel { id: mediaPanel }
     EmojiPicker { id: emojiPicker }
     NotifHistoryPanel { id: notifHistoryPanel }
+    SettingsPanel { id: settingsPanel }
 
     Component.onCompleted: {
         Panels.register(Panels.powerMenu, powerMenu)
@@ -48,6 +50,7 @@ Scope {
         Panels.register(Panels.media, mediaPanel)
         Panels.register(Panels.emoji, emojiPicker)
         Panels.register(Panels.notifications, notifHistoryPanel)
+        Panels.register(Panels.settings, settingsPanel)
     }
 
     IpcHandler {

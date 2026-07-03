@@ -15,6 +15,11 @@ Panel {
         { name: "Configuration" }
     ]
 
+    // --- Named section indices (replace magic numbers) ---
+    readonly property int secPlayback: 0
+    readonly property int secRecording: 1
+    readonly property int secSinks: 2
+    readonly property int secSources: 3
     readonly property int secConfig: 4
 
     // Panel's expandable-config mode drives all keyboard navigation for
@@ -25,6 +30,14 @@ Panel {
     configProfileCount: function() {
         var dev = root.configDevices[root.selConfigItem]
         return dev ? dev.profiles.length : 0
+    }
+    configCurrentProfile: function() {
+        var dev = root.configDevices[root.selConfigItem]
+        if (!dev) return 0
+        for (var i = 0; i < dev.profiles.length; i++) {
+            if (dev.profiles[i].index === dev.currentProfile) return i
+        }
+        return 0
     }
     onConfigActivated: {
         var dev = root.configDevices[root.selConfigItem]
@@ -103,12 +116,24 @@ Panel {
 
     function currentModel() {
         switch (root.selSection) {
-        case 0: return root.playbackStreams
-        case 1: return root.recordingStreams
-        case 2: return root.sinkNodes
-        case 3: return root.sourceNodes
+        case root.secPlayback: return root.playbackStreams
+        case root.secRecording: return root.recordingStreams
+        case root.secSinks: return root.sinkNodes
+        case root.secSources: return root.sourceNodes
         default: return []
         }
+    }
+
+    // Enter/click on an output or input device makes it the Pipewire
+    // default — streams that follow the default (the WirePlumber norm)
+    // move to it immediately. Stream rows have no activation.
+    onDeviceActivated: function(idx) {
+        var list = root.currentModel()
+        if (idx >= list.length) return
+        if (root.selSection === root.secSinks)
+            Pipewire.preferredDefaultAudioSink = list[idx]
+        else if (root.selSection === root.secSources)
+            Pipewire.preferredDefaultAudioSource = list[idx]
     }
 
     function changeVolume(delta) {
@@ -238,6 +263,8 @@ Panel {
                 property real displayedPeak: 0
                 property real nodeVolume: modelData.audio?.volume ?? 1
                 property bool nodeMuted: modelData.audio?.muted ?? false
+                property bool isDefault: (root.selSection === root.secSinks && Pipewire.defaultAudioSink === modelData)
+                                      || (root.selSection === root.secSources && Pipewire.defaultAudioSource === modelData)
 
                 PwNodePeakMonitor {
                     id: peakMon
@@ -252,11 +279,19 @@ Panel {
                     color: (root.inSection && index === root.selDevice) || nodeHover.containsMouse ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
                 }
 
+                // Row click selects and (for sinks/sources) sets the
+                // default device. The volume bar and mute MouseAreas are
+                // declared later, so they sit on top and win their areas.
                 MouseArea {
                     id: nodeHover
                     anchors.fill: parent
                     hoverEnabled: true
-                    acceptedButtons: Qt.NoButton
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        if (!root.inSection) root.inSection = true
+                        root.selDevice = index
+                        root.deviceActivated(index)
+                    }
                 }
 
                 ThemeText {
@@ -268,6 +303,8 @@ Panel {
                     }
                     elide: Text.ElideRight
                     width: parent.width * 0.4
+                    color: nodeItem.isDefault ? Colors.base0b : Colors.foreground
+                    font.bold: nodeItem.isDefault
                 }
 
                 Rectangle {
