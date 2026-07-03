@@ -25,33 +25,21 @@ Scope {
     NotifPopup{}
     OsdPopup{}
 
-    Picker { id: picker }
-    Launcher { id: launcher }
-    PowerMenu { id: powerMenu }
-    VolumePanel { id: volumePanel }
-    NetworkPanel { id: networkPanel }
-    BatteryPanel { id: batteryPanel }
-    DateTimePanel { id: dateTimePanel }
-    WeatherPanel { id: weatherPanel }
-    MediaPanel { id: mediaPanel }
-    EmojiPicker { id: emojiPicker }
-    NotifHistoryPanel { id: notifHistoryPanel }
-    SettingsPanel { id: settingsPanel }
-
-    Component.onCompleted: {
-        Panels.register(Panels.powerMenu, powerMenu)
-        Panels.register(Panels.picker, picker)
-        Panels.register(Panels.launcher, launcher)
-        Panels.register(Panels.volume, volumePanel)
-        Panels.register(Panels.network, networkPanel)
-        Panels.register(Panels.battery, batteryPanel)
-        Panels.register(Panels.dateTime, dateTimePanel)
-        Panels.register(Panels.weather, weatherPanel)
-        Panels.register(Panels.media, mediaPanel)
-        Panels.register(Panels.emoji, emojiPicker)
-        Panels.register(Panels.notifications, notifHistoryPanel)
-        Panels.register(Panels.settings, settingsPanel)
-    }
+    // Each panel self-registers with the Panels registry via panelKey
+    // (see theme/Panel.qml) — one declaration per panel, no separate
+    // registration list to keep in sync.
+    Picker { panelKey: Panels.picker }
+    Launcher { panelKey: Panels.launcher }
+    PowerMenu { panelKey: Panels.powerMenu }
+    VolumePanel { panelKey: Panels.volume }
+    NetworkPanel { panelKey: Panels.network }
+    BatteryPanel { panelKey: Panels.battery }
+    DateTimePanel { panelKey: Panels.dateTime }
+    WeatherPanel { panelKey: Panels.weather }
+    MediaPanel { panelKey: Panels.media }
+    EmojiPicker { panelKey: Panels.emoji }
+    NotifHistoryPanel { panelKey: Panels.notifications }
+    SettingsPanel { panelKey: Panels.settings }
 
     IpcHandler {
         target: "overlay"

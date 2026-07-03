@@ -61,6 +61,8 @@ Row {
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
+                    // Raw Hyprland dispatch string (the only inline
+                    // compositor command in the shell): focuses wsId.
                     Hyprland.dispatch("hl.dsp.focus({ workspace = " + wsId + "})")
                 }
             }

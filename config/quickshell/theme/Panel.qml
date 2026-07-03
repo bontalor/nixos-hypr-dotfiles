@@ -47,6 +47,13 @@ FloatingWindow {
 
     default property alias content: contentCol.data
 
+    // Panels registry key (Panels.network, Panels.volume, …). When set,
+    // the panel registers itself on creation — shell.qml just declares
+    // `NetworkPanel { panelKey: Panels.network }` with no separate
+    // registration list to keep in sync.
+    property string panelKey: ""
+    Component.onCompleted: if (panelKey !== "") Panels.register(panelKey, this)
+
     property var sections: []
     property string sidebarHeader: ""
     property int selSection: 0

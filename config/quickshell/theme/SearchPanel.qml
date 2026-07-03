@@ -31,6 +31,10 @@ FloatingWindow {
     visible: false
     onClosed: visible = false
 
+    // Panels registry key — same self-registration as theme/Panel.qml.
+    property string panelKey: ""
+    Component.onCompleted: if (panelKey !== "") Panels.register(panelKey, this)
+
     // --- Caller-supplied state ----------------------------------------------
     property var items: []
     property int maxLength: 0

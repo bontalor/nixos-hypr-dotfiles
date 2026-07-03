@@ -37,6 +37,7 @@ Singleton {
     // Two-pane scaffold (see theme/Panel.qml)
     property int rowHeight: 45
     property int headerHeight: 30
+    property int subHeaderHeight: 20   // SectionSubHeader rows ("My devices", …)
 
     // Search-list scaffold (Launcher/EmojiPicker/PowerMenu)
     property int searchRowHeight: 30

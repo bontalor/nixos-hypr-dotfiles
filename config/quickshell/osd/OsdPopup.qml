@@ -17,7 +17,10 @@ PanelWindow {
     id: root
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.namespace: "quickshell:osd"
-    WlrLayershell.anchors { bottom: true; left: true; right: true }
+    // Bottom-anchored only — the unanchored horizontal axis centers the
+    // surface, and sizing the window to the popup keeps it from spanning
+    // (and swallowing clicks along) the entire bottom edge while shown.
+    WlrLayershell.anchors { bottom: true }
     // ExclusionMode.Ignore skips the bar's reserved zone, so when the
     // bar sits at the bottom the OSD must clear it explicitly.
     WlrLayershell.margins {
@@ -26,6 +29,7 @@ PanelWindow {
     }
 
     color: "transparent"
+    implicitWidth: Theme.popupWidthWithShadow
     implicitHeight: Theme.popupHeightWithShadow
     visible: OsdModel.visible
 

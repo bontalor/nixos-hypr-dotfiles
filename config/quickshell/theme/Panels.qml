@@ -6,8 +6,9 @@ import Quickshell
 // In-process panel registry. Replaces the `qs ipc call overlay toggle X`
 // self-IPC pattern that spawned a `qs` subprocess per click.
 //
-// shell.qml registers each overlay panel here in Component.onCompleted:
-//     Panels.register(Panels.media, mediaPanel)
+// Panels self-register on creation via the window scaffolds' `panelKey`
+// property (theme/Panel.qml, theme/SearchPanel.qml, wallpaper/Picker.qml):
+//     MediaPanel { panelKey: Panels.media }
 //
 // Any widget or shortcut calls:
 //     Panels.toggle(Panels.media)

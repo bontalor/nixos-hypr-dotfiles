@@ -169,9 +169,10 @@ Panel {
     }
 
     // Shadows Panel.scrollToSelection: the Bluetooth section interleaves
-    // the "My devices" / "Scanning for devices..." headers (20px + spacing
-    // each, plus the "No paired devices" placeholder when relevant) that
-    // the base fixed-stride arithmetic doesn't know about.
+    // the "My devices" / "Scanning for devices..." sub-headers
+    // (Theme.subHeaderHeight + spacing each, plus the "No paired devices"
+    // placeholder when relevant) that the base fixed-stride arithmetic
+    // doesn't know about.
     function scrollToSelection() {
         if (root.selSection !== root.secBluetooth) {
             root.scrollToVisible(
@@ -181,11 +182,11 @@ Panel {
         }
         var paired = root.btMyDevices.length
         var i = root.selConfigItem
-        var y = root.headerHeight + root.colSpacing   // section header bar
-              + 20 + root.colSpacing                  // "My devices" header
+        var y = root.headerHeight + root.colSpacing              // section header bar
+              + Theme.subHeaderHeight + root.colSpacing          // "My devices" header
               + i * (root.rowHeight + root.colSpacing)
         if (i >= paired) {
-            y += 20 + root.colSpacing                 // "Scanning..." header
+            y += Theme.subHeaderHeight + root.colSpacing         // "Scanning..." header
             if (paired === 0) y += Theme.searchRowHeight + root.colSpacing  // "No paired devices"
         }
         var h = root.rowHeight
@@ -427,14 +428,9 @@ Panel {
             text: "Bluetooth is turned off"
         }
 
-        ThemeText {
+        SectionSubHeader {
             visible: root.btOn
             text: "My devices"
-            width: parent.width
-            height: 20
-            leftPadding: Theme.margin
-            color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
-            font.bold: true
         }
 
         Repeater {
@@ -447,14 +443,9 @@ Panel {
             text: "No paired devices"
         }
 
-        ThemeText {
+        SectionSubHeader {
             visible: root.btOn
             text: "Scanning for devices..."
-            width: parent.width
-            height: 20
-            leftPadding: Theme.margin
-            color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
-            font.bold: true
         }
 
         Repeater {
@@ -469,14 +460,7 @@ Panel {
         spacing: root.colSpacing
         visible: root.selSection === root.secConfig
 
-        ThemeText {
-            text: "Wi-Fi"
-            width: parent.width
-            height: 20
-            leftPadding: Theme.margin
-            color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
-            font.bold: true
-        }
+        SectionSubHeader { text: "Wi-Fi" }
 
         PanelRow {
             width: parent.width
@@ -493,14 +477,7 @@ Panel {
             }
         }
 
-        ThemeText {
-            text: "Ethernet"
-            width: parent.width
-            height: 20
-            leftPadding: Theme.margin
-            color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
-            font.bold: true
-        }
+        SectionSubHeader { text: "Ethernet" }
 
         // Informational only — not selectable (currentModelLength returns
         // 2 for this section: the Wi-Fi toggle above and the Bluetooth
@@ -515,14 +492,7 @@ Panel {
             }
         }
 
-        ThemeText {
-            text: "Bluetooth"
-            width: parent.width
-            height: 20
-            leftPadding: Theme.margin
-            color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
-            font.bold: true
-        }
+        SectionSubHeader { text: "Bluetooth" }
 
         PanelRow {
             width: parent.width

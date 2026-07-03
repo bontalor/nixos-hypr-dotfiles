@@ -17,6 +17,10 @@ FloatingWindow {
 
     onClosed: visible = false
 
+    // Panels registry key — same self-registration as theme/Panel.qml.
+    property string panelKey: ""
+    Component.onCompleted: if (panelKey !== "") Panels.register(panelKey, this)
+
     property int selected: 0
 
     // Columns actually laid out by the GridView (as many cells as fit

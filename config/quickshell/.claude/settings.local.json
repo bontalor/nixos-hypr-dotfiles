@@ -26,7 +26,11 @@
       "Bash(gh search *)",
       "WebFetch(domain:deepwiki.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(ln -sfn ../models models)",
+      "Bash(ln -sfn ../theme theme)",
+      "Bash(ln -sfn ../util util)",
+      "Bash(timeout 6 quickshell -p lockscreen/test.qml)"
     ]
   }
 }

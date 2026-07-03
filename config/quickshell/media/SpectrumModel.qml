@@ -9,7 +9,7 @@ import "../theme"
 
 // Real audio spectrum for the bar media visualizer. media/spectrum.py
 // captures the default sink's monitor via pw-record and FFT-bins it
-// into Theme.peakBands log-spaced bands tiling 40 Hz - 16 kHz (see the
+// into Theme.peakBands log-spaced bands tiling 50 Hz - 16 kHz (see the
 // script for DSP and latency details), printing one "v0;v1;..." line
 // of ints 0-100 per frame at Theme.peakFps. One shared helper process
 // feeds every bar instance; it only runs while something is playing.
