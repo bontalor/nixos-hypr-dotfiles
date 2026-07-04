@@ -1,9 +1,0 @@
-font=JetBrainsMono NF 16
-default-timeout=5000
-ignore-timeout=1
-border-size=0
-anchor=top-right
-margin=10,20,0,0
-padding=10,10,10,10
-format=%s\n%b
-include=~/.cache/wal/colors-mako
