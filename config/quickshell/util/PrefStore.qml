@@ -21,6 +21,8 @@ Singleton {
     property alias weatherUnit: adapter.weatherUnit
     property alias weatherCity: adapter.weatherCity
     property alias wallpaper: adapter.wallpaper
+    property alias wallpaperDir: adapter.wallpaperDir
+    property alias distroIcon: adapter.distroIcon
     property alias barPosition: adapter.barPosition
     property alias timeFormat: adapter.timeFormat
     property alias notifPopups: adapter.notifPopups
@@ -48,6 +50,8 @@ Singleton {
             property string weatherUnit: ""
             property string weatherCity: ""
             property string wallpaper: ""
+            property string wallpaperDir: ""       // "" = Paths default (~/walls)
+            property string distroIcon: ""         // "" = auto-detect from /etc/os-release
             property string barPosition: "top"     // "top" | "bottom"
             property string timeFormat: "12h"      // "12h" | "24h"
             property bool notifPopups: true

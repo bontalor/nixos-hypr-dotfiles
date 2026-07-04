@@ -1,4 +1,5 @@
 import "../../theme"
+import "../../util"
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -20,7 +21,10 @@ WidgetButton {
         onLoaded: root.distroContent = text()
     }
 
-    property string logoPath: computeLogoPath(distroContent)
+    // A custom icon set in Settings wins; "" falls back to detection.
+    property string logoPath: PrefStore.distroIcon
+        ? Paths.expandHome(PrefStore.distroIcon)
+        : computeLogoPath(distroContent)
 
     function computeLogoPath(content) {
         if (!content) return root.nixosLogo

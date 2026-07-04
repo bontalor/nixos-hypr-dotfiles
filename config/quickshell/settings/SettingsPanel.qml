@@ -7,6 +7,11 @@
 // Add a new setting by appending to a group in `settingsGroups` (or
 // adding a group — the sidebar dropdown follows) and declaring the pref
 // on PrefStore's adapter; consumers bind to PrefStore directly.
+//
+// An option with `custom: true` renders as a "Custom..." row that turns
+// into an inline TextInput (the WeatherPanel city flow): Enter commits
+// the typed value to the pref, Escape/Shift+Tab cancels. The paired
+// plain option (value: "") is the "use the default" reset.
 
 import "../theme"
 import "../util"
@@ -24,7 +29,15 @@ Panel {
             { label: "Bar position", pref: "barPosition",
               options: [ { name: "Top", value: "top" }, { name: "Bottom", value: "bottom" } ] },
             { label: "Audio visualizer", pref: "visualizer",
-              options: [ { name: "On", value: true }, { name: "Off", value: false } ] }
+              options: [ { name: "On", value: true }, { name: "Off", value: false } ] },
+            { label: "Distro icon", pref: "distroIcon",
+              options: [ { name: "Auto (detect distro)", value: "" },
+                         { name: "Custom...", custom: true } ] }
+        ] },
+        { name: "Wallpaper", settings: [
+            { label: "Wallpaper directory", pref: "wallpaperDir",
+              options: [ { name: "Default (~/walls)", value: "" },
+                         { name: "Custom...", custom: true } ] }
         ] },
         { name: "Date & Time", settings: [
             { label: "Clock format", pref: "timeFormat",
@@ -57,11 +70,45 @@ Panel {
         var s = root.currentSettings[root.selConfigItem]
         if (!s) return 0
         for (var i = 0; i < s.options.length; i++) {
-            if (s.options[i].value === PrefStore[s.pref]) return i
+            // A custom option is "current" whenever the pref holds any
+            // non-default (non-empty) value.
+            if (s.options[i].custom ? PrefStore[s.pref] !== ""
+                                    : s.options[i].value === PrefStore[s.pref]) return i
         }
         return 0
     }
     onConfigActivated: root.applyOption(root.selConfigItem, root.selConfigProfile)
+
+    // Inline-edit state for `custom: true` options: the setting index
+    // being edited (-1 = none) and the text being typed. Collapsing the
+    // dropdown (section switch, Escape, activation) always ends the edit,
+    // like WeatherPanel's city flow.
+    property int editingItem: -1
+    property string editText: ""
+    onConfigExpandedChanged: if (!configExpanded) root.editingItem = -1
+
+    function deferredFocus() { Qt.callLater(root.forceFocus) }
+
+    function commitEdit(itemIdx, text) {
+        var s = root.currentSettings[itemIdx]
+        if (s) PrefStore[s.pref] = text.trim()   // "" resets to the default
+        root.editingItem = -1
+        root.configExpanded = false
+        root.deferredFocus()
+    }
+
+    // Escape / Shift+Tab back out of an inline edit before the default
+    // handler collapses anything (same pre-emption as WeatherPanel).
+    onKeyPressed: function(event) {
+        if (root.editingItem < 0) return
+        if (event.key === Qt.Key_Escape
+            || (event.key === Qt.Key_Tab && (event.modifiers & Qt.ShiftModifier))
+            || event.key === Qt.Key_Backtab) {
+            root.editingItem = -1
+            root.deferredFocus()
+            event.accepted = true
+        }
+    }
 
     function optionName(setting, value) {
         for (var i = 0; i < setting.options.length; i++) {
@@ -73,7 +120,15 @@ Panel {
     function applyOption(itemIdx, optIdx) {
         var s = root.currentSettings[itemIdx]
         if (!s || optIdx < 0 || optIdx >= s.options.length) return
-        PrefStore[s.pref] = s.options[optIdx].value
+        var opt = s.options[optIdx]
+        if (opt.custom) {
+            // First activation opens the inline input pre-filled with the
+            // current value; the TextInput's onAccepted commits.
+            root.editingItem = itemIdx
+            root.editText = PrefStore[s.pref]
+            return
+        }
+        PrefStore[s.pref] = opt.value
         root.configExpanded = false
     }
 
@@ -104,9 +159,41 @@ Panel {
                     model: settingItem.isExpanded ? settingItem.setting.options : []
 
                     delegate: ConfigProfileRow {
-                        label: modelData.name
-                        isSelected: index === root.selConfigProfile
-                        onClicked: if (root.inSection) root.applyOption(settingItem.itemIndex, index)
+                        id: optionRow
+                        // While editing, the "Custom..." label yields to
+                        // the inline input.
+                        readonly property bool editing: modelData.custom === true
+                            && root.editingItem === settingItem.itemIndex
+                        label: editing ? "" : modelData.name
+                        isSelected: !editing && index === root.selConfigProfile
+                        onClicked: {
+                            if (root.inSection && !optionRow.editing) {
+                                root.selConfigProfile = index
+                                root.applyOption(settingItem.itemIndex, index)
+                            }
+                        }
+
+                        TextInput {
+                            visible: optionRow.editing
+                            anchors {
+                                left: parent.left; leftMargin: 3 * Theme.margin
+                                right: parent.right; rightMargin: Theme.margin
+                                verticalCenter: parent.verticalCenter
+                            }
+                            color: Colors.foreground
+                            font.pixelSize: Theme.fontPixelSize
+                            font.family: Theme.fontFamily
+                            text: root.editText
+                            focus: optionRow.editing
+                            onAccepted: root.commitEdit(settingItem.itemIndex, text)
+                            Keys.onPressed: (event) => {
+                                if (event.key === Qt.Key_Escape) {
+                                    root.editingItem = -1
+                                    root.deferredFocus()
+                                    event.accepted = true
+                                }
+                            }
+                        }
                     }
                 }
             }
