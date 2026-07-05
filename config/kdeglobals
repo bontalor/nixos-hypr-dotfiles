@@ -5,6 +5,7 @@ TerminalService=foot.desktop
 [KDE]
 ShowDeleteCommand=false
 widgetStyle=klassy
+AnimationDurationFactor=0
 
 [KFileDialog Settings]
 Allow Expansion=false
