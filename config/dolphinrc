@@ -1,0 +1,20 @@
+MenuBar=Disabled
+
+[DetailsMode]
+RightPadding=0
+
+[General]
+RememberOpenedTabs=false
+TabStyle=FullWidth
+Version=202
+ViewPropsTimestamp=2026,6,16,14,53,9.22
+
+[KFileDialog Settings]
+Places Icons Auto-resize=false
+Places Icons Static Size=22
+
+[MainWindow]
+MenuBar=Disabled
+
+[PreviewSettings]
+Plugins=appimagethumbnail,audiothumbnail,comicbookthumbnail,cursorthumbnail,djvuthumbnail,ebookthumbnail,exrthumbnail,directorythumbnail,imagethumbnail,jpegthumbnail,kraorathumbnail,windowsexethumbnail,windowsimagethumbnail,opendocumentthumbnail,svgthumbnail,ffmpegthumbs
