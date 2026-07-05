@@ -2,7 +2,6 @@ pragma Singleton
 
 import QtQuick
 import Quickshell
-import Quickshell.Io
 import Quickshell.Services.UPower
 import "../util"
 import "../theme"
@@ -26,6 +25,12 @@ import "../theme"
 
 Singleton {
     id: root
+
+    // Percentage thresholds for the low-battery alerts (power/BatteryAlerts)
+    // and the bar widget / panel color tint. The warning level is a
+    // Settings pref; critical stays fixed below any warning option.
+    readonly property int batteryCritical: 10
+    readonly property int batteryWarning: PrefStore.batteryWarnLevel
 
     // All UPower devices with a real battery — skips line-power supplies
     // and devices whose state is Unknown (no battery). Recomputed when the

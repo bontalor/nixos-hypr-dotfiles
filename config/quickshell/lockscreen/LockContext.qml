@@ -44,6 +44,17 @@ Scope {
         pam.start()
     }
 
+    // Reset transient failure state and start (or restart) the verify
+    // process — shared by the retry timer, the watchdog, and the PAM
+    // failure path. No-op while a password unlock is in flight, after a
+    // match, or once fingerprint has latched off.
+    function rearmFingerprint() {
+        if (!root.fingerprintEnabled || root.fingerprintMatched || root.unlockInProgress) return
+        root.fingerprintFailed = false
+        root.fingerprintHint = "or touch fingerprint"
+        fprintProc.running = true
+    }
+
     Component.onCompleted: if (root.fingerprintEnabled) fprintProc.running = true
 
     Process {
@@ -100,13 +111,7 @@ Scope {
     Timer {
         id: retryTimer
         interval: 1500
-        onTriggered: {
-            if (root.fingerprintMatched || root.unlockInProgress
-                || !root.fingerprintEnabled) return
-            root.fingerprintFailed = false
-            root.fingerprintHint = "or touch fingerprint"
-            fprintProc.running = true
-        }
+        onTriggered: root.rearmFingerprint()
     }
 
     // Recurring watchdog: re-arms fprintd-verify if it's not running and
@@ -118,14 +123,7 @@ Scope {
         repeat: true
         running: root.fingerprintEnabled && !root.fingerprintMatched
                  && !root.unlockInProgress
-        onTriggered: {
-            if (!fprintProc.running && root.fingerprintEnabled
-                && !root.fingerprintMatched && !root.unlockInProgress) {
-                root.fingerprintFailed = false
-                root.fingerprintHint = "or touch fingerprint"
-                fprintProc.running = true
-            }
-        }
+        onTriggered: if (!fprintProc.running) root.rearmFingerprint()
     }
 
     PamContext {
@@ -146,11 +144,7 @@ Scope {
             } else {
                 root.currentText = ""
                 root.showFailure = true
-                if (root.fingerprintEnabled && !root.fingerprintMatched) {
-                    root.fingerprintFailed = false
-                    root.fingerprintHint = "or touch fingerprint"
-                    fprintProc.running = true
-                }
+                root.rearmFingerprint()
             }
         }
     }

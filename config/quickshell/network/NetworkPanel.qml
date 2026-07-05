@@ -1,5 +1,7 @@
 import "../theme"
+import "../components"
 import "../models"
+import "../util"
 import QtQuick
 import Quickshell
 import Quickshell.Bluetooth
@@ -223,16 +225,52 @@ Panel {
 
     function setWifiEnabled(val) { NetworkModel.setWifiEnabled(val) }
 
+    // Secured network we're collecting a password for ("" = none). The
+    // input lives in a dedicated row above the list — the network rows
+    // themselves are recreated whenever the live wifiNetworks binding
+    // updates (signal strength changes constantly), which would destroy
+    // an in-row TextInput mid-typing.
+    property string pwSsid: ""
+    onSectionChanged: root.pwSsid = ""
+    onShown: root.pwSsid = ""
+
     function toggleWifiNetwork(idx) {
         var list = root.wifiNetworks
         if (idx >= list.length) return
         var net = list[idx]
+        root.pwSsid = ""
         if (net.active) {
             net.network.disconnect()
         } else if (net.secured && !net.known) {
-            launchNmtui()
+            // Hidden networks (no broadcast SSID) can't be joined by
+            // name — nmtui remains the path for those.
+            var ssid = net.network.name || ""
+            if (ssid === "") launchNmtui()
+            else root.pwSsid = ssid
         } else {
             net.network.connect()
+        }
+    }
+
+    // Enter in the password row: nmcli creates the profile and connects.
+    // A wrong password or other failure surfaces as a notification via
+    // CheckedProcess; the row closes either way.
+    function connectWifiPassword(password) {
+        if (root.pwSsid === "") return
+        nmcliProc.command = ["nmcli", "device", "wifi", "connect", root.pwSsid,
+                             "password", password]
+        nmcliProc.running = true
+        root.pwSsid = ""
+        Qt.callLater(root.forceFocus)
+    }
+
+    // Escape backs out of the password row before Panel's default
+    // handler would exit the section / close the panel.
+    onKeyPressed: function(event) {
+        if (root.pwSsid !== "" && event.key === Qt.Key_Escape) {
+            root.pwSsid = ""
+            Qt.callLater(root.forceFocus)
+            event.accepted = true
         }
     }
 
@@ -252,13 +290,15 @@ Panel {
         }
     }
 
-    Process {
+    CheckedProcess {
         id: nmcliProc
         running: false
     }
 
+    // Terminal comes from Settings (PrefStore.terminal, default foot);
+    // whatever is configured must accept `-e <command>`.
     function launchNmtui() {
-        nmcliProc.command = ["foot", "-e", "nmtui"]
+        nmcliProc.command = [PrefStore.terminal || "foot", "-e", "nmtui"]
         nmcliProc.running = true
     }
 
@@ -273,6 +313,49 @@ Panel {
             text: "Wi-Fi is turned off"
         }
 
+        // Inline password entry for the network picked in
+        // toggleWifiNetwork. Enter connects, Escape cancels.
+        Rectangle {
+            visible: root.pwSsid !== ""
+            width: parent.width
+            height: root.rowHeight
+            color: Qt.alpha(Colors.base01, Theme.alphaSelected)
+
+            ThemeText {
+                id: pwLabel
+                text: "Password for " + root.pwSsid + ":"
+                anchors { left: parent.left; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
+                elide: Text.ElideRight
+                width: Math.min(implicitWidth, parent.width * 0.5)
+            }
+
+            TextInput {
+                id: pwInput
+                anchors {
+                    left: pwLabel.right; leftMargin: Theme.margin
+                    right: parent.right; rightMargin: Theme.margin
+                    verticalCenter: parent.verticalCenter
+                }
+                echoMode: TextInput.Password
+                color: Colors.foreground
+                font.pixelSize: Theme.fontPixelSize
+                font.family: Theme.fontFamily
+                onAccepted: root.connectWifiPassword(text)
+                // (Re)opening the row always starts a fresh entry.
+                onVisibleChanged: {
+                    text = ""
+                    if (visible) forceActiveFocus()
+                }
+
+                ThemeText {
+                    text: "enter password…"
+                    visible: pwInput.text === ""
+                    color: Qt.alpha(Colors.foreground, Theme.alphaDim)
+                    anchors.verticalCenter: parent.verticalCenter
+                }
+            }
+        }
+
         Repeater {
             // `visible` on a Repeater doesn't hide its delegates (they're
             // parented to the Column) — gate the model instead.
@@ -284,10 +367,9 @@ Panel {
                 height: root.rowHeight
                 property int wifiSignal: modelData.signal || 0
                 selected: root.inSection && index === root.selDevice
-                onClicked: {
-                    if (!root.inSection) { root.inSection = true; root.selDevice = index }
-                    root.toggleWifiNetwork(index)
-                }
+                panel: root
+                itemIndex: index
+                onClicked: root.toggleWifiNetwork(index)
 
                 ThemeText {
                     id: wifiLabel
@@ -347,10 +429,9 @@ Panel {
                 width: parent.width
                 height: root.rowHeight
                 selected: root.inSection && index === root.selDevice
-                onClicked: {
-                    if (!root.inSection) { root.inSection = true; root.selDevice = index }
-                    root.toggleEthernet(index)
-                }
+                panel: root
+                itemIndex: index
+                onClicked: root.toggleEthernet(index)
 
                 ThemeText {
                     id: ethLabel
@@ -466,10 +547,9 @@ Panel {
             width: parent.width
             height: root.rowHeight
             selected: root.inSection && 0 === root.selDevice
-            onClicked: {
-                if (!root.inSection) { root.inSection = true; root.selDevice = 0 }
-                root.setWifiEnabled(!root.wifiEnabled)
-            }
+            panel: root
+            itemIndex: 0
+            onClicked: root.setWifiEnabled(!root.wifiEnabled)
 
             ThemeText {
                 text: "Wi-Fi: " + (root.wifiEnabled ? "On" : "Off")
@@ -498,10 +578,9 @@ Panel {
             width: parent.width
             height: root.rowHeight
             selected: root.inSection && 1 === root.selDevice
-            onClicked: {
-                if (!root.inSection) { root.inSection = true; root.selDevice = 1 }
-                if (root.btAdapter) root.btAdapter.enabled = !root.btOn
-            }
+            panel: root
+            itemIndex: 1
+            onClicked: if (root.btAdapter) root.btAdapter.enabled = !root.btOn
 
             ThemeText {
                 text: root.btAdapter
@@ -522,10 +601,9 @@ Panel {
             width: parent.width
             height: root.rowHeight
             selected: root.inSection && 0 === root.selDevice
-            onClicked: {
-                if (!root.inSection) { root.inSection = true; root.selDevice = 0 }
-                root.launchNmtui()
-            }
+            panel: root
+            itemIndex: 0
+            onClicked: root.launchNmtui()
 
             ThemeText {
                 text: "nmtui"

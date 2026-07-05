@@ -18,6 +18,7 @@
 //                  standard transition (for caller side effects)
 
 import "."
+import "../theme"
 import QtQuick
 
 Item {

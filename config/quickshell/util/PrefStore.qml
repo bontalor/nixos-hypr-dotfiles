@@ -26,8 +26,15 @@ Singleton {
     property alias barPosition: adapter.barPosition
     property alias timeFormat: adapter.timeFormat
     property alias notifPopups: adapter.notifPopups
+    property alias notifExpireSec: adapter.notifExpireSec
+    property alias emojiRecents: adapter.emojiRecents
     property alias visualizer: adapter.visualizer
     property alias fingerprintUnlock: adapter.fingerprintUnlock
+    property alias terminal: adapter.terminal
+    property alias clipboardHistory: adapter.clipboardHistory
+    property alias timeSeconds: adapter.timeSeconds
+    property alias weekStart: adapter.weekStart
+    property alias batteryWarnLevel: adapter.batteryWarnLevel
 
     FileView {
         // Not Quickshell.statePath(): that resolves to a by-shell/<hash>
@@ -47,16 +54,23 @@ Singleton {
             id: adapter
 
             property string batteryDevice: ""
-            property string weatherUnit: ""
-            property string weatherCity: ""
+            property string weatherUnit: "F"      // "F" | "C"
+            property string weatherCity: ""        // "" = auto (IP-based)
             property string wallpaper: ""
             property string wallpaperDir: ""       // "" = Paths default (~/walls)
             property string distroIcon: ""         // "" = auto-detect from /etc/os-release
             property string barPosition: "top"     // "top" | "bottom"
             property string timeFormat: "12h"      // "12h" | "24h"
             property bool notifPopups: true
+            property int notifExpireSec: 5         // popup auto-expire (seconds)
+            property string emojiRecents: ""       // space-separated MRU list
             property bool visualizer: true
             property bool fingerprintUnlock: true
+            property string terminal: ""           // "" = foot; must accept `-e <cmd>`
+            property bool clipboardHistory: true   // wl-paste watchers on/off
+            property bool timeSeconds: true        // seconds in the bar clock
+            property string weekStart: "sunday"    // "sunday" | "monday" (calendar)
+            property int batteryWarnLevel: 20      // low-battery warning percent
         }
     }
 }

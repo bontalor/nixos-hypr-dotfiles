@@ -35,4 +35,13 @@ Singleton {
     function padNum(n, width) {
         return String(n).padStart(width || 3, " ")
     }
+
+    // fmtDuration(11520) -> "3h 12m"; under an hour -> "45m".
+    // Zero/negative/unknown -> "" so callers can hide it entirely.
+    function fmtDuration(totalSeconds) {
+        var m = Math.round(Math.max(0, totalSeconds) / 60)
+        if (m <= 0) return ""
+        var h = Math.floor(m / 60)
+        return h > 0 ? h + "h " + (m % 60) + "m" : m + "m"
+    }
 }

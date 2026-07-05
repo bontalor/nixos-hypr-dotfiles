@@ -8,6 +8,7 @@
 // original rows — slot children are driven by keyboard focus, not clicks.
 
 import "."
+import "../theme"
 import QtQuick
 
 Rectangle {

@@ -4,8 +4,10 @@ import QtQuick
 import Quickshell
 
 // Centralized visual theme. Single source of truth for fonts, sizes, alphas,
-// and panel geometry. Add new shared constants here rather than hardcoding
-// them in panels.
+// and panel geometry. Add shared visual constants here; domain tunables
+// (refresh intervals, history caps, thresholds) live on their domain
+// singleton (NotifDaemon, ClipboardModel, BatteryModel, OsdModel, …) —
+// only constants used across domains stay here.
 
 Singleton {
     // --- Fonts ---
@@ -18,6 +20,8 @@ Singleton {
     // --- Bar geometry ---
     property int barHeight: 30
     property int barMargin: 10
+    // Tray icons shown inline before overflowing into the dropdown.
+    property int trayMaxVisible: 3
 
     // --- Panel geometry ---
     property int panelWidth: 850
@@ -34,7 +38,7 @@ Singleton {
     property int popupWidthWithShadow: popupWidth + margin
     property int popupHeightWithShadow: popupHeight + margin
 
-    // Two-pane scaffold (see theme/Panel.qml)
+    // Two-pane scaffold (see components/Panel.qml)
     property int rowHeight: 45
     property int headerHeight: 30
     property int subHeaderHeight: 20   // SectionSubHeader rows ("My devices", …)
@@ -53,36 +57,17 @@ Singleton {
     property real alphaInactive: 0.25       // Qt.alpha(Colors.foreground, alphaInactive) — unlit meter dots / empty bar track
     property real alphaDim: 0.5             // Qt.alpha(Colors.foreground, alphaDim) — dimmed metadata text
 
-    // --- Battery thresholds ---
-    property int batteryCritical: 15
-    property int batteryWarning: 25
-
-    // --- Audio visualizer ---
+    // --- Audio visualizer (shared by media/SpectrumModel, VolumePanel,
+    // and the bar's MediaWidget) ---
     // peakFps drives both the spectrum helper's frame rate (spectrum.py
     // restarts with the new value on reload) and VolumePanel's meters.
     property int peakFps: 16
     property int peakBands: 15
-
-    // --- OSD ---
-    property int osdHideInterval: 3000
-    property int osdBarHeight: 10          // value bar thickness in OsdPopup
-    property real volumeStep: 0.05
     property real peakDecay: 0.05
+
+    // Volume step per key/scroll tick (bar widget, VolumePanel, OSD).
+    property real volumeStep: 0.05
+
+    property int osdBarHeight: 10       // value bar thickness in OsdPopup
     property int marqueeSpeed: 25       // ms per pixel — lower is faster
-    property int brightnessStep: 5
-    property real volumeGlyphThreshold: 0.5
-
-    // --- Notifications ---
-    property int notifExpireMillis: 5000
-    property int maxPopups: 3
-    // History entries kept (oldest dropped) so a long session doesn't
-    // accumulate snapshots unboundedly.
-    property int notifHistoryMax: 100
-    // Body lines shown before truncation (popup and collapsed history
-    // entry alike); the history panel expands to the full text.
-    property int notifBodyMaxLines: 3
-    property int notifSummaryMaxLines: 2
-
-    // --- Weather refresh ---
-    property int weatherRefreshMillis: 600000
 }

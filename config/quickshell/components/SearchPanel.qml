@@ -18,6 +18,7 @@
 //   signal             launched(int idx)   fires on Enter or row click
 
 import "."
+import "../theme"
 import "../util"
 import Quickshell
 import QtQuick
@@ -31,7 +32,7 @@ FloatingWindow {
     visible: false
     onClosed: visible = false
 
-    // Panels registry key — same self-registration as theme/Panel.qml.
+    // Panels registry key — same self-registration as components/Panel.qml.
     property string panelKey: ""
     Component.onCompleted: if (panelKey !== "") Panels.register(panelKey, this)
 
@@ -43,6 +44,10 @@ FloatingWindow {
     }
     property var sortKeyFn: null
     property Component rowDelegate
+    // Shown centered in the results area when `filtered` is empty
+    // ("" hides it). Callers can bind it to distinguish "nothing
+    // matches" from "the backing list itself is empty".
+    property string emptyText: ""
 
     signal launched(int idx)
 
@@ -74,8 +79,15 @@ FloatingWindow {
         root.selectedIndex = 0
         searchText.forceActiveFocus()
     }
-    onSelectedIndexChanged: Scroll.scrollIntoView(resultFlick,
-        root.selectedIndex * Theme.searchRowStride, Theme.searchRowHeight)
+    // Rows may have non-uniform heights (e.g. clipboard image
+    // thumbnails), so scroll by the real delegate geometry, falling
+    // back to the fixed stride before layout settles.
+    onSelectedIndexChanged: {
+        var item = resultRepeater.itemAt(root.selectedIndex)
+        if (item) Scroll.scrollIntoView(resultFlick, item.y, item.height)
+        else Scroll.scrollIntoView(resultFlick,
+            root.selectedIndex * Theme.searchRowStride, Theme.searchRowHeight)
+    }
 
     function launchSelected() {
         if (root.selectedIndex >= 0 && root.selectedIndex < root.filtered.length)
@@ -158,6 +170,11 @@ FloatingWindow {
                         // ProxyWindowContentItem whose parent is null),
                         // so delegates can read `parent.panel` directly.
                         property var panel: root
+
+                        EmptyLabel {
+                            visible: root.emptyText !== "" && root.filtered.length === 0
+                            text: root.emptyText
+                        }
 
                         Repeater {
                             id: resultRepeater

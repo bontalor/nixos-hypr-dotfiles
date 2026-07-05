@@ -1,4 +1,5 @@
 import "../theme"
+import "../components"
 import "."
 import QtQuick
 import Quickshell
@@ -28,7 +29,8 @@ PanelWindow {
         Repeater {
             model: NotifDaemon.activePopups
 
-            delegate: Item {
+            delegate: PopupCard {
+                id: card
                 required property string summary
                 required property string body
                 required property string appName
@@ -36,72 +38,71 @@ PanelWindow {
                 required property string image
                 required property int notifId
                 required property int urgency
+                required property bool hasAction
 
                 width: parent.width
-                // bg height + drop-shadow extent below it.
-                height: bg.height + Theme.margin
+                // Grows with the (line-capped) text; never smaller than
+                // the standard popup so short notifications keep the
+                // usual shape. Includes the card's shadow extent.
+                height: Math.max(Theme.popupHeight,
+                                 contentRow.implicitHeight + 3 * Theme.margin)
+                border.width: urgency === NotificationUrgency.Critical ? 2 : 0
+                border.color: Colors.critical
 
-                Rectangle {
-                    id: bg
-                    width: parent.width - Theme.margin
-                    // Grows with the (line-capped) text; never smaller
-                    // than the standard popup so short notifications
-                    // keep the usual shape.
-                    height: Math.max(Theme.popupHeight - Theme.margin,
-                                     contentRow.implicitHeight + 2 * Theme.margin)
-                    color: Qt.alpha(Colors.background, Theme.alphaWindow)
-                    border.width: urgency === NotificationUrgency.Critical ? 2 : 0
-                    border.color: Colors.critical
+                Row {
+                    id: contentRow
+                    anchors {
+                        left: parent.left; right: parent.right; top: parent.top
+                        leftMargin: Theme.margin; rightMargin: Theme.margin; topMargin: Theme.margin
+                    }
+                    spacing: 6
 
-                    Row {
-                        id: contentRow
-                        anchors {
-                            left: parent.left; right: parent.right; top: parent.top
-                            leftMargin: Theme.margin; rightMargin: Theme.margin; topMargin: Theme.margin
-                        }
-                        spacing: 6
-
-                        // App icon (rendered from the model data the
-                        // daemon already collected — previously fetched
-                        // and transported but never displayed).
-                        IconImage {
-                            source: appIcon
-                            visible: status === Image.Ready
-                            width: 16; height: 16
-                        }
-
-                        Column {
-                            width: parent.width - (appIcon ? 22 : 0)
-                            spacing: 4
-
-                            ThemeText {
-                                width: parent.width
-                                text: summary || ""
-                                font.bold: true
-                                wrapMode: Text.WordWrap
-                                maximumLineCount: Theme.notifSummaryMaxLines
-                                elide: Text.ElideRight
-                            }
-
-                            ThemeText {
-                                width: parent.width
-                                text: body || ""
-                                wrapMode: Text.WordWrap
-                                maximumLineCount: Theme.notifBodyMaxLines
-                                elide: Text.ElideRight
-                                visible: text !== ""
-                            }
-                        }
+                    // App icon (rendered from the model data the
+                    // daemon already collected — previously fetched
+                    // and transported but never displayed).
+                    IconImage {
+                        source: card.appIcon
+                        visible: status === Image.Ready
+                        width: 16; height: 16
                     }
 
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: NotifDaemon.dismissPopup(notifId)
+                    Column {
+                        width: parent.width - (card.appIcon ? 22 : 0)
+                        spacing: 4
+
+                        ThemeText {
+                            width: parent.width
+                            text: card.summary || ""
+                            font.bold: true
+                            wrapMode: Text.WordWrap
+                            maximumLineCount: NotifDaemon.notifSummaryMaxLines
+                            elide: Text.ElideRight
+                        }
+
+                        ThemeText {
+                            width: parent.width
+                            text: card.body || ""
+                            wrapMode: Text.WordWrap
+                            maximumLineCount: NotifDaemon.notifBodyMaxLines
+                            elide: Text.ElideRight
+                            visible: text !== ""
+                        }
                     }
                 }
 
-                DropShadow {
+                // Left-click invokes the sender's default action when it
+                // has one (pointer cursor signals that); right-click, or
+                // left-click on an actionless notification, dismisses.
+                MouseArea {
                     anchors.fill: parent
+                    acceptedButtons: Qt.LeftButton | Qt.RightButton
+                    cursorShape: card.hasAction ? Qt.PointingHandCursor : Qt.ArrowCursor
+                    onClicked: mouse => {
+                        if (mouse.button === Qt.LeftButton && card.hasAction)
+                            NotifDaemon.invokeAction(card.notifId)
+                        else
+                            NotifDaemon.dismissPopup(card.notifId)
+                    }
                 }
             }
         }

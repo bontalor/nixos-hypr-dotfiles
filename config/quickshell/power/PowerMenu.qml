@@ -1,8 +1,9 @@
 import "../theme"
+import "../components"
 import "../models"
+import "../util"
 import "."
 import QtQuick
-import Quickshell.Io
 
 SearchPanel {
     id: root
@@ -18,7 +19,7 @@ SearchPanel {
         root.visible = false
     }
 
-    Process {
+    CheckedProcess {
         id: runner
         running: false
     }

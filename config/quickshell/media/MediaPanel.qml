@@ -1,4 +1,5 @@
 import "../theme"
+import "../components"
 import "../util"
 import QtQuick
 import Quickshell
@@ -103,6 +104,17 @@ Panel {
         case Qt.Key_Up:
             root.selSection = Scroll.clamp(root.selSection - 1, 0, root.allPlayers.length - 1)
             event.accepted = true; break
+        case Qt.Key_H:
+        case Qt.Key_Left:
+            if (root.canSeek && root.currentPlayer) root.currentPlayer.seek(-5)
+            event.accepted = true; break
+        case Qt.Key_L:
+        case Qt.Key_Right:
+            if (root.canSeek && root.currentPlayer) root.currentPlayer.seek(5)
+            event.accepted = true; break
+        case Qt.Key_Space:
+            if (root.currentPlayer) root.currentPlayer.togglePlaying()
+            event.accepted = true; break
         }
     }
 
@@ -203,7 +215,7 @@ Panel {
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
                         enabled: root.canSeek
-                        onClicked: {
+                        onClicked: (mouse) => {
                             if (root.currentPlayer && root.canSeek) {
                                 var ratio = mouse.x / width
                                 var targetPos = ratio * root.trackLength

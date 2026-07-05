@@ -1,4 +1,5 @@
 import "../../theme"
+import "../../components"
 import "../../models"
 import QtQuick
 

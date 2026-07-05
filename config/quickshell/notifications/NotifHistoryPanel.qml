@@ -1,9 +1,9 @@
 // Notification history panel — opens from the bar button.
 //
-// Extends the shared theme/Panel scaffold with one section listing all
+// Extends the shared components/Panel scaffold with one section listing all
 // entries from `NotifDaemon.history` (newest first).
 //
-// Long entries are truncated (Theme.notifBodyMaxLines); Tab, Enter, or
+// Long entries are truncated (NotifDaemon.notifBodyMaxLines); Tab, Enter, or
 // click toggles the selected entry open to its full text (a chevron
 // marks entries with more to read), mirroring the VolumePanel
 // configuration section: Shift+Tab or Escape collapses first, then
@@ -15,6 +15,7 @@
 // fixed rowHeight stride.
 
 import "../theme"
+import "../components"
 import "../util"
 import "."
 import QtQuick
@@ -118,10 +119,9 @@ Panel {
             height: root.rowHeight
             visible: root.historyList.count > 0
             selected: root.inSection && root.selDevice === 0
-            onClicked: {
-                if (!root.inSection) { root.inSection = true; root.selDevice = 0 }
-                root.clearAll()
-            }
+            panel: root
+            itemIndex: 0
+            onClicked: root.clearAll()
 
             ThemeText {
                 anchors { left: parent.left; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
@@ -148,10 +148,11 @@ Panel {
                 width: parent.width
                 height: Math.max(root.rowHeight, col.implicitHeight + 2 * Theme.margin)
                 selected: root.inSection && root.selDevice - 1 === index
-                onClicked: {
-                    if (!root.inSection) { root.inSection = true; root.selDevice = index + 1 }
-                    root.toggleExpand(index)
-                }
+                panel: root
+                // History entries sit below the Clear All row in the
+                // section's index space.
+                itemIndex: index + 1
+                onClicked: root.toggleExpand(index)
 
                 Column {
                     id: col
@@ -174,7 +175,7 @@ Panel {
                         width: parent.width
                         text: entry.body || ""
                         wrapMode: Text.WordWrap
-                        maximumLineCount: entry.expanded ? 9999 : Theme.notifBodyMaxLines
+                        maximumLineCount: entry.expanded ? 9999 : NotifDaemon.notifBodyMaxLines
                         elide: Text.ElideRight
                         visible: text !== ""
                     }
@@ -216,8 +217,17 @@ Panel {
         }
     }
 
+    // History persists across restarts, so entries can be days old —
+    // show the date once it isn't today. Clock format follows the
+    // Settings pref like every other time display.
     function fmtTimestamp(ms) {
         if (!ms) return ""
-        return Qt.formatDateTime(new Date(ms), "h:mm AP")
+        var d = new Date(ms)
+        var t = Qt.formatDateTime(d, PrefStore.timeFormat === "24h" ? "HH:mm" : "h:mm AP")
+        var now = new Date()
+        var today = d.getDate() === now.getDate()
+                 && d.getMonth() === now.getMonth()
+                 && d.getFullYear() === now.getFullYear()
+        return today ? t : Qt.formatDateTime(d, "MMM d") + ", " + t
     }
 }

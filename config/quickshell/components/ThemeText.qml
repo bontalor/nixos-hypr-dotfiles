@@ -6,7 +6,7 @@
 //   ThemeText { text: "hello"; font.bold: true }
 //   ThemeText { text: "small"; size: "small" }
 
-import "."
+import "../theme"
 import QtQuick
 
 Text {

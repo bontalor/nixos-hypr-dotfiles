@@ -33,13 +33,16 @@ Singleton {
         return new Date(year, month + 1, 0).getDate()
     }
 
-    // 6x7 calendar grid starting on Sunday before the 1st of the month.
-    // Returns 42 Date objects once per month — used by DateTimePanel
-    // instead of recomputing `new Date(startDay)` per cell per second.
-    function monthCells(year, month) {
+    // 6x7 calendar grid starting on the week's first day at or before
+    // the 1st of the month. `startDay` is a JS getDay() value (0 =
+    // Sunday, 1 = Monday — the Settings weekStart pref). Returns 42
+    // Date objects once per month — used by DateTimePanel instead of
+    // recomputing `new Date(...)` per cell per second.
+    function monthCells(year, month, startDay) {
+        startDay = startDay || 0
         var first = new Date(year, month, 1)
         var start = new Date(first)
-        start.setDate(start.getDate() - start.getDay())
+        start.setDate(start.getDate() - ((start.getDay() - startDay + 7) % 7))
         var cells = []
         for (var i = 0; i < 42; i++) {
             var d = new Date(start)

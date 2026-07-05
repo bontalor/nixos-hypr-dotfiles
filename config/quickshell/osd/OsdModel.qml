@@ -5,17 +5,21 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Pipewire
 import "../theme"
+import "../util"
 
 // On-screen-display state singleton for volume + brightness. Driven via
 // the `osd` IpcHandler in shell.qml. Volume read/written in-process
 // through Pipewire; brightness shells out to `brightnessctl` (Quickshell
 // 0.3.0 ships no backlight service). Maintains activeKind/value/glyph
-// and a hide timer that OsdPopup mirrors.
-//
-// The hide timer interval is Theme.osdHideInterval (3s).
+// and a hide timer (hideInterval) that OsdPopup mirrors.
 
 Singleton {
     id: root
+
+    property int hideInterval: 3000
+    property int brightnessStep: 5           // percent per key press
+    // Volume fraction below which the "low" glyph is shown.
+    property real volumeGlyphThreshold: 0.5
 
     property string activeKind: ""    // "volume" | "brightness"
     property real value: 0
@@ -28,7 +32,7 @@ Singleton {
     property bool muted: Pipewire.defaultAudioSink?.audio?.muted ?? false
 
     PwObjectTracker {
-        objects: [Pipewire.defaultAudioSink]
+        objects: [Pipewire.defaultAudioSink, Pipewire.defaultAudioSource]
     }
 
 
@@ -36,7 +40,7 @@ Singleton {
 
     Timer {
         id: hideTimer
-        interval: Theme.osdHideInterval
+        interval: root.hideInterval
         repeat: false
         onTriggered: root.visible = false
     }
@@ -44,8 +48,9 @@ Singleton {
     // Single shared Process for brightnessctl commands. Reused across
     // up/down/refresh; command is rebound per call. Reentrancy is
     // guarded by Process's restart-on-running semantics.
-    Process {
+    CheckedProcess {
         id: brightProc
+        label: "brightnessctl"
         running: false
         stdout: StdioCollector {
             waitForEnd: true
@@ -87,17 +92,29 @@ Singleton {
 
     function volumeGlyph() {
         if (root.muted) return Icon.volumeMute
-        if (root.volume < Theme.volumeGlyphThreshold) return Icon.volumeLow
+        if (root.volume < root.volumeGlyphThreshold) return Icon.volumeLow
         return Icon.volumeHigh
     }
 
+    function micMute() {
+        var src = Pipewire.defaultAudioSource
+        if (src && src.audio) {
+            src.audio.muted = !src.audio.muted
+            root.activeKind = "mic"
+            root.value = src.audio.muted ? 0 : (src.audio.volume ?? 0)
+            root.glyph = src.audio.muted ? Icon.micMute : Icon.mic
+            root.visible = true
+            hideTimer.restart()
+        }
+    }
+
     function brightnessUp() {
-        brightProc.command = ["brightnessctl", "s", "+" + Theme.brightnessStep + "%"]
+        brightProc.command = ["brightnessctl", "s", "+" + root.brightnessStep + "%"]
         brightProc.running = true
     }
 
     function brightnessDown() {
-        brightProc.command = ["brightnessctl", "s", Theme.brightnessStep + "%-"]
+        brightProc.command = ["brightnessctl", "s", root.brightnessStep + "%-"]
         brightProc.running = true
     }
 

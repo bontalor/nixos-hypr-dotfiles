@@ -38,4 +38,17 @@ Singleton {
     property string volumeLow:  "\u{f027}"
     property string volumeHigh: "\u{f028}"
     property string brightness: "\u{f05a8}"
+
+    // Microphone (OSD + privacy dot tooltip contexts)
+    property string mic:     "\u{f130}"
+    property string micMute: "\u{f131}"
+
+    // Notifications (bar do-not-disturb state)
+    property string bellMuted: "\u{f1f6}"
+
+    // Generic fault indicator (bar weather chip on fetch failure)
+    property string alert: "\u{f0026}"
+
+    // Lockscreen
+    property string fingerprint: "\u{F0237}"
 }

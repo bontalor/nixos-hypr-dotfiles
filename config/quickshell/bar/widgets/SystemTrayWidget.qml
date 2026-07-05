@@ -1,4 +1,5 @@
 import "../../theme"
+import "../../components"
 import "../../util"
 import QtQuick
 import Quickshell
@@ -15,7 +16,7 @@ Item {
 
     // Max tray icons shown directly in the bar. Anything beyond this rolls
     // over into the dropdown opened by the chevron on the right.
-    readonly property int maxVisible: 3
+    readonly property int maxVisible: Theme.trayMaxVisible
 
     component TrayIcon: Item {
         id: iconRoot

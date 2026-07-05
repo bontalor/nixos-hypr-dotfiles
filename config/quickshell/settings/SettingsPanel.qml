@@ -14,6 +14,7 @@
 // plain option (value: "") is the "use the default" reset.
 
 import "../theme"
+import "../components"
 import "../util"
 import QtQuick
 
@@ -39,17 +40,49 @@ Panel {
               options: [ { name: "Default (~/walls)", value: "" },
                          { name: "Custom...", custom: true } ] }
         ] },
+        { name: "Weather", settings: [
+            { label: "Temperature unit", pref: "weatherUnit",
+              options: [ { name: "Fahrenheit", value: "F" }, { name: "Celsius", value: "C" } ] },
+            { label: "City", pref: "weatherCity",
+              options: [ { name: "Auto (IP)", value: "" },
+                         { name: "Custom...", custom: true } ] }
+        ] },
         { name: "Date & Time", settings: [
             { label: "Clock format", pref: "timeFormat",
-              options: [ { name: "12-hour", value: "12h" }, { name: "24-hour", value: "24h" } ] }
+              options: [ { name: "12-hour", value: "12h" }, { name: "24-hour", value: "24h" } ] },
+            { label: "Bar clock seconds", pref: "timeSeconds",
+              options: [ { name: "On", value: true }, { name: "Off", value: false } ] },
+            { label: "Week starts on", pref: "weekStart",
+              options: [ { name: "Sunday", value: "sunday" }, { name: "Monday", value: "monday" } ] }
         ] },
         { name: "Notifications", settings: [
             { label: "Notification popups", pref: "notifPopups",
+              options: [ { name: "On", value: true }, { name: "Off", value: false } ] },
+            { label: "Popup duration", pref: "notifExpireSec",
+              options: [ { name: "3 seconds", value: 3 }, { name: "5 seconds", value: 5 },
+                         { name: "10 seconds", value: 10 } ] }
+        ] },
+        { name: "Clipboard", settings: [
+            // Stops both wl-paste watchers; existing history is kept
+            // (Clear All in the clipboard panel wipes it).
+            { label: "Clipboard history", pref: "clipboardHistory",
               options: [ { name: "On", value: true }, { name: "Off", value: false } ] }
+        ] },
+        { name: "Battery", settings: [
+            { label: "Low battery warning", pref: "batteryWarnLevel",
+              options: [ { name: "15%", value: 15 }, { name: "20%", value: 20 },
+                         { name: "25%", value: 25 }, { name: "30%", value: 30 } ] }
         ] },
         { name: "Lock Screen", settings: [
             { label: "Fingerprint unlock", pref: "fingerprintUnlock",
               options: [ { name: "On", value: true }, { name: "Off", value: false } ] }
+        ] },
+        { name: "System", settings: [
+            // Used wherever the shell opens a terminal program (nmtui);
+            // the configured terminal must accept `-e <command>`.
+            { label: "Terminal", pref: "terminal",
+              options: [ { name: "Default (foot)", value: "" },
+                         { name: "Custom...", custom: true } ] }
         ] }
     ]
 

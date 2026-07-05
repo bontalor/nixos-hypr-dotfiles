@@ -10,10 +10,12 @@ import "./weather"
 import "./media"
 import "./bar"
 import "./emoji"
+import "./clipboard"
+import "./keybinds"
 import "./notifications"
 import "./settings"
 import "./osd"
-import "./theme"
+import "./components"
 import "./models"
 import QtQuick
 import Quickshell
@@ -24,9 +26,10 @@ Scope {
     ReloadNotif{}
     NotifPopup{}
     OsdPopup{}
+    BatteryAlerts{}
 
     // Each panel self-registers with the Panels registry via panelKey
-    // (see theme/Panel.qml) — one declaration per panel, no separate
+    // (see components/Panel.qml) — one declaration per panel, no separate
     // registration list to keep in sync.
     Picker { panelKey: Panels.picker }
     Launcher { panelKey: Panels.launcher }
@@ -40,6 +43,8 @@ Scope {
     EmojiPicker { panelKey: Panels.emoji }
     NotifHistoryPanel { panelKey: Panels.notifications }
     SettingsPanel { panelKey: Panels.settings }
+    ClipboardPanel { panelKey: Panels.clipboard }
+    KeybindsPanel { panelKey: Panels.keybinds }
 
     IpcHandler {
         target: "overlay"
@@ -55,6 +60,7 @@ Scope {
         function volumeUp(): void { OsdModel.volumeUp() }
         function volumeDown(): void { OsdModel.volumeDown() }
         function mute(): void { OsdModel.volumeMute() }
+        function micMute(): void { OsdModel.micMute() }
         function brightnessUp(): void { OsdModel.brightnessUp() }
         function brightnessDown(): void { OsdModel.brightnessDown() }
     }

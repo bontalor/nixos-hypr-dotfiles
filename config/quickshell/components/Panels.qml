@@ -7,7 +7,7 @@ import Quickshell
 // self-IPC pattern that spawned a `qs` subprocess per click.
 //
 // Panels self-register on creation via the window scaffolds' `panelKey`
-// property (theme/Panel.qml, theme/SearchPanel.qml, wallpaper/Picker.qml):
+// property (components/Panel.qml, components/SearchPanel.qml, wallpaper/Picker.qml):
 //     MediaPanel { panelKey: Panels.media }
 //
 // Any widget or shortcut calls:
@@ -34,28 +34,28 @@ Singleton {
     readonly property string emoji: "emoji"
     readonly property string notifications: "notifications"
     readonly property string settings: "settings"
+    readonly property string clipboard: "clipboard"
+    readonly property string keybinds: "keybinds"
 
-    // Launcher-searchable entries, one per user-facing panel. The
+    // Launcher-searchable entries, derived from registration (one per
+    // user-facing panel, named by the panel's window title). The
     // launcher merges these with desktop applications; genericName makes
-    // them all match a "quickshell" or "panel" query.
-    readonly property var launcherEntries: [
-        { name: "Quickshell Settings",  genericName: "Quickshell Panel", panelKey: settings },
-        { name: "Wallpaper Picker",     genericName: "Quickshell Panel", panelKey: picker },
-        { name: "Power Menu",           genericName: "Quickshell Panel", panelKey: powerMenu },
-        { name: "Volume Panel",         genericName: "Quickshell Panel", panelKey: volume },
-        { name: "Network Panel",        genericName: "Quickshell Panel", panelKey: network },
-        { name: "Battery & Power Panel", genericName: "Quickshell Panel", panelKey: battery },
-        { name: "Date & Time Panel",    genericName: "Quickshell Panel", panelKey: dateTime },
-        { name: "Weather Panel",        genericName: "Quickshell Panel", panelKey: weather },
-        { name: "Media Panel",          genericName: "Quickshell Panel", panelKey: media },
-        { name: "Emoji Picker",         genericName: "Quickshell Panel", panelKey: emoji },
-        { name: "Notification History", genericName: "Quickshell Panel", panelKey: notifications }
-    ]
+    // them all match a "quickshell" or "panel" query. The launcher
+    // itself is skipped — searching for yourself in yourself is noise.
+    property var launcherEntries: []
 
     property var panels: ({})
 
     function register(name, panel) {
+        var isNew = panels[name] === undefined
         panels[name] = panel
+        if (isNew && name !== launcher) {
+            launcherEntries = launcherEntries.concat([{
+                name: panel.title,
+                genericName: "Quickshell Panel",
+                panelKey: name
+            }])
+        }
     }
 
     function toggle(name) {
@@ -63,13 +63,6 @@ Singleton {
             var p = panels[key]
             if (key === name) p.visible = !p.visible
             else if (p.visible) p.visible = false
-        })
-    }
-
-    function hideAll() {
-        Object.keys(panels).forEach(function(key) {
-            var p = panels[key]
-            if (p.visible) p.visible = false
         })
     }
 

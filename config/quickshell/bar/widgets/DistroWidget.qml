@@ -1,4 +1,5 @@
 import "../../theme"
+import "../../components"
 import "../../util"
 import QtQuick
 import Quickshell
@@ -32,8 +33,10 @@ WidgetButton {
         for (var i = 0; i < lines.length; i++) {
             if (lines[i].startsWith("ID=")) {
                 var id = lines[i].substring(3).replace(/"/g, "").trim()
+                // Add per-distro entries here alongside their assets/
+                // files; unmatched distros fall back to the
+                // Icon.distroFallback glyph below.
                 var paths = {
-                    "arch": assetsDir + "/archlinux-logo.svg",
                     "nixos": root.nixosLogo,
                 }
                 return paths[id] || ""

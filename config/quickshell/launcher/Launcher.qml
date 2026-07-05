@@ -1,4 +1,5 @@
 import "../theme"
+import "../components"
 import "."
 import QtQuick
 import Quickshell
@@ -15,6 +16,12 @@ SearchPanel {
     Connections {
         target: DesktopEntries
         function onApplicationsChanged() { rebuildDebounce.restart() }
+    }
+    // Panel entries trickle in as each panel registers during startup;
+    // the debounce collapses those into one rebuild.
+    Connections {
+        target: Panels
+        function onLauncherEntriesChanged() { rebuildDebounce.restart() }
     }
 
     function rebuildApps() {

@@ -13,6 +13,7 @@
 // and `acceptRightClick: true`.
 
 import "."
+import "../theme"
 import "../util"
 import QtQuick
 

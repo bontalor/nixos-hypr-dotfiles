@@ -1,4 +1,5 @@
 import "./theme"
+import "./components"
 import "./util"
 import "./models"
 import QtQuick
@@ -114,7 +115,7 @@ Rectangle {
                             font.pixelSize: Theme.fontPixelSize
                             font.family: Theme.fontFamily
                             text: "Enter password..."
-                            visible: parent.text.length === 0 && !parent.focus
+                            visible: parent.text.length === 0
                         }
                         Connections {
                             target: root.context
@@ -135,7 +136,7 @@ Rectangle {
                         : Qt.alpha(Colors.background, Theme.alphaBackground)
                     ThemeText {
                         anchors.centerIn: parent
-                        text: "\u{F0237}"
+                        text: Icon.fingerprint
                         size: "large"
                     }
                 }

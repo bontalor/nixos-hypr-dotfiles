@@ -8,7 +8,7 @@
 // The shadow is drawn at 0.75 alpha (Theme.alphaBackground) to match
 // the original hand-rolled shadows.
 
-import "."
+import "../theme"
 import QtQuick
 
 Item {

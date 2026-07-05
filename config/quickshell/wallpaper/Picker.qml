@@ -1,4 +1,5 @@
 import "../theme"
+import "../components"
 import "../util"
 import QtQuick
 import Qt.labs.folderlistmodel
@@ -17,7 +18,7 @@ FloatingWindow {
 
     onClosed: visible = false
 
-    // Panels registry key — same self-registration as theme/Panel.qml.
+    // Panels registry key — same self-registration as components/Panel.qml.
     property string panelKey: ""
     Component.onCompleted: if (panelKey !== "") Panels.register(panelKey, this)
 
@@ -77,7 +78,9 @@ FloatingWindow {
 
     function applyWallpaper() {
         if (wallpaperList.length === 0) return
-        var path = wallpaperList[root.selected].path
+        // `selected` can point past the end if files were deleted since
+        // the selection was made (the model resync doesn't re-clamp it).
+        var path = wallpaperList[Scroll.clamp(root.selected, 0, wallpaperList.length - 1)].path
         setter.command = [Paths.setwallBin, path]
         setter.running = true
         // Persist the selected path so the picker reopens at the
@@ -183,8 +186,9 @@ FloatingWindow {
         }
     }
 
-    Process {
+    CheckedProcess {
         id: setter
+        label: "setwall"
         running: false
     }
 

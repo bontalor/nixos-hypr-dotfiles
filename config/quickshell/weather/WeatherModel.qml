@@ -3,7 +3,6 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import "../util"
-import "../theme"
 
 // Wttr.in-backed weather state. Fetches JSON on demand via
 // XMLHttpRequest (built into QML — no curl dependency), computes moon
@@ -17,10 +16,18 @@ import "../theme"
 Singleton {
     id: root
 
+    // Refetch interval once the first fetch has succeeded (10 min —
+    // wttr.in itself caches upstream data on a similar window).
+    readonly property int refreshMillis: 600000
+
     property var weatherData: ({})
     property bool dataReady: false
-    property string degreeUnit: "F"
-    property string customCity: ""
+
+    // Unit and city are PrefStore-backed; the Settings panel writes the
+    // prefs and these bindings follow (PrefStore loads synchronously via
+    // FileView blockLoading, so the values are right from the first read).
+    readonly property string degreeUnit: PrefStore.weatherUnit || "F"
+    readonly property string customCity: PrefStore.weatherCity
 
     property bool isNight: false
     property string moonPhase: ""
@@ -161,7 +168,7 @@ Singleton {
     // Only poll after the first fetch completes (or the user opens the
     // panel) — running before `dataReady` would race with startup.
     Timer {
-        interval: Theme.weatherRefreshMillis
+        interval: root.refreshMillis
         repeat: true
         running: root.dataReady
         onTriggered: fetchWeather()
@@ -177,14 +184,11 @@ Singleton {
         onTriggered: fetchWeather()
     }
 
-    onDegreeUnitChanged: if (ready) PrefStore.weatherUnit = degreeUnit
-    onCustomCityChanged: if (ready) PrefStore.weatherCity = customCity
+    // A city change (from Settings) refetches immediately; unit changes
+    // don't need to — wttr.in returns both °F and °C in every payload.
+    onCustomCityChanged: if (ready) fetchWeather()
 
     Component.onCompleted: {
-        // PrefStore loads synchronously (FileView blockLoading), so the
-        // persisted values are available immediately.
-        if (PrefStore.weatherUnit) root.degreeUnit = PrefStore.weatherUnit
-        if (PrefStore.weatherCity) root.customCity = PrefStore.weatherCity
         root.ready = true
         fetchWeather()
     }

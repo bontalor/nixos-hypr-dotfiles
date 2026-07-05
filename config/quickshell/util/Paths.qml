@@ -13,6 +13,10 @@ Singleton {
     // Expand a leading "~/" — Settings path prefs are typed by hand.
     function expandHome(p) { return p && p.startsWith("~/") ? home + p.slice(1) : p }
 
+    // Shared shell state dir (see PrefStore for why not statePath()).
+    readonly property string stateDir: (Quickshell.env("XDG_STATE_HOME") || home + "/.local/state")
+                                       + "/quickshell"
+
     // Overridable via Settings (PrefStore.wallpaperDir); "" = default.
     readonly property string wallpaperDir: expandHome(PrefStore.wallpaperDir) || home + "/walls"
     readonly property string setwallBin: home + "/.local/bin/setwall"

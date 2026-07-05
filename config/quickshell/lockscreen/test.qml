@@ -1,3 +1,11 @@
+// Windowed dev harness for the lockscreen — renders LockSurface in a
+// plain FloatingWindow instead of a WlSessionLock, so it can be
+// iterated on without actually locking the session:
+//
+//   qs -p lockscreen/test.qml
+//
+// Escape/unlock just quits. Not part of the running shell.
+
 import "."
 import QtQuick
 import Quickshell

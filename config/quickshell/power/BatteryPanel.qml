@@ -1,5 +1,7 @@
 import "../theme"
+import "../components"
 import "../models"
+import "../util"
 import QtQuick
 import Quickshell.Services.UPower
 
@@ -56,10 +58,9 @@ Panel {
                 property int pct: Math.round(modelData.percentage * 100)
 
                 selected: root.inSection && index === root.selDevice
-                onClicked: {
-                    if (!root.inSection) { root.inSection = true; root.selDevice = index }
-                    BatteryModel.selectDevice(modelData.nativePath)
-                }
+                panel: root
+                itemIndex: index
+                onClicked: BatteryModel.selectDevice(modelData.nativePath)
 
                 ThemeText {
                     id: devName
@@ -72,8 +73,8 @@ Panel {
                 ThemeText {
                     text: pct + "%"
                     anchors { left: devName.right; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
-                    color: pct <= Theme.batteryCritical ? Colors.critical
-                        : pct <= Theme.batteryWarning ? Colors.warning
+                    color: pct <= BatteryModel.batteryCritical ? Colors.critical
+                        : pct <= BatteryModel.batteryWarning ? Colors.warning
                         : Colors.foreground
                     font.bold: true
                 }
@@ -81,7 +82,12 @@ Panel {
                 ThemeText {
                     text: {
                         var s = BatteryModel.stateText(modelData)
-                        return s ? s.charAt(0).toUpperCase() + s.slice(1) : ""
+                        s = s ? s.charAt(0).toUpperCase() + s.slice(1) : ""
+                        // UPower's native estimate; 0 while unknown.
+                        var t = FormatUtil.fmtDuration(
+                            modelData.state === UPowerDeviceState.Charging
+                                ? modelData.timeToFull : modelData.timeToEmpty)
+                        return t ? s + " · " + t : s
                     }
                     anchors { right: parent.right; rightMargin: Theme.margin; verticalCenter: parent.verticalCenter }
                     color: modelData.state === UPowerDeviceState.Charging ? Colors.base0b
@@ -116,10 +122,9 @@ Panel {
                 property bool isActive: BatteryModel.profileIndex === modelData.enumVal
 
                 selected: root.inSection && index === root.selDevice
-                onClicked: {
-                    if (!root.inSection) { root.inSection = true; root.selDevice = index }
-                    if (!isActive) BatteryModel.setProfile(modelData.enumVal)
-                }
+                panel: root
+                itemIndex: index
+                onClicked: if (!isActive) BatteryModel.setProfile(modelData.enumVal)
 
                 Row {
                     anchors { left: parent.left; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }

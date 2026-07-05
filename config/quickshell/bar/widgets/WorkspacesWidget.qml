@@ -1,4 +1,5 @@
 import "../../theme"
+import "../../components"
 import QtQuick
 import Quickshell
 import Quickshell.Hyprland

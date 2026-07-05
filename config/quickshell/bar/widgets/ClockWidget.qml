@@ -1,4 +1,4 @@
-import "../../theme"
+import "../../components"
 import "../../time"
 import QtQuick
 

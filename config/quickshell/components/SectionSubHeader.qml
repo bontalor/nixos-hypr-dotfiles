@@ -6,6 +6,7 @@
 // Caller sets `text` and `visible`.
 
 import "."
+import "../theme"
 import QtQuick
 
 ThemeText {
