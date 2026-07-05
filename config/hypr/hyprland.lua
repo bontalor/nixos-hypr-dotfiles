@@ -20,10 +20,8 @@ hl.monitor({
 ---- MY PROGRAMS ----
 
 local terminal    = "foot"
-local fileManager = "dolphin"
-local menu        = "bash ~/.config/hypr/wmenu.sh"
-local snip        = "bash ~/.config/hypr/snip.sh"
 local picker      = "bash ~/.config/hypr/picker.sh"
+local snip        = "bash ~/.config/hypr/snip.sh"
 local wallpaper   = "qs ipc call overlay toggle picker"
 local launcher    = "qs ipc call overlay toggle launcher"
 local power       = "qs ipc call overlay toggle powermenu"
@@ -31,6 +29,7 @@ local volume      = "qs ipc call overlay toggle volume"
 local network     = "qs ipc call overlay toggle network"
 local battery     = "qs ipc call overlay toggle battery"
 local emoji       = "qs ipc call overlay toggle emoji"
+local clipboard   = "qs ipc call overlay toggle clipboard"
 
 ---- AUTOSTART ----
 
@@ -188,7 +187,7 @@ hl.config({
         no_break_fs_vrr = 1,
         min_refresh_rate = 144,
         no_hardware_cursors = 0,
-	hide_on_key_press = true,
+	hide_on_key_press = false,
     },
 })
 
@@ -214,10 +213,8 @@ hl.bind(mainMod .. " + W", hl.dsp.exec_cmd(wallpaper), { description = "Toggle w
 hl.bind(mainMod .. " + V", hl.dsp.exec_cmd(volume), { description = "Toggle volume panel" })
 hl.bind(mainMod .. " + N", hl.dsp.exec_cmd(network), { description = "Toggle network panel" })
 hl.bind(mainMod .. " + B", hl.dsp.exec_cmd(battery), { description = "Toggle battery panel" })
-hl.bind(mainMod .. " + C", hl.dsp.exec_cmd("qs ipc call overlay toggle clipboard"),
-    { description = "Toggle clipboard history" })
-hl.bind(mainMod .. " + S", hl.dsp.exec_cmd("hyprshot --freeze -m region --clipboard-only"),
-    { locked = true, repeating = true, description = "Screenshot region to clipboard" })
+hl.bind(mainMod .. " + C", hl.dsp.exec_cmd(clipboard), { description = "Toggle clipboard history" })
+hl.bind(mainMod .. " + S", hl.dsp.exec_cmd(snip), { locked = true, repeating = true, description = "Screenshot region to clipboard" })
 local focusBinds = {
     { "left",  "left" }, { "H", "left" },
     { "right", "right" }, { "L", "right" },

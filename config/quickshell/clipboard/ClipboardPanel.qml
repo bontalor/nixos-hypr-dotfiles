@@ -36,7 +36,7 @@ SearchPanel {
 
     emptyText: ClipboardModel.entries.length === 0
         ? (PrefStore.clipboardHistory
-           ? "Clipboard history is empty — copy something"
+           ? "Clipboard history is empty"
            : "Clipboard history is off (Settings → Clipboard)")
         : "No matches"
 
