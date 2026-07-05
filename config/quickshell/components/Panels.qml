@@ -38,9 +38,10 @@ Singleton {
     readonly property string keybinds: "keybinds"
 
     // Launcher-searchable entries, derived from registration (one per
-    // user-facing panel, named by the panel's window title). The
-    // launcher merges these with desktop applications; genericName makes
-    // them all match a "quickshell" or "panel" query. The launcher
+    // user-facing panel, named "Quickshell <window title>" so shell
+    // panels are visibly distinct from desktop applications in the
+    // results). The launcher merges these with desktop applications;
+    // genericName makes them all match a "panel" query too. The launcher
     // itself is skipped — searching for yourself in yourself is noise.
     property var launcherEntries: []
 
@@ -51,7 +52,7 @@ Singleton {
         panels[name] = panel
         if (isNew && name !== launcher) {
             launcherEntries = launcherEntries.concat([{
-                name: panel.title,
+                name: "Quickshell " + panel.title,
                 genericName: "Quickshell Panel",
                 panelKey: name
             }])
