@@ -4,6 +4,7 @@ TerminalService=foot.desktop
 
 [KDE]
 ShowDeleteCommand=false
+widgetStyle=klassy
 
 [KFileDialog Settings]
 Allow Expansion=false

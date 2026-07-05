@@ -2,7 +2,7 @@
   "theme": {
     "colorScheme": "~/.cache/wal/pywal.colors",
     "iconTheme": "breeze-dark",
-    "style": "breeze",
+    "style": "klassy",
     "font": {
       "family": "JetBrainsMono Nerd Font Propo",
       "size": 11,
