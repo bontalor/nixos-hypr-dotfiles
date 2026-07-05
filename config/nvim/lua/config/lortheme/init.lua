@@ -1,6 +1,7 @@
 local M = {}
 
-M.colors = {
+-- terminal palette indexes, used when no pywal cache is available
+local cterm_palette = {
   black         = 0,
   red           = 1,
   green         = 2,
@@ -19,42 +20,86 @@ M.colors = {
   bright_white  = 15,
 }
 
+M.colors = cterm_palette
+
+-- pywal writes the hex values it pushed to the terminal here; using them as
+-- gui colors keeps the theme on the terminal's 16 colors with termguicolors on
+local function read_wal_palette()
+  local ok, lines = pcall(vim.fn.readfile, vim.fn.expand("~/.cache/wal/colors.json"))
+  if not ok then return nil end
+  local ok_json, wal = pcall(vim.json.decode, table.concat(lines, "\n"))
+  if not ok_json or type(wal) ~= "table" or type(wal.colors) ~= "table" then return nil end
+  local palette = {}
+  for name, index in pairs(cterm_palette) do
+    local hex = wal.colors["color" .. index]
+    if type(hex) ~= "string" then return nil end
+    palette[name] = hex
+  end
+  return palette
+end
+
 function M.load()
+  local wal = read_wal_palette()
+  local gui = wal ~= nil
+
   vim.cmd("highlight clear")
   vim.g.colors_name = "lortheme"
+  vim.o.termguicolors = gui
+  M.colors = wal or cterm_palette
+  local c = M.colors
 
-  vim.opt.termguicolors = false
+  local function hl(group, spec)
+    local attrs = { bold = spec.bold, reverse = spec.reverse }
+    if spec.fg then attrs[gui and "fg" or "ctermfg"] = c[spec.fg] end
+    if spec.bg then attrs[gui and "bg" or "ctermbg"] = spec.bg == "none" and "none" or c[spec.bg] end
+    vim.api.nvim_set_hl(0, group, attrs)
+  end
 
-  local hl = vim.api.nvim_set_hl
+  hl("Normal", { fg = "bright_white", bg = "none" })
+  hl("NormalFloat", { fg = "bright_white", bg = "black" })
+  hl("FloatBorder", { fg = "bright_black", bg = "black" })
 
-  hl(0, "Normal", { ctermfg = 15, ctermbg = "none" })
-  hl(0, "NormalFloat", { ctermfg = 15, ctermbg = 0 })
-  hl(0, "FloatBorder", { ctermfg = 8, ctermbg = 0 })
+  hl("Comment", { fg = "bright_black" })
+  hl("Keyword", { fg = "red" })
+  hl("String", { fg = "green" })
+  hl("Function", { fg = "blue" })
+  hl("Identifier", { fg = "magenta" })
+  hl("Type", { fg = "cyan" })
 
-  hl(0, "Comment", { ctermfg = 8 })
-  hl(0, "Keyword", { ctermfg = 1 })
-  hl(0, "String", { ctermfg = 2 })
-  hl(0, "Function", { ctermfg = 4 })
-  hl(0, "Identifier", { ctermfg = 5 })
-  hl(0, "Type", { ctermfg = 6 })
+  hl("LineNr", { fg = "bright_white", bg = "black" })
+  hl("CursorLineNr", { fg = "magenta", bg = "black" })
+  hl("CursorLine", { bg = "black" })
 
-  hl(0, "LineNr", { ctermfg = 15, ctermbg = 0 })
-  hl(0, "CursorLineNr", { ctermfg = 5, ctermbg = 0 })
-  hl(0, "CursorLine", { ctermbg = 0 })
+  hl("Visual", { reverse = true })
 
-  hl(0, "Visual", { reverse = true })
-
-  hl(0, "Pmenu", { ctermfg = 15, ctermbg = 0 })
-  hl(0, "PmenuSel", { ctermfg = 0, ctermbg = 4 })
-  hl(0, "PmenuSbar", { ctermbg = 0 })
-  hl(0, "PmenuThumb", { ctermbg = 8 })
-  hl(0, "PmenuMatch", { ctermfg = 6, bold = true })
-  hl(0, "PmenuMatchSel", { ctermfg = 0, ctermbg = 4, bold = true })
+  hl("Pmenu", { fg = "bright_white", bg = "black" })
+  hl("PmenuSel", { fg = "black", bg = "blue" })
+  hl("PmenuSbar", { bg = "black" })
+  hl("PmenuThumb", { bg = "bright_black" })
+  hl("PmenuMatch", { fg = "cyan", bold = true })
+  hl("PmenuMatchSel", { fg = "black", bg = "blue", bold = true })
 
   -- match lualine's section c so the statusline doesn't flash the
   -- default reverse-video (white) highlight before lualine loads
-  hl(0, "StatusLine", { ctermfg = 7, ctermbg = 0 })
-  hl(0, "StatusLineNC", { ctermfg = 7, ctermbg = 0 })
+  hl("StatusLine", { fg = "white", bg = "black" })
+  hl("StatusLineNC", { fg = "white", bg = "black" })
+end
+
+-- reload when pywal regenerates the palette (wallpaper change)
+local watcher, debounce
+function M.watch(on_reload)
+  if watcher then return end
+  local dir = vim.fn.expand("~/.cache/wal")
+  if vim.fn.isdirectory(dir) == 0 then return end
+  watcher = assert(vim.uv.new_fs_event())
+  debounce = assert(vim.uv.new_timer())
+  watcher:start(dir, {}, function(_, filename)
+    if filename and filename ~= "colors.json" then return end
+    debounce:start(100, 0, vim.schedule_wrap(function()
+      M.load()
+      if on_reload then on_reload() end
+    end))
+  end)
 end
 
 return M

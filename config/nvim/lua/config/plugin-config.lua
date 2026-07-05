@@ -1,12 +1,21 @@
 -- lualine
-require('lualine').setup {
-    options = {
-	-- remove separators
-	section_separators = '',
-	component_separators = '',
-	theme = require("config.lortheme.lualine"),
+local function setup_lualine()
+    require('lualine').setup {
+	options = {
+	    -- remove separators
+	    section_separators = '',
+	    component_separators = '',
+	    theme = require("config.lortheme.lualine"),
+	}
     }
-}
+end
+setup_lualine()
+
+-- rebuild the theme and lualine when pywal changes the palette
+require('config.lortheme').watch(function()
+    package.loaded["config.lortheme.lualine"] = nil
+    setup_lualine()
+end)
 -- telescope
 local builtin = require('telescope.builtin')
 vim.keymap.set('n', '<leader>ff', builtin.find_files, { desc = 'Telescope find files' })
@@ -19,4 +28,3 @@ require("tree-sitter-manager").setup {
 }
 -- highlight-colors
 require('nvim-highlight-colors').setup()
-require('config.highlight-colors-cterm')
