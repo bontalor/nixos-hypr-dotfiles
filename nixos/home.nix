@@ -76,6 +76,7 @@
 	    qtengine
 	    qt6.qtwayland
 	    wl-clipboard
+	    cliphist
 	    xrandr
 	    opencode
 	    claude-code
@@ -95,6 +96,10 @@
 	    ydotool
 	    theclicker
 	    quickemu
+	    clang-tools
+	    lua-language-server
+	    bash-language-server
+	    nixd
 # (pkgs.symlinkJoin {
 #     name = "spotify";
 #     paths = [ pkgs.spotify ];
