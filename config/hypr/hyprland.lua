@@ -294,6 +294,14 @@ hl.window_rule({
 })
 
 hl.window_rule({
+    match = {
+        float = true
+    },
+    size = { 850, 450 },
+    center = true
+})
+
+hl.window_rule({
     -- Fix some dragging issues with XWayland
     name     = "fix-xwayland-drags",
     match    = {
