@@ -28,7 +28,8 @@ function M.load()
   local hl = vim.api.nvim_set_hl
 
   hl(0, "Normal", { ctermfg = 15, ctermbg = "none" })
-  hl(0, "NormalFloat", { ctermfg = 15, ctermbg = "none" })
+  hl(0, "NormalFloat", { ctermfg = 15, ctermbg = 0 })
+  hl(0, "FloatBorder", { ctermfg = 8, ctermbg = 0 })
 
   hl(0, "Comment", { ctermfg = 8 })
   hl(0, "Keyword", { ctermfg = 1 })
@@ -42,6 +43,18 @@ function M.load()
   hl(0, "CursorLine", { ctermbg = 0 })
 
   hl(0, "Visual", { reverse = true })
+
+  hl(0, "Pmenu", { ctermfg = 15, ctermbg = 0 })
+  hl(0, "PmenuSel", { ctermfg = 0, ctermbg = 4 })
+  hl(0, "PmenuSbar", { ctermbg = 0 })
+  hl(0, "PmenuThumb", { ctermbg = 8 })
+  hl(0, "PmenuMatch", { ctermfg = 6, bold = true })
+  hl(0, "PmenuMatchSel", { ctermfg = 0, ctermbg = 4, bold = true })
+
+  -- match lualine's section c so the statusline doesn't flash the
+  -- default reverse-video (white) highlight before lualine loads
+  hl(0, "StatusLine", { ctermfg = 7, ctermbg = 0 })
+  hl(0, "StatusLineNC", { ctermfg = 7, ctermbg = 0 })
 end
 
 return M

@@ -9,4 +9,6 @@ vim.pack.add {
     { src = "https://github.com/romus204/tree-sitter-manager.nvim" },
     -- highlight-colors
     { src = "https://github.com/brenoprata10/nvim-highlight-colors" },
+    -- lsp server configs
+    { src = "https://github.com/neovim/nvim-lspconfig" },
 }

@@ -1,4 +1,5 @@
 require('config.keybinds')
-require('config.plugins')
 require('config.options')
+require('config.plugins')
 require('config.plugin-config')
+require('config.lsp')

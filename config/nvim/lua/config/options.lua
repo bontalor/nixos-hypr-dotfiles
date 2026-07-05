@@ -7,4 +7,5 @@ vim.opt.scrolloff = 8
 vim.opt.showmode = false
 vim.opt.clipboard = "unnamedplus"
 vim.opt.swapfile = false
+vim.opt.winborder = "single"
 require('config.lortheme').load()

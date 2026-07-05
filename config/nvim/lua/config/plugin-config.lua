@@ -1,5 +1,3 @@
-vim.opt.termguicolors = false
-
 -- lualine
 require('lualine').setup {
     options = {
@@ -21,3 +19,4 @@ require("tree-sitter-manager").setup {
 }
 -- highlight-colors
 require('nvim-highlight-colors').setup()
+require('config.highlight-colors-cterm')
