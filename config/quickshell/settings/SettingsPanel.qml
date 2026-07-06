@@ -17,6 +17,7 @@ import "../theme"
 import "../components"
 import "../util"
 import QtQuick
+import Qt.labs.platform as Platform
 
 Panel {
     id: root
@@ -33,12 +34,13 @@ Panel {
               options: [ { name: "On", value: true }, { name: "Off", value: false } ] },
             { label: "Distro icon", pref: "distroIcon",
               options: [ { name: "Auto (detect distro)", value: "" },
-                         { name: "Custom...", custom: true } ] }
+                         { name: "Browse…", custom: true, picker: "file",
+                           filters: ["Image files (*.png *.svg *.xpm *.jpg *.ico)", "All files (*)"] } ] }
         ] },
         { name: "Wallpaper", settings: [
             { label: "Wallpaper directory", pref: "wallpaperDir",
               options: [ { name: "Default (~/walls)", value: "" },
-                         { name: "Custom...", custom: true } ] }
+                         { name: "Browse…", custom: true, picker: "directory" } ] }
         ] },
         { name: "Weather", settings: [
             { label: "Temperature unit", pref: "weatherUnit",
@@ -143,6 +145,36 @@ Panel {
         }
     }
 
+    // Native file/directory picker for `picker:` options (distroIcon,
+    // wallpaperDir). Qt.labs.platform routes to the XDG portal on Wayland.
+    // _pickerPref tracks which pref to write after the dialog closes.
+    property string _pickerPref: ""
+
+    Platform.FileDialog {
+        id: settingsFileDlg
+        fileMode: Platform.FileDialog.OpenFile
+        onAccepted: {
+            if (root._pickerPref !== "") {
+                var s = settingsFileDlg.file.toString()
+                PrefStore[root._pickerPref] = s.startsWith("file://") ? s.slice(7) : s
+            }
+            root._pickerPref = ""
+        }
+        onRejected: root._pickerPref = ""
+    }
+
+    Platform.FolderDialog {
+        id: settingsFolderDlg
+        onAccepted: {
+            if (root._pickerPref !== "") {
+                var s = settingsFolderDlg.folder.toString()
+                PrefStore[root._pickerPref] = s.startsWith("file://") ? s.slice(7) : s
+            }
+            root._pickerPref = ""
+        }
+        onRejected: root._pickerPref = ""
+    }
+
     function optionName(setting, value) {
         for (var i = 0; i < setting.options.length; i++) {
             if (setting.options[i].value === value) return setting.options[i].name
@@ -154,9 +186,22 @@ Panel {
         var s = root.currentSettings[itemIdx]
         if (!s || optIdx < 0 || optIdx >= s.options.length) return
         var opt = s.options[optIdx]
+        if (opt.picker) {
+            // Open the native dialog; pref is written in the dialog's onAccepted.
+            root._pickerPref = s.pref
+            root.configExpanded = false
+            if (opt.picker === "directory") {
+                settingsFolderDlg.title = "Choose " + s.label
+                settingsFolderDlg.open()
+            } else {
+                settingsFileDlg.title = "Choose " + s.label
+                settingsFileDlg.nameFilters = opt.filters || ["All files (*)"]
+                settingsFileDlg.open()
+            }
+            return
+        }
         if (opt.custom) {
-            // First activation opens the inline input pre-filled with the
-            // current value; the TextInput's onAccepted commits.
+            // TextInput inline-edit for typed custom values (weather city, terminal, …).
             root.editingItem = itemIdx
             root.editText = PrefStore[s.pref]
             return
@@ -193,9 +238,11 @@ Panel {
 
                     delegate: ConfigProfileRow {
                         id: optionRow
-                        // While editing, the "Custom..." label yields to
-                        // the inline input.
+                        // While editing a typed custom value, the label yields
+                        // to the inline TextInput. Picker-type options (`picker`
+                        // property set) open the OS portal instead — no TextInput.
                         readonly property bool editing: modelData.custom === true
+                            && !modelData.picker
                             && root.editingItem === settingItem.itemIndex
                         label: editing ? "" : modelData.name
                         isSelected: !editing && index === root.selConfigProfile

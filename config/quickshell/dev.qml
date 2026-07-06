@@ -26,6 +26,7 @@ import "./notifications"
 import "./settings"
 import "./clipboard"
 import "./keybinds"
+import "./ffmpeg"
 import QtQuick
 import Quickshell
 
@@ -48,7 +49,8 @@ ShellRoot {
         "notifications": cNotifications,
         "settings": cSettings,
         "clipboard": cClipboard,
-        "keybinds": cKeybinds
+        "keybinds": cKeybinds,
+        "ffmpeg": cFfmpeg
     })
 
     LazyLoader {
@@ -71,6 +73,7 @@ ShellRoot {
     Component { id: cSettings; SettingsPanel {} }
     Component { id: cClipboard; ClipboardPanel {} }
     Component { id: cKeybinds; KeybindsPanel {} }
+    Component { id: cFfmpeg; FfmpegPanel {} }
 
     Connections {
         target: Quickshell

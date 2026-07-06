@@ -1,7 +1,7 @@
 # Quickshell config
 
 A [Quickshell](https://quickshell.org/) desktop shell for Hyprland on NixOS,
-run as a systemd user service. Bar, 14 toggleable panels, notification
+run as a systemd user service. Bar, 15 toggleable panels, notification
 daemon, OSD, clipboard history, and a session lockscreen — ~8k lines of QML.
 
 Design goals: minimal, simple, readable, modular, and Quickshell-native
@@ -83,6 +83,7 @@ the unit inherits the session environment):
 | `pw-record` (pipewire) | `media/spectrum.py` visualizer capture | — |
 | `python3` (stdlib only) | `media/spectrum.py` FFT | no native spectrum source |
 | `nmcli` | Wi-Fi connect with password, wired reconnect | not exposed by Quickshell.Networking |
+| `ffmpeg`, `ffprobe` | FfmpegPanel (convert/trim/resize/compress/GIF/merge) | no media transcoding API |
 | a terminal (default `foot`, Settings → System) | opening `nmtui` | — |
 | `nmtui` (networkmanager) | Wi-Fi password entry / NM config | no secret-agent API |
 | `fprintd-verify` (fprintd) | lockscreen fingerprint unlock | PamContext is text-only |

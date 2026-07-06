@@ -292,10 +292,11 @@ hl.window_rule({
 
 hl.window_rule({
     match = {
-        float = true
+        float = true,
+        class = "negative:^(steam)$",
     },
     size = { 850, 450 },
-    center = true
+    center = true,
 })
 
 hl.window_rule({
@@ -335,13 +336,12 @@ hl.window_rule({
 hl.window_rule({
     name = "quickshell-floating-windows",
     match = {
-        title =
-        "Wallpaper Picker|App Launcher|Power Menu|Volume Control|Network Control|Battery & Power|Date & Time|Weather|Media|Emoji Picker|Notifications|Settings|Clipboard|Keybinds"
+        --title = "Wallpaper Picker|App Launcher|Power Menu|Volume Control|Network Control|Battery & Power|Date & Time|Weather|Media|Emoji Picker|Notifications|Settings|Clipboard|Keybinds|FFmpeg"
+	class = "org.quickshell"
     },
     float = true,
     size = { 850, 450, },
 })
-
 
 hl.layer_rule({
     match = { namespace = "quickshell:bar|quickshell:notification|quickshell:tray" },

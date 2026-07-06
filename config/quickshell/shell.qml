@@ -12,6 +12,7 @@ import "./bar"
 import "./emoji"
 import "./clipboard"
 import "./keybinds"
+import "./ffmpeg"
 import "./notifications"
 import "./settings"
 import "./osd"
@@ -45,6 +46,7 @@ Scope {
     SettingsPanel { panelKey: Panels.settings }
     ClipboardPanel { panelKey: Panels.clipboard }
     KeybindsPanel { panelKey: Panels.keybinds }
+    FfmpegPanel { panelKey: Panels.ffmpeg }
 
     IpcHandler {
         target: "overlay"

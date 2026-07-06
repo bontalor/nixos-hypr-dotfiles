@@ -239,41 +239,70 @@ Panel {
         spacing: root.colSpacing
         visible: root.selSection === 2
 
-        // Month header: ‹ March 2026 › — chevrons mirror the H/L keys.
-        // Highlighted while the month selector is the keyboard level.
-        Item {
+        // Month header: [ ‹ ] [ March 2026 ] [ › ]
+        // Three independent buttons, each with its own hover background.
+        // Clicking the month label toggles between day-grid and month-selector.
+        Row {
+            id: calHeader
             width: parent.width
             height: Theme.headerHeight
+            spacing: Theme.margin
 
             Rectangle {
-                anchors.fill: parent
-                color: root.inSection && !root.inMonthGrid
+                width: Theme.headerHeight
+                height: Theme.headerHeight
+                color: prevHov.containsMouse
                        ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
-            }
-
-            ThemeText {
-                text: Icon.chevronLeft
-                anchors { left: parent.left; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
+                ThemeText {
+                    anchors.centerIn: parent
+                    text: Icon.chevronLeft
+                }
                 MouseArea {
+                    id: prevHov
                     anchors.fill: parent
-                    anchors.margins: -Theme.margin
+                    hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: root.monthOffset--
                 }
             }
 
-            ThemeText {
-                anchors.centerIn: parent
-                text: Qt.formatDateTime(new Date(root._year, root._month, 1), "MMMM yyyy")
-                font.bold: true
+            Rectangle {
+                width: calHeader.width - 2 * Theme.headerHeight - 2 * Theme.margin
+                height: Theme.headerHeight
+                color: monthHov.containsMouse || (root.inSection && !root.inMonthGrid)
+                       ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
+                ThemeText {
+                    anchors.centerIn: parent
+                    text: Qt.formatDateTime(new Date(root._year, root._month, 1), "MMMM yyyy")
+                    font.bold: true
+                }
+                MouseArea {
+                    id: monthHov
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        root.selSection = 2
+                        root.inSection = true
+                        if (root.inMonthGrid) root.inMonthGrid = false
+                        else root.enterMonthGrid()
+                    }
+                }
             }
 
-            ThemeText {
-                text: Icon.chevronRight
-                anchors { right: parent.right; rightMargin: Theme.margin; verticalCenter: parent.verticalCenter }
+            Rectangle {
+                width: Theme.headerHeight
+                height: Theme.headerHeight
+                color: nextHov.containsMouse
+                       ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
+                ThemeText {
+                    anchors.centerIn: parent
+                    text: Icon.chevronRight
+                }
                 MouseArea {
+                    id: nextHov
                     anchors.fill: parent
-                    anchors.margins: -Theme.margin
+                    hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: root.monthOffset++
                 }

@@ -36,6 +36,7 @@ Singleton {
     readonly property string settings: "settings"
     readonly property string clipboard: "clipboard"
     readonly property string keybinds: "keybinds"
+    readonly property string ffmpeg: "ffmpeg"
 
     // Launcher-searchable entries, derived from registration (one per
     // user-facing panel, named "Quickshell <window title>" so shell
