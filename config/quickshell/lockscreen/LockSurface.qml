@@ -9,22 +9,26 @@ import Quickshell.Wayland
 Rectangle {
     id: root
     required property LockContext context
-    color: "transparent"
+    color: Colors.background
 
     property string wallpaperPath: ""
 
+    // blockLoading: true makes the initial text() call synchronous — the
+    // onLoaded signal fires before the first frame is rendered, so
+    // wallpaperPath is set (and Image starts decoding) before any paint.
     FileView {
-        id: wallpaperFile
         path: Paths.walWallpaper
+        blockLoading: true
         watchChanges: true
         onLoaded: root.wallpaperPath = text().trim()
         onFileChanged: root.wallpaperPath = text().trim()
     }
+
     Image {
         anchors.fill: parent
         source: wallpaperPath ? "file://" + wallpaperPath : ""
         fillMode: Image.PreserveAspectCrop
-        asynchronous: true
+        asynchronous: false   // decode synchronously so first frame shows wallpaper
         sourceSize.width: 1920
         sourceSize.height: 1080
     }
