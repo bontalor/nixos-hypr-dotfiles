@@ -1,0 +1,82 @@
+/* Remove rounded corners globally */
+
+*, *::before, *::after {
+    border-radius: 0 !important;
+    clip-path: none !important;
+    -webkit-clip-path: none !important;
+    mask: none !important;
+    -webkit-mask: none !important;
+    mask-image: none !important;
+    -webkit-mask-image: none !important;
+}
+
+:root,
+* {
+    --border-radius: 0 !important;
+    --border-radius-small: 0 !important;
+    --border-radius-medium: 0 !important;
+    --border-radius-large: 0 !important;
+    --border-radius-extra-large: 0 !important;
+    --border-radius-extra-extra-large: 0 !important;
+    --border-radius-full: 0 !important;
+    --border-radius-pill: 0 !important;
+    --border-radius-round: 0 !important;
+    --border-radius-rounded: 0 !important;
+
+    --borderRadius-default: 0 !important;
+    --borderRadius-small: 0 !important;
+    --borderRadius-medium: 0 !important;
+    --borderRadius-large: 0 !important;
+    --borderRadius-full: 0 !important;
+
+    --overlay-borderRadius: 0 !important;
+
+    --button-default-borderRadius: 0 !important;
+    --button-border-radius: 0 !important;
+    --button-border-radius-default: 0 !important;
+    --button-border-radius-large: 0 !important;
+    --button-border-radius-lg: 0 !important;
+    --button-border-radius-small: 0 !important;
+
+    --input-border-radius-default: 0 !important;
+    --input-border-radius-large: 0 !important;
+
+    --rounded: 0 !important;
+
+    --radius: 0 !important;
+    --radius-xs: 0 !important;
+    --radius-sm: 0 !important;
+    --radius-md: 0 !important;
+    --radius-lg: 0 !important;
+    --radius-xl: 0 !important;
+    --radius-xxl: 0 !important;
+    --radius-full: 0 !important;
+    --radius-round: 0 !important;
+
+    --custom-app-top-bar-item-radius: 0 !important;
+    --custom-base-tile-border-radius: 0 !important;
+    --custom-emoji-picker-border-radius: 0 !important;
+    --custom-guild-boosting-marketing-tier-cards-tier-card-border-radius: 0 !important;
+    --custom-live-indicator-border-radius: 0 !important;
+    --custom-reaction-picker-border-radius: 0 !important;
+    --custom-scrollbar-border-radius: 0 !important;
+    --custom-stickers-constants-sticker-picker-preview-border-radius: 0 !important;
+
+    --mobile-card-default-radius: 0 !important;
+    --mobile-channel-item-radius: 0 !important;
+    --mobile-channel-name-channel-icon-radius: 0 !important;
+    --mobile-chat-input-border-radius: 0 !important;
+    --mobile-control-checkbox-border-radius: 0 !important;
+    --mobile-guild-folder-background-radius: 0 !important;
+    --mobile-guild-item-selected-border-radius: 0 !important;
+    --mobile-input-field-radius-lg: 0 !important;
+    --mobile-input-field-radius-md: 0 !important;
+    --mobile-input-field-radius-sm: 0 !important;
+    --mobile-input-field-round-radius: 0 !important;
+    --mobile-media-keyboard-bar-border-radius: 0 !important;
+    --mobile-segmented-control-border-radius: 0 !important;
+    --mobile-table-row-border-radius: 0 !important;
+    --mobile-voice-panel-controls-border-radius: 0 !important;
+    --mobile-voice-tile-border-radius: 0 !important;
+    --mobile-you-bar-border-radius: 0 !important;
+}
