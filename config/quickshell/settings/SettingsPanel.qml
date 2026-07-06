@@ -27,11 +27,13 @@ Panel {
     // groups; each group is a subsection (Panel renders `subs` as the
     // dropdown) and `settings` drives the content for that group.
     readonly property var settingsGroups: [
+        { name: "Quickshell", settings: [
+            { label: "Lowercase text", pref: "allLowercase",
+              options: [ { name: "On", value: true }, { name: "Off", value: false } ] }
+        ] },
         { name: "Bar", settings: [
             { label: "Bar position", pref: "barPosition",
               options: [ { name: "Top", value: "top" }, { name: "Bottom", value: "bottom" } ] },
-            { label: "Lowercase text", pref: "allLowercase",
-              options: [ { name: "On", value: true }, { name: "Off", value: false } ] },
             { label: "Audio visualizer", pref: "visualizer",
               options: [ { name: "On", value: true }, { name: "Off", value: false } ] },
             { label: "Distro icon", pref: "distroIcon",
