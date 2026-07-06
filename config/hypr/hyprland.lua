@@ -5,7 +5,7 @@ hl.monitor({
     mode     = "1920x1080@144.000",
     position = "1600x0",
     scale    = "1",
-    vrr      = 0,
+    vrr      = 1,
 })
 
 hl.monitor({
@@ -314,6 +314,14 @@ hl.window_rule({
 
 hl.window_rule({
     match = { fullscreen = "true" }, immediate = true
+})
+
+hl.window_rule({
+    name = "fullscreen-apps-prevent-suspend",
+    match = {
+        class = ".*"
+    },
+    idle_inhibit = "fullscreen"
 })
 
 --hl.window_rule({
