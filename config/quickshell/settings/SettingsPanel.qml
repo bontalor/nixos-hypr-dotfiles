@@ -30,6 +30,8 @@ Panel {
         { name: "Bar", settings: [
             { label: "Bar position", pref: "barPosition",
               options: [ { name: "Top", value: "top" }, { name: "Bottom", value: "bottom" } ] },
+            { label: "Lowercase text", pref: "allLowercase",
+              options: [ { name: "On", value: true }, { name: "Off", value: false } ] },
             { label: "Audio visualizer", pref: "visualizer",
               options: [ { name: "On", value: true }, { name: "Off", value: false } ] },
             { label: "Distro icon", pref: "distroIcon",

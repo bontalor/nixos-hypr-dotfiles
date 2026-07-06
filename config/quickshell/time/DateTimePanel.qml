@@ -184,7 +184,7 @@ Panel {
                 spacing: Theme.margin
 
                 ThemeText {
-                    text: Qt.formatDateTime(root.now, "dddd, MMMM d, yyyy")
+                    text: Qt.formatDateTime(root.now, "dddd, ") + FormatUtil.ordinal(root.now.getDate()) + Qt.formatDateTime(root.now, " 'of' MMMM, yyyy")
                 }
 
                 ThemeText {

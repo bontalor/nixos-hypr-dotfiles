@@ -26,7 +26,7 @@ WidgetButton {
 
     function computeStatusText(pct, charging, profileSymbol) {
         if (pct < 0) return "Bat ---- " + profileSymbol
-        var plugSymbol = charging ? Icon.plug + " " : ""
-        return "Bat " + FormatUtil.padNum(pct, 3) + "% " + profileSymbol + " " + plugSymbol
+        var plugSymbol = charging ? " " + Icon.plug : ""
+        return "Bat " + FormatUtil.padNum(pct, 3) + "% " + profileSymbol + plugSymbol
     }
 }

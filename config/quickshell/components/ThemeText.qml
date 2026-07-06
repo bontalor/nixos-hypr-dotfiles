@@ -7,6 +7,7 @@
 //   ThemeText { text: "small"; size: "small" }
 
 import "../theme"
+import "../util"
 import QtQuick
 
 Text {
@@ -17,6 +18,7 @@ Text {
     property string size: "normal"
 
     color: Colors.foreground
+    font.capitalization: PrefStore.allLowercase ? Font.AllLowercase : Font.MixedCase
     font.family: Theme.fontFamily
     font.pixelSize: size === "small"
         ? Theme.fontPixelSizeSmall

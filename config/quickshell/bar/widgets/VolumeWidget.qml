@@ -66,13 +66,19 @@ WidgetButton {
             }
         }
 
+        ThemeText {
+            anchors.verticalCenter: parent.verticalCenter
+            text: "rec"
+            color: Colors.foreground
+            visible: root.micInUse
+        }
+
         Rectangle {
             width: 4
             height: 4
             anchors.verticalCenter: parent.verticalCenter
-            // Space stays reserved when idle so the widget width (and
-            // the bar layout right of it) doesn't jump on mic use.
-            color: root.micInUse ? Colors.critical : "transparent"
+            visible: root.micInUse
+            color: Colors.foreground
         }
     }
 }

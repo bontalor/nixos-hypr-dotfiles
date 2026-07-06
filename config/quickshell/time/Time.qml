@@ -11,8 +11,8 @@ Singleton {
         var fmt = PrefStore.timeFormat === "24h"
             ? (PrefStore.timeSeconds ? "HH:mm:ss" : "HH:mm")
             : (PrefStore.timeSeconds ? "hh:mm:ss AP" : "hh:mm AP")
-        return Qt.formatDateTime(clock.date, "dddd, MMMM ") + FormatUtil.ordinal(clock.date.getDate())
-            + Qt.formatDateTime(clock.date, ", yyyy ")
+        return Qt.formatDateTime(clock.date, "dddd, ") + FormatUtil.ordinal(clock.date.getDate())
+            + Qt.formatDateTime(clock.date, " 'of' MMMM, yyyy ")
             + Qt.formatDateTime(clock.date, fmt)
     }
 

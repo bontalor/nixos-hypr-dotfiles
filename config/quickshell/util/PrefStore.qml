@@ -35,6 +35,7 @@ Singleton {
     property alias timeSeconds: adapter.timeSeconds
     property alias weekStart: adapter.weekStart
     property alias batteryWarnLevel: adapter.batteryWarnLevel
+    property alias allLowercase: adapter.allLowercase
 
     FileView {
         // Not Quickshell.statePath(): that resolves to a by-shell/<hash>
@@ -71,6 +72,7 @@ Singleton {
             property bool timeSeconds: true        // seconds in the bar clock
             property string weekStart: "sunday"    // "sunday" | "monday" (calendar)
             property int batteryWarnLevel: 20      // low-battery warning percent
+        property bool allLowercase: false
         }
     }
 }
