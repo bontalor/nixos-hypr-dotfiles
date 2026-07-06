@@ -39,11 +39,9 @@
 # Services
 #services.mako.enable = true;
 
-# Scripts
-    home.file.".local/bin/setwall" = {
-	source = ./scripts/setwall;
-	executable = true;
-    };
+# Scripts (live symlink, no rebuild needed on edit)
+    home.file.".local/bin/setwall".source =
+	config.lib.file.mkOutOfStoreSymlink "/etc/nixos/scripts/setwall";
 
 # Packages
     home.packages = with pkgs; [
@@ -126,8 +124,20 @@
 
     programs.spicetify = {
         enable = true;
+        # colors.css is symlinked into the pywal cache, so wal colors apply on
+        # spotify restart without a rebuild
+        spotifyPackage = pkgs.spotify.overrideAttrs (old: {
+            postFixup = (old.postFixup or "") + ''
+                ln -sfn /home/bonta/.cache/wal/colors-spicetify.css \
+                    $out/share/spotify/Apps/xpui/colors.css
+            '';
+        });
         enabledSnippets = [
             (builtins.readFile ./spicetify/spicetify.css)
         ];
     };
+
+# Pywal templates
+    xdg.configFile."wal/templates/colors-spicetify.css".source =
+        ./spicetify/colors-spicetify.css;
 }

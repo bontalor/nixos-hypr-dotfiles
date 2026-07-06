@@ -1,0 +1,39 @@
+:root {{
+    --spice-text: {color15};
+    --spice-subtext: {color7.darken(20)};
+    --spice-main: {color0};
+    --spice-main-elevated: {color0.lighten(8)};
+    --spice-highlight: {color0.lighten(3)};
+    --spice-highlight-elevated: {color0.lighten(10)};
+    --spice-sidebar: {color0.darken(40)};
+    --spice-player: {color0.lighten(2)};
+    --spice-card: {color0.lighten(9)};
+    --spice-shadow: #000000;
+    --spice-selected-row: {color15};
+    --spice-button: {color2};
+    --spice-button-active: {color2.lighten(10)};
+    --spice-button-disabled: {color8};
+    --spice-tab-active: {color0.lighten(14)};
+    --spice-notification: {color4};
+    --spice-notification-error: {color9};
+    --spice-misc: {color8};
+
+    --spice-rgb-text: {color15.rgb};
+    --spice-rgb-subtext: {color7.darken(20).rgb};
+    --spice-rgb-main: {color0.rgb};
+    --spice-rgb-main-elevated: {color0.lighten(8).rgb};
+    --spice-rgb-highlight: {color0.lighten(3).rgb};
+    --spice-rgb-highlight-elevated: {color0.lighten(10).rgb};
+    --spice-rgb-sidebar: {color0.darken(40).rgb};
+    --spice-rgb-player: {color0.lighten(2).rgb};
+    --spice-rgb-card: {color0.lighten(9).rgb};
+    --spice-rgb-shadow: 0,0,0;
+    --spice-rgb-selected-row: {color15.rgb};
+    --spice-rgb-button: {color2.rgb};
+    --spice-rgb-button-active: {color2.lighten(10).rgb};
+    --spice-rgb-button-disabled: {color8.rgb};
+    --spice-rgb-tab-active: {color0.lighten(14).rgb};
+    --spice-rgb-notification: {color4.rgb};
+    --spice-rgb-notification-error: {color9.rgb};
+    --spice-rgb-misc: {color8.rgb};
+}}
