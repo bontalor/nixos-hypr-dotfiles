@@ -1,4 +1,4 @@
-{ config, lib, pkgs, inputs, ... }:
+{ pkgs, inputs, ... }:
 
 let
 mcsrPkgs = inputs.mcsr-nixos.packages.${pkgs.stdenv.hostPlatform.system};
@@ -122,17 +122,6 @@ in
 		);
     };
 
-    programs.nix-ld = {
-	enable = true;
-	libraries = with pkgs; [
-	    libXtst 
-		libXt 
-		libX11
-		libxkbcommon
-		libxinerama
-	];
-    };
-
 # Users
     users.users.bonta = {
 	isNormalUser = true;
@@ -194,7 +183,7 @@ in
 # Nix
     nix.settings.experimental-features = [ "nix-command" "flakes" ];
     nixpkgs.config.allowUnfree = true;
-    # stupid fucking pnpm temp fix
+# stupid fucking pnpm temp fix
     nixpkgs.overlays = [
 	(final: _prev: {
 	 pnpm_10_29_2 = final.pnpm_10;

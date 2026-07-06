@@ -11,8 +11,12 @@
 	    url = "https://git.uku3lig.net/uku/mcsr-nixos/archive/main.tar.gz";
 	    inputs.nixpkgs.follows = "nixpkgs";
 	};
+	spicetify-nix = {
+	    url = "github:Gerg-L/spicetify-nix";
+	    inputs.nixpkgs.follows = "nixpkgs";
+	};
     };
-    outputs = { nixpkgs, home-manager, mcsr-nixos, ... }@inputs: {
+    outputs = { nixpkgs, home-manager, mcsr-nixos, spicetify-nix, ... }@inputs: {
 	nixosConfigurations.lor-nixos = nixpkgs.lib.nixosSystem {
 	    system = "x86_64-linux";
 	    specialArgs = { inherit inputs; };

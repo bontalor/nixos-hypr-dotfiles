@@ -5,6 +5,12 @@
     home.homeDirectory = "/home/bonta";
     home.stateVersion = "26.05";
 
+# Imports
+
+    imports = [
+	inputs.spicetify-nix.homeManagerModules.spicetify
+    ];
+
 # XDG dirs
     xdg.userDirs = {
 	enable = true;
@@ -44,7 +50,6 @@
 	tree
 	    fastfetch
 	    chatterino2
-	    spotify
 	    discord
 	    vesktop
 #legcord
@@ -65,6 +70,7 @@
 	    kdePackages.ffmpegthumbs
 	    kdePackages.qtsvg
 	    kdePackages.breeze
+	    klassy
 	    kdePackages.okular
 	    kdePackages.ark
 	    kdePackages.qtdeclarative
@@ -100,17 +106,7 @@
 	    lua-language-server
 	    bash-language-server
 	    nixd
-# (pkgs.symlinkJoin {
-#     name = "spotify";
-#     paths = [ pkgs.spotify ];
-#     nativeBuildInputs = [ pkgs.makeWrapper ];
-#     postBuild = ''
-#         wrapProgram $out/bin/spotify \
-#             --unset DISPLAY \
-#             --add-flags "--ozone-platform-hint=wayland" \
-#             --add-flags "--enable-features=UseOzonePlatform,WaylandWindowDecorations"
-#     '';
-# })
+#spicetify-cli
 	    ];
 
 # Session
@@ -126,5 +122,12 @@
     programs.quickshell = {
 	enable = true;
 	systemd.enable = true;
+    };
+
+    programs.spicetify = {
+        enable = true;
+        enabledSnippets = [
+            (builtins.readFile ./spicetify/spicetify.css)
+        ];
     };
 }
