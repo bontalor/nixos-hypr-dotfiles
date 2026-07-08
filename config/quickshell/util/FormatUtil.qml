@@ -36,6 +36,12 @@ Singleton {
         return String(n).padStart(width || 3, " ")
     }
 
+    // formattedDate(date) -> "Wednesday, July 8th, 2026". Ordinal day
+    // number inserted between month and year. date is a Date object.
+    function formattedDate(d) {
+        return Qt.formatDateTime(d, "dddd, MMMM ") + ordinal(d.getDate()) + Qt.formatDateTime(d, ", yyyy")
+    }
+
     // fmtDuration(11520) -> "3h 12m"; under an hour -> "45m".
     // Zero/negative/unknown -> "" so callers can hide it entirely.
     function fmtDuration(totalSeconds) {

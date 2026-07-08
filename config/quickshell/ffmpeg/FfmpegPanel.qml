@@ -42,6 +42,25 @@ Panel {
     readonly property int secMerge: 7
     readonly property int secJob: 8
 
+    // ================= Job runner =================
+
+    JobRunner {
+        id: jobRunner
+        onFinished: (label, output) => {
+            NotifDaemon.notify("FFmpeg: " + label + " finished",
+                root.tildify(output), NotificationUrgency.Normal)
+        }
+        onFailed: (label, error, exitCode) => {
+            NotifDaemon.notify("FFmpeg: " + label + " failed (exit " + exitCode + ")",
+                error.slice(0, 300), NotificationUrgency.Critical)
+        }
+        onBusy: {
+            NotifDaemon.notify("FFmpeg is busy",
+                "A job is already running — cancel it in the Job section first.",
+                NotificationUrgency.Normal)
+        }
+    }
+
     // ================= File pickers =================
 
     Platform.FileDialog {
@@ -162,82 +181,6 @@ Panel {
                      : m + ":" + FormatUtil.zeroPad(ss)
     }
 
-    // ================= Job runner =================
-
-    readonly property bool jobRunning: jobProc.running
-    property string jobLabel: ""
-    property string jobOutput: ""
-    property real jobDurationSec: 0
-    property real jobOutTimeSec: 0
-    property string jobState: "idle"
-    property string jobError: ""
-    property bool _cancelRequested: false
-
-    readonly property real jobProgress: jobDurationSec > 0
-        ? Math.min(1, jobOutTimeSec / jobDurationSec) : 0
-
-    function startJob(label, args, outFile, durationSec) {
-        if (jobProc.running) {
-            NotifDaemon.notify("FFmpeg is busy",
-                "A job is already running — cancel it in the Job section first.",
-                NotificationUrgency.Normal)
-            return
-        }
-        root.jobLabel = label
-        root.jobOutput = outFile
-        root.jobDurationSec = durationSec
-        root.jobOutTimeSec = 0
-        root.jobError = ""
-        root._cancelRequested = false
-        jobProc.command = ["ffmpeg", "-nostdin", "-v", "warning",
-                           "-progress", "pipe:1", "-nostats"].concat(args)
-        root.jobState = "running"
-        jobProc.running = true
-        root.selSection = root.secJob
-    }
-
-    function cancelJob() {
-        if (!jobProc.running) return
-        root._cancelRequested = true
-        jobProc.running = false
-    }
-
-    Process {
-        id: jobProc
-        stdout: SplitParser {
-            // out_time_us carries microseconds despite the _ms suffix in
-            // older ffmpeg versions — use out_time_us as the unambiguous key.
-            onRead: line => {
-                if (line.startsWith("out_time_us=")) {
-                    var us = parseInt(line.slice(12), 10)
-                    if (!isNaN(us)) root.jobOutTimeSec = us / 1e6
-                }
-            }
-        }
-        stderr: StdioCollector { id: jobErr }
-        onExited: (exitCode) => {
-            if (root._cancelRequested) {
-                root.jobState = "cancelled"
-                cleanupProc.command = ["rm", "-f", root.jobOutput]
-                cleanupProc.running = true
-                return
-            }
-            if (exitCode === 0) {
-                root.jobState = "done"
-                root.jobOutTimeSec = root.jobDurationSec
-                NotifDaemon.notify("FFmpeg: " + root.jobLabel + " finished",
-                    root.tildify(root.jobOutput), NotificationUrgency.Normal)
-            } else {
-                root.jobState = "failed"
-                root.jobError = (jobErr.text || "").trim().slice(-500)
-                NotifDaemon.notify("FFmpeg: " + root.jobLabel + " failed (exit " + exitCode + ")",
-                    root.jobError.slice(0, 300), NotificationUrgency.Critical)
-            }
-        }
-    }
-
-    Process { id: cleanupProc; running: false }
-
     // ================= Operations =================
 
     readonly property var convertOps: [
@@ -259,9 +202,9 @@ Panel {
         var op = root.convertOps[idx]
         if (!op || !root.hasInput) return
         var out = root.outPath(op.tag, op.ext)
-        root.startJob("convert to " + op.ext.toUpperCase(),
+        if (jobRunner.start("convert to " + op.ext.toUpperCase(),
             ["-i", root.inputPath].concat(op.args).concat([out]),
-            out, root.inputDuration)
+            out, root.inputDuration)) root.selSection = root.secJob
     }
 
     readonly property var extractOps: [
@@ -290,9 +233,9 @@ Panel {
         var ext = op.copy ? root.audioCopyExt() : op.ext
         var args = op.copy ? ["-c:a", "copy"] : op.args
         var out = root.outPath("audio", ext)
-        root.startJob("extract audio",
+        if (jobRunner.start("extract audio",
             ["-i", root.inputPath, "-vn"].concat(args).concat([out]),
-            out, root.inputDuration)
+            out, root.inputDuration)) root.selSection = root.secJob
     }
 
     // --- Trim ---
@@ -309,10 +252,10 @@ Panel {
         var out = root.outPath("trim", root.inputExt())
         // -ss/-to before -i: seeks the demuxer (fast, required for clean
         // stream copy); avoid_negative_ts rebases timestamps to 0.
-        root.startJob("trim",
+        if (jobRunner.start("trim",
             ["-ss", String(root.trimStartSec), "-to", String(root.trimEndSec),
              "-i", root.inputPath, "-c", "copy", "-avoid_negative_ts", "make_zero", out],
-            out, root.trimEndSec - root.trimStartSec)
+            out, root.trimEndSec - root.trimStartSec)) root.selSection = root.secJob
     }
 
     // --- Resize ---
@@ -320,11 +263,11 @@ Panel {
 
     function runScale(vf, tag) {
         var out = root.outPath(tag, "mp4")
-        root.startJob("resize",
+        if (jobRunner.start("resize",
             ["-i", root.inputPath, "-vf", vf,
              "-c:v", "libx264", "-crf", "20", "-preset", "veryfast",
              "-c:a", "aac", "-b:a", "192k", out],
-            out, root.inputDuration)
+            out, root.inputDuration)) root.selSection = root.secJob
     }
 
     function runResize(idx) {
@@ -362,10 +305,10 @@ Panel {
         var args = ["-i", root.inputPath]
         if (op.scale !== "") args = args.concat(["-vf", op.scale])
         var out = root.outPath("crf" + op.crf, "mp4")
-        root.startJob("compress",
+        if (jobRunner.start("compress",
             args.concat(["-c:v", "libx264", "-crf", String(op.crf), "-preset", "medium",
                          "-c:a", "aac", "-b:a", "128k", out]),
-            out, root.inputDuration)
+            out, root.inputDuration)) root.selSection = root.secJob
     }
 
     // --- GIF ---
@@ -381,9 +324,9 @@ Panel {
         if (w !== "source") f += ",scale=" + w + ":-1:flags=lanczos"
         f += ",split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse"
         var out = root.outPath("gif", "gif")
-        root.startJob("GIF",
+        if (jobRunner.start("GIF",
             ["-i", root.inputPath, "-vf", f, "-loop", "0", out],
-            out, root.inputDuration)
+            out, root.inputDuration)) root.selSection = root.secJob
     }
 
     // --- Merge ---
@@ -401,11 +344,11 @@ Panel {
         var out = root.outPath("merged", ext)
         // -shortest: end at the shorter track; avoids frozen last frame
         // hanging under leftover audio (or silent video past audio end).
-        root.startJob("merge",
+        if (jobRunner.start("merge",
             ["-i", root.inputPath, "-i", root.audioPath,
              "-map", "0:v:0", "-map", "1:a:0"].concat(codec)
              .concat(["-shortest", out]),
-            out, root.inputDuration)
+            out, root.inputDuration)) root.selSection = root.secJob
     }
 
     // ================= Panel navigation =================
@@ -420,7 +363,7 @@ Panel {
         case root.secCompress: return root.hasInput ? root.compressOps.length : 0
         case root.secGif:      return root.hasInput ? 3 : 0
         case root.secMerge:    return root.hasInput ? 3 : 0
-        case root.secJob:      return root.jobRunning ? 1 : 0
+        case root.secJob:      return jobRunner.running ? 1 : 0
         default: return 0
         }
     }
@@ -449,7 +392,7 @@ Panel {
             else root.runMerge(idx === 2)
             break
         case root.secJob:
-            if (idx === 0) root.cancelJob()
+            if (idx === 0) jobRunner.cancel()
             break
         }
     }
@@ -814,27 +757,27 @@ Panel {
         visible: root.selSection === root.secJob
 
         EmptyLabel {
-            visible: root.jobState === "idle"
+            visible: jobRunner.state === "idle"
             text: "No job has run yet"
         }
 
         Item {
-            visible: root.jobState !== "idle"
+            visible: jobRunner.state !== "idle"
             width: parent.width
             height: root.rowHeight
 
             ThemeText {
-                text: root.jobLabel
+                text: jobRunner.label
                 anchors { left: parent.left; leftMargin: Theme.margin; right: parent.right; rightMargin: Theme.margin }
                 y: 4; font.bold: true
             }
 
             ThemeText {
                 text: {
-                    switch (root.jobState) {
+                    switch (jobRunner.state) {
                     case "running":
-                        return "Running — " + Math.round(root.jobProgress * 100) + "%  ("
-                             + root.fmtTime(root.jobOutTimeSec) + " / " + root.fmtTime(root.jobDurationSec) + ")"
+                        return "Running — " + Math.round(jobRunner.progress * 100) + "%  ("
+                             + root.fmtTime(jobRunner.outTimeSec) + " / " + root.fmtTime(jobRunner.durationSec) + ")"
                     case "done":      return "Done"
                     case "failed":    return "Failed"
                     case "cancelled": return "Cancelled (partial output removed)"
@@ -842,28 +785,28 @@ Panel {
                     }
                 }
                 anchors { left: parent.left; leftMargin: Theme.margin; right: parent.right; rightMargin: Theme.margin; top: parent.top; topMargin: 24 }
-                color: root.jobState === "failed" ? Colors.base08
-                     : root.jobState === "done"   ? Colors.base0b
+                color: jobRunner.state === "failed" ? Colors.critical
+                     : jobRunner.state === "done"   ? Colors.success
                      : Qt.alpha(Colors.foreground, Theme.alphaDim)
             }
         }
 
         Rectangle {
-            visible: root.jobState === "running" || root.jobState === "done"
+            visible: jobRunner.state === "running" || jobRunner.state === "done"
             width: parent.width - 2 * Theme.margin; x: Theme.margin
             height: Theme.osdBarHeight
             color: Qt.alpha(Colors.foreground, Theme.alphaInactive)
 
             Rectangle {
-                width: parent.width * root.jobProgress
+                width: parent.width * jobRunner.progress
                 height: parent.height
-                color: Colors.base0d
+                color: Colors.accent
             }
         }
 
         ThemeText {
-            visible: root.jobOutput !== "" && root.jobState !== "cancelled"
-            text: root.tildify(root.jobOutput)
+            visible: jobRunner.output !== "" && jobRunner.state !== "cancelled"
+            text: root.tildify(jobRunner.output)
             width: parent.width
             leftPadding: Theme.margin; rightPadding: Theme.margin
             elide: Text.ElideMiddle
@@ -872,26 +815,26 @@ Panel {
         }
 
         PanelRow {
-            visible: root.jobRunning
+            visible: jobRunner.running
             width: parent.width; height: root.rowHeight
             selected: root.inSection && 0 === root.selDevice
             panel: root; itemIndex: 0
-            onClicked: root.cancelJob()
+            onClicked: jobRunner.cancel()
 
             ThemeText {
-                text: "Cancel job"; color: Colors.base08
+                text: "Cancel job"; color: Colors.critical
                 anchors { left: parent.left; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
             }
         }
 
         SectionSubHeader {
-            visible: root.jobState === "failed" && root.jobError !== ""
+            visible: jobRunner.state === "failed" && jobRunner.error !== ""
             text: "ffmpeg output"
         }
 
         ThemeText {
-            visible: root.jobState === "failed" && root.jobError !== ""
-            text: root.jobError
+            visible: jobRunner.state === "failed" && jobRunner.error !== ""
+            text: jobRunner.error
             width: parent.width; leftPadding: Theme.margin; rightPadding: Theme.margin
             wrapMode: Text.WrapAnywhere
             color: Qt.alpha(Colors.foreground, Theme.alphaDim)

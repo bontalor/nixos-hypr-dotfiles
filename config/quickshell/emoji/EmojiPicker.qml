@@ -1,3 +1,6 @@
+// Subprocess dependency: wl-copy (copies emoji to clipboard via
+// Wayland data device).
+
 import "../components"
 import "../util"
 import "."

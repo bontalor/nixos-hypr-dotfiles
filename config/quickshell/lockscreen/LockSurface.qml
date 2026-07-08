@@ -1,3 +1,6 @@
+// Subprocess dependencies: systemctl (suspend/reboot/poweroff),
+// loginctl (terminate-user logout) — same power actions as PowerMenu.
+
 import "./theme"
 import "./components"
 import "./util"
@@ -37,10 +40,7 @@ Rectangle {
         running: false
     }
 
-    property string formattedDate: {
-        var d = clock.date
-        return Qt.formatDateTime(d, "dddd, MMMM ") + FormatUtil.ordinal(d.getDate()) + Qt.formatDateTime(d, ", yyyy")
-    }
+    property string formattedDate: FormatUtil.formattedDate(clock.date)
 
     property var lockActions: PowerActions.actions.filter(function(a) {
         return a.name !== "Lock"
@@ -157,7 +157,7 @@ Rectangle {
                             width: 45
                             height: 45
                             anchors.horizontalCenter: parent.horizontalCenter
-                            color: btnMouse.containsMouse ? Qt.alpha(Colors.critical, Theme.alphaBackground) : Qt.alpha(Colors.background, Theme.alphaBackground)
+                            color: btnMouse.containsMouse ? Qt.alpha(Colors.accent, Theme.alphaSectionHeader + Theme.alphaHover) : Qt.alpha(Colors.accent, Theme.alphaSectionHeader)
                             ThemeText {
                                 anchors.centerIn: parent
                                 text: modelData?.glyph ?? ""

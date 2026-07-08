@@ -1,3 +1,6 @@
+// Subprocess dependencies: nmcli (Wi-Fi password connect, Ethernet
+// reconnect), <terminal> -e nmtui (NetworkManager TUI).
+
 import "../theme"
 import "../components"
 import "../models"
@@ -319,7 +322,7 @@ Panel {
             visible: root.pwSsid !== ""
             width: parent.width
             height: root.rowHeight
-            color: Qt.alpha(Colors.base01, Theme.alphaSelected)
+            color: Qt.alpha(Colors.selected, Theme.alphaSelected)
 
             ThemeText {
                 id: pwLabel
@@ -404,7 +407,7 @@ Panel {
                         }
                         return modelData.active ? "Connected" : "Off"
                     }
-                    color: modelData.active ? Colors.base0b : Qt.alpha(Colors.foreground, Theme.alphaBackground)
+                    color: modelData.active ? Colors.success : Qt.alpha(Colors.foreground, Theme.alphaBackground)
                     font.bold: modelData.active
                 }
             }
@@ -454,7 +457,7 @@ Panel {
                     text: modelData.stateChanging
                         ? (modelData.state === ConnectionState.Disconnecting ? "Disconnecting..." : "Connecting...")
                         : modelData.connected ? "Connected" : "Off"
-                    color: modelData.connected ? Colors.base0b : Colors.foreground
+                    color: modelData.connected ? Colors.success : Colors.foreground
                     font.bold: modelData.connected
                 }
             }

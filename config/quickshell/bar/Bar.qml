@@ -85,26 +85,25 @@ Scope {
                     anchors.rightMargin: Theme.barMargin
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: Theme.barMargin
-                    layoutDirection: Qt.RightToLeft
 
-                    SystemTrayWidget {
-                        id: sysTray
-                        parentWindow: panelWindow
-                    }
+                    NotifWidget {}
 
-                    NetworkWidget {
-                        id: networkWidget
+                    BatteryWidget {
+                        id: batteryWidget
                     }
 
                     VolumeWidget {
                         id: volumeWidget
                     }
 
-                    BatteryWidget {
-                        id: batteryWidget
+                    NetworkWidget {
+                        id: networkWidget
                     }
 
-                    NotifWidget {}
+                    SystemTrayWidget {
+                        id: sysTray
+                        parentWindow: panelWindow
+                    }
                 }
             }
 

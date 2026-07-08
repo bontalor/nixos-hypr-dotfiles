@@ -8,25 +8,8 @@
 // notifications panel's NotificationServer only spins up when actually
 // under test), forced visible, and the process exits when its window
 // closes (Escape). panelKey stays unset — nothing registers.
-//
-// Loading panels by file path instead would be map-free, but dynamic
-// qs:-scheme URLs break the panels' relative directory imports
-// ("Panel is not a type"), so an explicit component map it is.
 
-import "./wallpaper"
-import "./launcher"
-import "./power"
-import "./network"
-import "./volume"
-import "./time"
-import "./weather"
-import "./media"
-import "./emoji"
-import "./notifications"
-import "./settings"
-import "./clipboard"
-import "./keybinds"
-import "./ffmpeg"
+import "./components"
 import QtQuick
 import Quickshell
 
@@ -35,45 +18,12 @@ ShellRoot {
 
     property string which: (Quickshell.env("LOR_PANEL") || "launcher").toLowerCase()
 
-    readonly property var panelComponents: ({
-        "picker": cPicker,
-        "launcher": cLauncher,
-        "powermenu": cPowerMenu,
-        "volume": cVolume,
-        "network": cNetwork,
-        "battery": cBattery,
-        "datetime": cDateTime,
-        "weather": cWeather,
-        "media": cMedia,
-        "emoji": cEmoji,
-        "notifications": cNotifications,
-        "settings": cSettings,
-        "clipboard": cClipboard,
-        "keybinds": cKeybinds,
-        "ffmpeg": cFfmpeg
-    })
+    PanelComponents { id: shared }
 
-    LazyLoader {
-        active: true
-        component: root.panelComponents[root.which] ?? cLauncher
+    Loader {
+        sourceComponent: shared.get(root.which) ?? shared.launcher
         onItemChanged: if (item) item.visible = true
     }
-
-    Component { id: cPicker; Picker {} }
-    Component { id: cLauncher; Launcher {} }
-    Component { id: cPowerMenu; PowerMenu {} }
-    Component { id: cVolume; VolumePanel {} }
-    Component { id: cNetwork; NetworkPanel {} }
-    Component { id: cBattery; BatteryPanel {} }
-    Component { id: cDateTime; DateTimePanel {} }
-    Component { id: cWeather; WeatherPanel {} }
-    Component { id: cMedia; MediaPanel {} }
-    Component { id: cEmoji; EmojiPicker {} }
-    Component { id: cNotifications; NotifHistoryPanel {} }
-    Component { id: cSettings; SettingsPanel {} }
-    Component { id: cClipboard; ClipboardPanel {} }
-    Component { id: cKeybinds; KeybindsPanel {} }
-    Component { id: cFfmpeg; FfmpegPanel {} }
 
     Connections {
         target: Quickshell

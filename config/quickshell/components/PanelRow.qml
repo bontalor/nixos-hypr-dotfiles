@@ -35,7 +35,7 @@ Rectangle {
     default property alias content: contentItem.data
 
     color: selected || hoverArea.containsMouse
-           ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
+           ? Qt.alpha(Colors.selected, Theme.alphaSelected) : "transparent"
 
     MouseArea {
         id: hoverArea

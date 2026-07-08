@@ -28,10 +28,10 @@ Rectangle {
     width: parent.width
     height: Theme.searchRowHeight
     color: isSelected
-           ? Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
+           ? Qt.alpha(Colors.accent, Theme.alphaSectionHeader)
            : rowMouse.containsMouse
-               ? Qt.alpha(Colors.base01, Theme.alphaSelected)
-               : Qt.alpha(Colors.base00, Theme.alphaBackground)
+               ? Qt.alpha(Colors.selected, Theme.alphaSelected)
+               : Qt.alpha(Colors.surface, Theme.alphaBackground)
 
     ThemeText {
         visible: root.label !== ""

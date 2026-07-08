@@ -49,9 +49,9 @@ Singleton {
     property int iconSize: 22
 
     // --- Alphas ---
-    property real alphaBackground: 0.75     // Qt.alpha(Colors.base00, 0.75)
-    property real alphaSelected: 0.75       // Qt.alpha(Colors.base01, 0.75)
-    property real alphaSectionHeader: 0.75  // Qt.alpha(Colors.base0d, 0.75)
+    property real alphaBackground: 0.75     // Qt.alpha(Colors.surface, 0.75)
+    property real alphaSelected: 0.75       // Qt.alpha(Colors.selected, 0.75)
+    property real alphaSectionHeader: 0.75  // Qt.alpha(Colors.accent, 0.75)
     property real alphaHover: 0.25          // Qt.alpha(Colors.foreground, alphaHover) — bar widget hover
     property real alphaWindow: 0.76         // Qt.alpha(Colors.background, alphaWindow) — bar/popup solid bg
     property real alphaInactive: 0.25       // Qt.alpha(Colors.foreground, alphaInactive) — unlit meter dots / empty bar track

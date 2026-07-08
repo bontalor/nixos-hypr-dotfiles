@@ -72,7 +72,7 @@ Singleton {
             property bool timeSeconds: true        // seconds in the bar clock
             property string weekStart: "sunday"    // "sunday" | "monday" (calendar)
             property int batteryWarnLevel: 20      // low-battery warning percent
-        property bool allLowercase: false
+            property bool allLowercase: false
         }
     }
 }

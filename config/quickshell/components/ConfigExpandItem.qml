@@ -43,7 +43,7 @@ Item {
     Rectangle {
         anchors.fill: parent
         color: isSelected || headerMouse.containsMouse
-               ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
+               ? Qt.alpha(Colors.selected, Theme.alphaSelected) : "transparent"
     }
 
     Column {

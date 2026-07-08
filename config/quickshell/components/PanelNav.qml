@@ -27,11 +27,17 @@ QtObject {
 
     // --- Inputs, bound by Panel / its subclasses ---
     property var sections: []
-    property int expandSection: -1
     property var currentModelLength: function() { return 0 }
-    property var configItemCount: function() { return 0 }
-    property var configProfileCount: function() { return 0 }
-    property var configCurrentProfile: function() { return 0 }
+
+    // Expandable-config section state (composed helper).
+    readonly property ConfigExpandState configExpand: ConfigExpandState {}
+    property alias expandSection: nav.configExpand.expandSection
+    property alias configExpanded: nav.configExpand.configExpanded
+    property alias selConfigItem: nav.configExpand.selConfigItem
+    property alias selConfigProfile: nav.configExpand.selConfigProfile
+    property alias configItemCount: nav.configExpand.configItemCount
+    property alias configProfileCount: nav.configExpand.configProfileCount
+    property alias configCurrentProfile: nav.configExpand.configCurrentProfile
 
     // --- Selection state ---
     property int selSection: 0
@@ -39,11 +45,8 @@ QtObject {
     property int selDevice: 0
     property int selSub: -1
     property int expandedSection: -1
-    property bool configExpanded: false
-    property int selConfigItem: 0
-    property int selConfigProfile: 0
 
-    readonly property bool inExpandSection: inSection && selSection === expandSection
+    readonly property bool inExpandSection: inSection && selSection === nav.configExpand.expandSection
     readonly property bool sidebarDropdownOpen: expandedSection === selSection
                                                 && sectionSubs(selSection).length > 0
 
@@ -74,9 +77,7 @@ QtObject {
         nav.expandedSection = -1
         nav.inSection = false
         nav.selDevice = 0
-        nav.configExpanded = false
-        nav.selConfigItem = 0
-        nav.selConfigProfile = 0
+        nav.configExpand.reset()
     }
 
     function sectionSubs(i) {
@@ -99,13 +100,7 @@ QtObject {
     // (ConfigExpandItem calls this via its `panel` property).
     function toggleConfigItem(idx) {
         if (!nav.inSection) nav.inSection = true
-        if (nav.configExpanded && idx === nav.selConfigItem) {
-            nav.configExpanded = false
-        } else {
-            nav.selConfigItem = idx
-            nav.configExpanded = true
-            nav.selConfigProfile = Math.max(0, nav.configCurrentProfile())
-        }
+        nav.configExpand.toggleConfigItem(idx)
     }
 
     function handleKey(event) {

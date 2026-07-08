@@ -1,3 +1,6 @@
+// Subprocess dependencies: ~/.local/bin/setwall (applies wallpaper
+// image — user-provided script, expected on $PATH).
+
 import "../theme"
 import "../components"
 import "../util"
@@ -121,7 +124,7 @@ FloatingWindow {
         Rectangle {
             anchors.fill: parent
             anchors.margins: Theme.margin
-            color: Qt.alpha(Colors.base00, Theme.alphaBackground)
+            color: Qt.alpha(Colors.surface, Theme.alphaBackground)
 
             GridView {
                 id: grid
@@ -168,7 +171,7 @@ FloatingWindow {
                         anchors.fill: parent
                         color: "transparent"
                         border.width: index === root.selected || cellMouse.containsMouse ? 5 : 0
-                        border.color: Colors.base05
+                        border.color: Colors.border
                     }
 
                     MouseArea {

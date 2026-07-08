@@ -184,7 +184,7 @@ Panel {
                 spacing: Theme.margin
 
                 ThemeText {
-                    text: Qt.formatDateTime(root.now, "dddd, ") + FormatUtil.ordinal(root.now.getDate()) + Qt.formatDateTime(root.now, " 'of' MMMM, yyyy")
+                    text: FormatUtil.formattedDate(root.now)
                 }
 
                 ThemeText {
@@ -252,7 +252,7 @@ Panel {
                 width: Theme.headerHeight
                 height: Theme.headerHeight
                 color: prevHov.containsMouse
-                       ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
+                       ? Qt.alpha(Colors.selected, Theme.alphaSelected) : "transparent"
                 ThemeText {
                     anchors.centerIn: parent
                     text: Icon.chevronLeft
@@ -270,7 +270,7 @@ Panel {
                 width: calHeader.width - 2 * Theme.headerHeight - 2 * Theme.margin
                 height: Theme.headerHeight
                 color: monthHov.containsMouse || (root.inSection && !root.inMonthGrid)
-                       ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
+                       ? Qt.alpha(Colors.selected, Theme.alphaSelected) : "transparent"
                 ThemeText {
                     anchors.centerIn: parent
                     text: Qt.formatDateTime(new Date(root._year, root._month, 1), "MMMM yyyy")
@@ -294,7 +294,7 @@ Panel {
                 width: Theme.headerHeight
                 height: Theme.headerHeight
                 color: nextHov.containsMouse
-                       ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
+                       ? Qt.alpha(Colors.selected, Theme.alphaSelected) : "transparent"
                 ThemeText {
                     anchors.centerIn: parent
                     text: Icon.chevronRight
@@ -348,14 +348,14 @@ Panel {
                     height: root.cellHeight
                     color: {
                         if ((root.inSection && root.inMonthGrid && root.selDevice === index) || cellMouse.containsMouse)
-                            return Qt.alpha(Colors.base01, Theme.alphaSelected)
+                            return Qt.alpha(Colors.selected, Theme.alphaSelected)
                         // Compare against the real today, not the
                         // displayed month — offset months would
                         // otherwise highlight their same-numbered day.
                         var today = modelData.getDate() === root.now.getDate()
                                  && modelData.getMonth() === root.now.getMonth()
                                  && modelData.getFullYear() === root.now.getFullYear()
-                        if (today) return Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
+                        if (today) return Qt.alpha(Colors.accent, Theme.alphaSectionHeader)
                         return "transparent"
                     }
 

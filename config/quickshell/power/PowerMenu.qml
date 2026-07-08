@@ -1,3 +1,7 @@
+// Subprocess dependencies: systemctl (suspend/reboot/poweroff),
+// loginctl (terminate-user logout), quickshell -p lockscreen/shell.qml
+// (lock).
+
 import "../theme"
 import "../components"
 import "../models"

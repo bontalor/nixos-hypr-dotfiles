@@ -66,7 +66,7 @@ Panel {
                     id: devName
                     text: BatteryModel.deviceName(modelData)
                     anchors { left: parent.left; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
-                    color: isActive ? Colors.base0b : Colors.foreground
+                    color: isActive ? Colors.success : Colors.foreground
                     font.bold: isActive
                 }
 
@@ -90,7 +90,7 @@ Panel {
                         return t ? s + " · " + t : s
                     }
                     anchors { right: parent.right; rightMargin: Theme.margin; verticalCenter: parent.verticalCenter }
-                    color: modelData.state === UPowerDeviceState.Charging ? Colors.base0b
+                    color: modelData.state === UPowerDeviceState.Charging ? Colors.success
                         : Qt.alpha(Colors.foreground, Theme.alphaBackground)
                 }
             }
@@ -132,13 +132,13 @@ Panel {
 
                     ThemeText {
                         text: modelData.icon
-                        color: isActive ? Colors.base0b : Qt.alpha(Colors.foreground, Theme.alphaBackground)
+                        color: isActive ? Colors.success : Qt.alpha(Colors.foreground, Theme.alphaBackground)
                         verticalAlignment: Text.AlignVCenter
                     }
 
                     ThemeText {
                         text: modelData.name
-                        color: isActive ? Colors.base0b : Colors.foreground
+                        color: isActive ? Colors.success : Colors.foreground
                         font.bold: isActive
                         verticalAlignment: Text.AlignVCenter
                     }
@@ -147,7 +147,7 @@ Panel {
                 ThemeText {
                     text: isActive ? "Active" : ""
                     anchors { right: parent.right; rightMargin: Theme.margin; verticalCenter: parent.verticalCenter }
-                    color: Colors.base0b
+                    color: Colors.success
                     font.bold: true
                 }
             }

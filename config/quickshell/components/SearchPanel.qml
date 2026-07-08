@@ -112,7 +112,7 @@ FloatingWindow {
             Rectangle {
                 width: parent.width
                 height: Theme.searchRowHeight
-                color: Qt.alpha(Colors.base00, Theme.alphaBackground)
+                color: Qt.alpha(Colors.surface, Theme.alphaBackground)
                 clip: true
 
                 TextInput {
@@ -150,7 +150,7 @@ FloatingWindow {
             Rectangle {
                 width: parent.width
                 height: parent.height - Theme.searchRowHeight - Theme.margin
-                color: Qt.alpha(Colors.base00, Theme.alphaBackground)
+                color: Qt.alpha(Colors.surface, Theme.alphaBackground)
 
                 Flickable {
                     id: resultFlick

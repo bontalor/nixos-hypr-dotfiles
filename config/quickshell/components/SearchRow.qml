@@ -32,7 +32,7 @@ Rectangle {
         var panel = row.searchPanel
         if (!panel) return "transparent"
         return row.index === panel.selectedIndex || rowMouse.containsMouse
-            ? Qt.alpha(Colors.base01, Theme.alphaSelected)
+            ? Qt.alpha(Colors.selected, Theme.alphaSelected)
             : "transparent"
     }
 

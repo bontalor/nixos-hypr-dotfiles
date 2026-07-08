@@ -244,14 +244,16 @@ Panel {
 
                 Rectangle {
                     width: 45; height: 45
-                    color: Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
+                    color: prevBtn.containsMouse ? Qt.alpha(Colors.accent, Theme.alphaSectionHeader + Theme.alphaHover) : Qt.alpha(Colors.accent, Theme.alphaSectionHeader)
                     ThemeText {
                         anchors.centerIn: parent
                         text: Icon.prev
                         font.pixelSize: Theme.fontPixelSizeXLarge
                     }
                     MouseArea {
+                        id: prevBtn
                         anchors.fill: parent
+                        hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: { if (root.currentPlayer && root.currentPlayer.canGoPrevious) root.currentPlayer.previous() }
                     }
@@ -259,14 +261,16 @@ Panel {
 
                 Rectangle {
                     width: 45; height: 45
-                    color: Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
+                    color: playBtn.containsMouse ? Qt.alpha(Colors.accent, Theme.alphaSectionHeader + Theme.alphaHover) : Qt.alpha(Colors.accent, Theme.alphaSectionHeader)
                     ThemeText {
                         anchors.centerIn: parent
                         text: root.playbackState === MprisPlaybackState.Playing ? Icon.pause : Icon.play
                         font.pixelSize: Theme.fontPixelSizeXLarge
                     }
                     MouseArea {
+                        id: playBtn
                         anchors.fill: parent
+                        hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: { if (root.currentPlayer) root.currentPlayer.togglePlaying() }
                     }
@@ -274,14 +278,16 @@ Panel {
 
                 Rectangle {
                     width: 45; height: 45
-                    color: Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
+                    color: nextBtn.containsMouse ? Qt.alpha(Colors.accent, Theme.alphaSectionHeader + Theme.alphaHover) : Qt.alpha(Colors.accent, Theme.alphaSectionHeader)
                     ThemeText {
                         anchors.centerIn: parent
                         text: Icon.next
                         font.pixelSize: Theme.fontPixelSizeXLarge
                     }
                     MouseArea {
+                        id: nextBtn
                         anchors.fill: parent
+                        hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: { if (root.currentPlayer && root.currentPlayer.canGoNext) root.currentPlayer.next() }
                     }

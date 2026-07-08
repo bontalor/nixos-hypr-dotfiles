@@ -179,7 +179,7 @@ FloatingWindow {
             Rectangle {
                 width: (parent.width - parent.spacing) * 0.25
                 height: parent.height
-                color: Qt.alpha(Colors.base00, Theme.alphaBackground)
+                color: Qt.alpha(Colors.surface, Theme.alphaBackground)
                 clip: true
 
                 Column {
@@ -192,7 +192,7 @@ FloatingWindow {
                         width: parent.width
                         height: root.headerHeight
                         visible: root.sidebarHeader !== ""
-                        color: Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
+                        color: Qt.alpha(Colors.accent, Theme.alphaSectionHeader)
 
                         ThemeText {
                             text: root.sidebarHeader
@@ -220,7 +220,7 @@ FloatingWindow {
                                 width: parent.width
                                 height: root.headerHeight
                                 color: root.selSection === sectionCol.sectionIndex || sectionMouse.containsMouse
-                                       ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
+                                       ? Qt.alpha(Colors.selected, Theme.alphaSelected) : "transparent"
 
                                 ThemeText {
                                     text: modelData.name
@@ -297,7 +297,7 @@ FloatingWindow {
             Rectangle {
                 width: (parent.width - parent.spacing) * 0.75
                 height: parent.height
-                color: Qt.alpha(Colors.base00, Theme.alphaBackground)
+                color: Qt.alpha(Colors.surface, Theme.alphaBackground)
 
                 Flickable {
                     id: flick
@@ -315,7 +315,7 @@ FloatingWindow {
                         Rectangle {
                             width: parent.width
                             height: root.headerHeight
-                            color: Qt.alpha(Colors.base0d, Theme.alphaSectionHeader)
+                            color: Qt.alpha(Colors.accent, Theme.alphaSectionHeader)
 
                             ThemeText {
                                 // Subsection name when one is selected,

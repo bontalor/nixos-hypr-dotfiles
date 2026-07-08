@@ -1,3 +1,6 @@
+// Subprocess dependencies: pw-dump (device profile discovery), pw-cli
+// (profile activation for PipeWire devices).
+
 import "../theme"
 import "../components"
 import "../util"
@@ -257,124 +260,18 @@ Panel {
             id: nodeRepeater
             model: root.currentModel()
 
-            delegate: Item {
-                id: nodeItem
-                width: parent.width
-                height: root.rowHeight
-                property real displayedPeak: 0
-                property real nodeVolume: modelData.audio?.volume ?? 1
-                property bool nodeMuted: modelData.audio?.muted ?? false
-                property bool isDefault: (root.selSection === root.secSinks && Pipewire.defaultAudioSink === modelData)
-                                      || (root.selSection === root.secSources && Pipewire.defaultAudioSource === modelData)
-
-                PwNodePeakMonitor {
-                    id: peakMon
-                    node: modelData
-                    enabled: root.visible
+            delegate: AudioDeviceRow {
+                selSection: root.selSection
+                inSection: root.inSection
+                selDevice: root.selDevice
+                rowHeight: root.rowHeight
+                onSelectDefault: (idx) => {
+                    if (!root.inSection) root.inSection = true
+                    root.selDevice = idx
+                    root.deviceActivated(idx)
                 }
-
-                property real currentPeak: peakMon.peak
-
-                Rectangle {
-                    anchors.fill: parent
-                    color: (root.inSection && index === root.selDevice) || nodeHover.containsMouse ? Qt.alpha(Colors.base01, Theme.alphaSelected) : "transparent"
-                }
-
-                // Row click selects and (for sinks/sources) sets the
-                // default device. The volume bar and mute MouseAreas are
-                // declared later, so they sit on top and win their areas.
-                MouseArea {
-                    id: nodeHover
-                    anchors.fill: parent
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        if (!root.inSection) root.inSection = true
-                        root.selDevice = index
-                        root.deviceActivated(index)
-                    }
-                }
-
-                ThemeText {
-                    id: labelText
-                    text: modelData.description || modelData.name || "(unnamed)"
-                    anchors {
-                        left: parent.left; leftMargin: Theme.margin
-                        verticalCenter: parent.verticalCenter
-                    }
-                    elide: Text.ElideRight
-                    width: parent.width * 0.4
-                    color: nodeItem.isDefault ? Colors.base0b : Colors.foreground
-                    font.bold: nodeItem.isDefault
-                }
-
-                Rectangle {
-                    id: volBar
-                    anchors {
-                        left: labelText.right; leftMargin: Theme.margin
-                        right: pctText.left; rightMargin: Theme.margin
-                        verticalCenter: parent.verticalCenter
-                    }
-                    height: 8
-                    color: Qt.alpha(Colors.base00, 1)
-
-                    Rectangle {
-                        width: parent.width * (modelData.audio?.volume ?? 0)
-                        height: parent.height
-                        color: (modelData.audio?.muted ?? false) ? Qt.alpha(Colors.foreground, Theme.alphaBackground) : Colors.base0d
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        preventStealing: true
-                        onPressed: (mouse) => root.changeDeviceVolume(index, Math.max(0, Math.min(1, mouse.x / width)))
-                        onMouseXChanged: (mouse) => {
-                            if (pressed) root.changeDeviceVolume(index, Math.max(0, Math.min(1, mouse.x / width)))
-                        }
-                    }
-                }
-
-                Row {
-                    id: peakRow
-                    anchors {
-                        left: labelText.right; leftMargin: Theme.margin
-                        right: pctText.left; rightMargin: Theme.margin
-                        top: volBar.bottom; topMargin: 2
-                    }
-                    height: 10
-                    spacing: Theme.margin
-                    clip: true
-
-                    Repeater {
-                        id: peakRepeater
-                        model: Math.max(1, Math.floor((peakRow.width + Theme.margin) / 20))
-
-                        delegate: Rectangle {
-                            width: 10
-                            height: 10
-                            color: index < Math.round(nodeItem.displayedPeak * peakRepeater.count)
-                                   ? Colors.foreground : Qt.alpha(Colors.foreground, Theme.alphaInactive)
-                        }
-                    }
-                }
-
-                ThemeText {
-                    id: pctText
-                    anchors {
-                        right: parent.right; rightMargin: Theme.margin
-                        verticalCenter: parent.verticalCenter
-                    }
-                    text: (modelData.audio?.muted ?? false) ? "MUT" : FormatUtil.padNum(Math.round((modelData.audio?.volume ?? 0) * 100), 3) + "%"
-                    color: (modelData.audio?.muted ?? false) ? Colors.critical : Colors.foreground
-                    font.bold: (modelData.audio?.muted ?? false)
-
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.toggleDeviceMute(index)
-                    }
-                }
+                onChangeVolume: (idx, fraction) => root.changeDeviceVolume(idx, fraction)
+                onToggleMute: (idx) => root.toggleDeviceMute(idx)
             }
         }
 

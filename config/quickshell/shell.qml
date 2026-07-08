@@ -22,7 +22,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 
-Scope {
+ShellRoot {
     Bar{}
     ReloadNotif{}
     NotifPopup{}
