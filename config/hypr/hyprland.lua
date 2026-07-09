@@ -96,9 +96,6 @@ hl.config({
     general = {
         gaps_in  = 10,
         gaps_out = { top = 10, right = 20, bottom = 20, left = 10 },
-        10,
-        20,
-        20,
         border_size      = 0,
         col              = {
             active_border = { colors = { "#000000" } },
@@ -116,7 +113,7 @@ hl.config({
         shadow           = {
             enabled = true,
             color = "0xbf000000",
-            range = 0,
+	    range = 0,
             sharp = true,
             offset = { 10, 10, },
         },
@@ -158,7 +155,7 @@ hl.config({
 
 hl.config({
     debug = {
-        vfr = false,
+	damage_tracking = 1, -- Fix weird hyprland shadow flickering bug
     },
 })
 
