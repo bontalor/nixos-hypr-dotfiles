@@ -137,7 +137,7 @@ in
 # Environment
     environment.pathsToLink = [ "/share/applications" "/share/xdg-desktop-portal" ];
     environment.sessionVariables = {
-#NIXOS_OZONE_WL = "1";
+	NIXOS_OZONE_WL = "1";
     };
     environment.etc."xdg/menus/applications.menu".source = "${pkgs.kdePackages.plasma-workspace}/etc/xdg/menus/plasma-applications.menu";
     environment.systemPackages = with pkgs; [

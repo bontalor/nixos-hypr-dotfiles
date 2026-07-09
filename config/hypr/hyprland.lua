@@ -39,6 +39,7 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("hypridle")
     hl.exec_cmd("awww-daemon --no-cache")
     hl.exec_cmd("~/.local/bin/setwall ~/walls/")
+    hl.exec_cmd("dbus-update-activation-environment --systemd --all")
     hl.exec_cmd("systemctl --user start quickshell.service")
 end)
 
@@ -67,7 +68,9 @@ hl.env("GTK_USE_PORTAL", "1")
 hl.env("QT_QPA_PLATFORMTHEME", "qtengine")
 hl.env("XCURSOR_SIZE", "24")
 hl.env("HYPRCURSOR_SIZE", "24")
---hl.env("ELECTRON_OZONE_PLATFORM_HINT", "auto")
+
+-- electron/wayland
+hl.env("NIXOS_OZONE_WL", "1")
 
 ----- PERMISSIONS -----
 

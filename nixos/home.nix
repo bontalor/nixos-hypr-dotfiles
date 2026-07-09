@@ -104,7 +104,7 @@
 	    lua-language-server
 	    bash-language-server
 	    nixd
-#spicetify-cli
+	    ffmpeg
 	    ];
 
 # Session
@@ -112,6 +112,11 @@
 	"${pkgs.unicode-emoji}/share/unicode/emoji/emoji-test.txt";
 
 # Programs
+
+    systemd.user.sessionVariables = {
+      NIXOS_OZONE_WL = "1";
+    };
+
     programs.firefox = {
 	enable = true;
 	configPath = "${config.xdg.configHome}/mozilla/firefox";
