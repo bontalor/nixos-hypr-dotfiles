@@ -101,3 +101,12 @@ the unit inherits the session environment):
 LOR_PANEL=<panels-key> qs -p dev.qml    # one panel, no bar/daemons
 qs -p lockscreen/test.qml               # lockscreen UI in a window
 ```
+
+## Todo
+
+- fix wallpaper picker not opening on the current wallpaper (it starts on the last used which sometimes breaks)
+- add numeric date to date/time panel (ex: 7-12-26 if date is july 12, 2026)
+- in volume panel add a dropdown for every entry that has a mute/unmute entry, also keep default input/output audio device colored but instead of immediately setting default when enter is pressed use the dropdown to say mute/unmute like the rest, and the next entry says set default.
+- in notification panel don't show down and up chevron when expanded/shrunk since nothing else does that, also it doesn't show the full notification if it's really long, even if it's expanded.
+- try to make the status bar as accurate as possible for now playing media in the media panel
+- use a dropdown for most things in all panels (ex: dropdown for ethernet connect/disconnect)
