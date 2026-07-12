@@ -110,3 +110,4 @@ qs -p lockscreen/test.qml               # lockscreen UI in a window
 - in notification panel don't show down and up chevron when expanded/shrunk since nothing else does that, also it doesn't show the full notification if it's really long, even if it's expanded.
 - try to make the status bar as accurate as possible for now playing media in the media panel
 - use a dropdown for most things in all panels (ex: dropdown for ethernet connect/disconnect)
+- add icons to notifications
