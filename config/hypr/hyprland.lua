@@ -40,14 +40,10 @@ hl.on("hyprland.start", function()
     hl.exec_cmd("awww-daemon --no-cache")
     hl.exec_cmd("~/.local/bin/setwall ~/walls/")
     hl.exec_cmd("dbus-update-activation-environment --systemd --all")
-    hl.exec_cmd("systemctl --user start quickshell.service")
+    hl.exec_cmd("quickshell")
 end)
 
 ---- AUTOSTOP ----
-
-hl.on("hyprland.shutdown", function()
-    hl.exec_cmd("systemctl --user stop quickshell.service")
-end)
 
 ---- ENVIRONMENT VARIABLES ----
 

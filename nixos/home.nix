@@ -28,6 +28,7 @@
 	"Xft.dpi" = 144;
     };
     home.pointerCursor = {
+	enable = true;
 	name = "Adwaita";
 	package = pkgs.adwaita-icon-theme;
 	size = 24;
@@ -49,8 +50,8 @@
 	    fastfetch
 	    chatterino2
 	    discord
+	    spotify
 	    vesktop
-#legcord
 	    qbittorrent
 	    python3
 	    tree-sitter
@@ -84,6 +85,7 @@
 	    xrandr
 	    opencode
 	    claude-code
+	    github-copilot-cli
 	    unicode-emoji
 	    mpv
 	    imv
@@ -100,11 +102,14 @@
 	    ydotool
 	    theclicker
 	    quickemu
+	    quickgui
 	    clang-tools
 	    lua-language-server
 	    bash-language-server
 	    nixd
 	    ffmpeg
+	    helvum
+	    spice-gtk
 	    ];
 
 # Session
@@ -121,28 +126,4 @@
 	enable = true;
 	configPath = "${config.xdg.configHome}/mozilla/firefox";
     };
-
-    programs.quickshell = {
-	enable = true;
-	systemd.enable = true;
-    };
-
-    programs.spicetify = {
-        enable = true;
-        # colors.css is symlinked into the pywal cache, so wal colors apply on
-        # spotify restart without a rebuild
-        spotifyPackage = pkgs.spotify.overrideAttrs (old: {
-            postFixup = (old.postFixup or "") + ''
-                ln -sfn /home/bonta/.cache/wal/colors-spicetify.css \
-                    $out/share/spotify/Apps/xpui/colors.css
-            '';
-        });
-        enabledSnippets = [
-            (builtins.readFile ./spicetify/spicetify.css)
-        ];
-    };
-
-# Pywal templates
-    xdg.configFile."wal/templates/colors-spicetify.css".source =
-        ./spicetify/colors-spicetify.css;
 }

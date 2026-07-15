@@ -153,6 +153,7 @@ in
 	    fd
 	    fontconfig
 	    icu
+	    quickshell
 	    mcsrPkgs.ninjabrain-bot
 	    (pkgs.prismlauncher.override {
 	     jdks = [ mcsrPkgs.graalvm-21 jdk25 javaPackages.compiler.temurin-bin.jdk-25 ];

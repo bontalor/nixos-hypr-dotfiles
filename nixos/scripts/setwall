@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # change colorschemes
-wal -qnti "$1"
+wal --cols16 -qnti "$1"
 
 # set wallpaper
 awww img -t none "$(< "${HOME}/.cache/wal/wal")"
