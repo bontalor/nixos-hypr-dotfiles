@@ -22,12 +22,17 @@ components/       Reusable UI framework (not theme values):
 theme/            Visual constants only: Theme (sizes/fonts/alphas),
                     Colors (pywal-backed palette), Icon (glyph codepoints)
 models/           Shared D-Bus-backed state singletons (NetworkModel,
-                    BatteryModel, PowerActions)
+                    BluetoothModel, BatteryModel, PowerActions)
 util/             Non-UI helpers (PrefStore, Paths, CheckedProcess, …)
 bar/              Bar window + bar/widgets/* chips
 <feature>/        One directory per panel/daemon: network/, volume/, media/,
                     weather/, clipboard/, notifications/, osd/, power/, …
 lockscreen/       Separate Quickshell instance (see below)
+components/DropdownRow.qml
+                  Canonical per-row dropdown scaffold (Wi-Fi/Ethernet/
+                  Battery device rows); the Bluetooth section still uses
+                  the panel-level ConfigExpandItem/expandSection path,
+                  VolumePanel extends it inline via AudioDeviceRow.
 ```
 
 Conventions:
@@ -54,6 +59,55 @@ Conventions:
 ```
 qs ipc call overlay toggle <panel>    # panel keys: see components/Panels.qml
 qs ipc call osd volumeUp|volumeDown|mute|micMute|brightnessUp|brightnessDown
+```
+
+### Hyprland `hyprland.conf` snippets
+
+Layer namespaces used by this shell:
+
+| Window               | WlrLayershell namespace       |
+|---|---|
+| Bar                  | `quickshell:bar`              |
+| Notifications popup  | `quickshell:notification`     |
+| OSD popup            | `quickshell:osd`              |
+| All panels (popover) | `quickshell:overlay`          |
+
+Suggested rules (paste into `hyprland.conf`):
+
+```
+layerrule = blur,  quickshell:bar
+layerrule = blur,  quickshell:overlay
+layerrule = blur,  quickshell:notification
+layerrule = blur,  quickshell:osd
+layerrule = ignorezero, quickshell:bar
+layerrule = ignorealpha 0.5, quickshell:bar
+layerrule = animation slide, quickshell:overlay
+```
+
+Key binds (tweak the mods to taste; the panel keys match `Panels.*`):
+
+```
+bind = SUPER,       Return, exec, qs ipc call overlay toggle launcher
+bind = SUPER,       V,      exec, qs ipc call overlay toggle clipboard
+bind = SUPER,       N,      exec, qs ipc call overlay toggle notifications
+bind = SUPER,       P,      exec, qs ipc call overlay toggle powermenu
+bind = SUPER,       B,      exec, qs ipc call overlay toggle battery
+bind = SUPER,       M,      exec, qs ipc call overlay toggle media
+bind = SUPER,       E,      exec, qs ipc call overlay toggle emoji
+bind = SUPER,       W,      exec, qs ipc call overlay toggle weather
+bind = SUPER,       T,      exec, qs ipc call overlay toggle datetime
+bind = SUPER SHIFT, V,      exec, qs ipc call overlay toggle volume
+bind = SUPER SHIFT, N,      exec, qs ipc call overlay toggle network
+bind = SUPER SHIFT, S,      exec, qs ipc call overlay toggle settings
+bind = SUPER SHIFT, K,      exec, qs ipc call overlay toggle keybinds
+bind = SUPER SHIFT, W,      exec, qs ipc call overlay toggle picker
+bind = SUPER SHIFT, F,      exec, qs ipc call overlay toggle ffmpeg
+bind = XF86AudioRaiseVolume, exec, qs ipc call osd volumeUp
+bind = XF86AudioLowerVolume, exec, qs ipc call osd volumeDown
+bind = XF86AudioMute,        exec, qs ipc call osd mute
+bind = XF86AudioMicMute,     exec, qs ipc call osd micMute
+bind = XF86MonBrightnessUp,   exec, qs ipc call osd brightnessUp
+bind = XF86MonBrightnessDown, exec, qs ipc call osd brightnessDown
 ```
 
 The lockscreen is its own instance (so a shell reload never unlocks the
@@ -104,10 +158,62 @@ qs -p lockscreen/test.qml               # lockscreen UI in a window
 
 ## Todo
 
-- fix wallpaper picker not opening on the current wallpaper (it starts on the last used which sometimes breaks)
-- add numeric date to date/time panel (ex: 7-12-26 if date is july 12, 2026)
-- in volume panel add a dropdown for every entry that has a mute/unmute entry, also keep default input/output audio device colored but instead of immediately setting default when enter is pressed use the dropdown to say mute/unmute like the rest, and the next entry says set default.
-- in notification panel don't show down and up chevron when expanded/shrunk since nothing else does that, also it doesn't show the full notification if it's really long, even if it's expanded.
-- try to make the status bar as accurate as possible for now playing media in the media panel
-- use a dropdown for most things in all panels (ex: dropdown for ethernet connect/disconnect)
-- add icons to notifications
+- ~~fix wallpaper picker not opening on the current wallpaper~~ — the
+  picker now reads `~/.cache/wal/wal` (pywal's record of the applied
+  wallpaper) at open, so an out-of-band `setwall` is reflected.
+- ~~add numeric date to the date/time panel~~ — Date section shows a
+  `M-D-YY` line under the long form (e.g. "7-12-26" for July 12, 2026).
+- ~~volume panel dropdown per device~~ — playback/recording/sink/source
+  rows open a Mute/Unmute + Set Default dropdown on Enter/click; default
+  device stays colored and labeled, but Enter no longer silently swaps it.
+- ~~notification panel: no chevrons + full text when expanded~~ — the
+  down/up chevron is gone, and `maximumLineCount: 0` plus
+  `elide: ElideNone` means truly long notifications unroll fully. Sender
+  app icons (and the embedded image as fallback) now render in each row.
+- ~~media panel: accurate progress bar~~ — the interpolation poll runs
+  at 250 ms (was 1 s), the fill ratio is clamped to [0, 1] so a stale
+  position during a seek/track-change can't overflow the bar, and seek
+  clicks re-read `currentPlayer.position` at click time instead of the
+  tick-stale bound value.
+- ~~dropdowns for actionable rows across panels~~ — Wi-Fi (Connect /
+  Disconnect / Forget), Ethernet (Connect / Disconnect), and Battery
+  (Track this device) rows now share a `components/DropdownRow.qml`
+  scaffold with the same keyboard nav as the existing ConfigExpandItem
+  pattern. Sections whose only action is the row's main purpose (e.g.
+  Power Profiles, the NetworkManager "nmtui" row) stay direct-click.
+
+## Improvements (audit pass)
+
+- **BluetoothModel extracted** — BlueZ-backed state that was inlined in
+  `network/NetworkPanel.qml` is now a singleton in `models/BluetoothModel.qml`,
+  matching the `NetworkModel` / `BatteryModel` pattern. The panel is ~120
+  LOC slimmer; the bar could surface a BT chip from this singleton later
+  without reaching back into panel internals.
+- **Lock spawn guard** — `models/PowerActions.qml`'s "Lock" command now
+  checks `~/.local/state/quickshell/lock.pid` (written by
+  `lockscreen/LockContext.qml` via `$PPID`) and `kill -0`s the recorded
+  PID before spawning, so a stuck bind or repeated `Lock` press can't
+  pile up lockscreen instances. Cleared on unlock. (Note: `$PPID` not
+  `$$` — `$$` would be the spawning `sh`'s PID, which exits immediately.)
+- **OSD brightness floor** — `OsdModel.brightnessDown` checks the cached
+  current brightness and short-circuits / sets a 1% floor (`brightnessMin`)
+  so a blind brightness-down mash can't drive the panel to 0% (which on
+  most laptops blanks the screen — `brightnessctl s N%-` reduces by N%
+  of *current* and silently approaches black).
+- **Notification popup icons** — `NotifPopup.qml` now renders the sender
+  app icon (with the embedded image as fallback) the same way the
+  history panel does, instead of the previous fetch-only-no-display.
+- **Default color fallback** — `theme/Colors.qml` initializes the
+  palette to a Catppuccin-Mocha-aligned dark set instead of all-`#000000`,
+  so a config reload while pywal's cache is missing/stale stays legible
+  (semantic aliases like `selected=color1` were unreadable on a black
+  surface). Mismatches with the active wal palette only last until the
+  next `setwall`.
+
+## Development workflow notes
+
+- `qmllint` is on PATH (Qt 6.11) but the Quickshell singletons (Panels,
+  Models, Util) aren't declared in a project `qmldir`, so it produces
+  false-positive "Type X not declared as singleton" warnings. Treat
+  its output as advisory only — the real check is `qs -p dev.qml` for
+  the panel you edited.

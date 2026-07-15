@@ -18,6 +18,11 @@ Singleton {
 
     property int hideInterval: 3000
     property int brightnessStep: 5           // percent per key press
+    // Floor so `brightnessDown` can never blank the panel by driving the
+    // backlight to 0% (brightnessctl allows 0 by default, which on most
+    // laptops turns the panel off entirely — a footgun if the user
+    // instinctively mashes the down key).
+    property int brightnessMin: 1
     // Volume fraction below which the "low" glyph is shown.
     property real volumeGlyphThreshold: 0.5
 
@@ -113,8 +118,21 @@ Singleton {
         brightProc.running = true
     }
 
+    // OsdModel.value caches the current brightness (0..1) parsed from
+    // the last refresh. Suppress a down step that would land below
+    // brightnessMin so the panel can't go pitch-black from a blind
+    // brightness-down mash (a real footgun — `brightnessctl s N%-`
+    // reduces by N% of *current*, eventually arriving at <1%, which
+    // reads as black on most panels).
     function brightnessDown() {
-        brightProc.command = ["brightnessctl", "s", root.brightnessStep + "%-"]
+        var pct = Math.round(root.value * 100)
+        if (pct <= root.brightnessMin) return  // already at or below the floor
+        // Would the step underflow? Set the floor directly rather than
+        // overshoot to a screen-blanking 0%.
+        if (pct - root.brightnessStep < root.brightnessMin)
+            brightProc.command = ["brightnessctl", "s", String(root.brightnessMin) + "%"]
+        else
+            brightProc.command = ["brightnessctl", "s", root.brightnessStep + "%-"]
         brightProc.running = true
     }
 

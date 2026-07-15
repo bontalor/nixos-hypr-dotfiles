@@ -55,7 +55,30 @@ Scope {
         fprintProc.running = true
     }
 
-    Component.onCompleted: if (root.fingerprintEnabled) fprintProc.running = true
+    Component.onCompleted: {
+        if (root.fingerprintEnabled) fprintProc.running = true
+        // Spawn-guard marker: write our PID so PowerActions' Lock check
+        // can skip a redundant spawn if a lockscreen is already up.
+        // `$$` would be the sh subshell's PID — sh exits immediately,
+        // leaving a stale marker — so use `$PPID`, which is the PID of
+        // the process that spawned sh (i.e. this quickshell instance).
+        // Cleared on unlock (and on exit if we never get there).
+        markerProc.command = ["sh", "-c",
+            "printf %s $PPID > \"" + Paths.lockMarker + "\""]
+        markerProc.running = true
+    }
+
+    onUnlocked: {
+        // Clear the marker as soon as we unlock — a fresh Lock action
+        // afterwards should spawn a fresh instance.
+        markerProc.command = ["rm", "-f", Paths.lockMarker]
+        markerProc.running = true
+    }
+
+    Process {
+        id: markerProc
+        running: false
+    }
 
     Process {
         id: fprintProc

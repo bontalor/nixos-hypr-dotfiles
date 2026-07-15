@@ -32,9 +32,15 @@ FloatingWindow {
     // resized. Previously a hardcoded 4.
     readonly property int columns: Math.max(1, Math.floor(grid.width / grid.cellWidth))
 
-    // The last-applied wallpaper path, persisted across sessions via
-    // PrefStore; used to set `selected` to the matching index when the
-    // picker opens.
+    // Currently-applied wallpaper path, as the OS sees it. The picker
+    // previously keyed its initial selection off `PrefStore.wallpaper`
+    // — the last file picked *through this UI*. If `setwall` (or any
+    // other pywal front-end) was run outside the picker, that pref would
+    // be out of sync, so the picker opened on a stale selection. pywal
+    // records the truly-current wallpaper in `~/.cache/wal/wal` as a
+    // one-line file; we read that and fall back to the pref if the file
+    // is missing or its entry isn't in the directory.
+    property string currentWalPath: ""
     property string lastWallpaper: PrefStore.wallpaper
 
     // Cache the wallpaper list once per scan instead of rescanning the
@@ -53,17 +59,25 @@ FloatingWindow {
             list.push({ path: p })
         }
         root.wallpaperList = list
-        // If we have a persisted wallpaper, jump to its index.
-        if (root.lastWallpaper) root.restoreSelection()
+        root.restoreSelection()
     }
 
     function restoreSelection() {
-        for (var i = 0; i < root.wallpaperList.length; i++) {
-            if (root.wallpaperList[i].path === root.lastWallpaper) {
-                root.selected = i
-                return
+        // Prefer `~/.cache/wal/wal` (the OS-applied wallpaper) over the
+        // picker pref; fall back to the pref if the pywal record is empty
+        // or names a file not in this directory.
+        var target = root.currentWalPath !== "" ? root.currentWalPath : root.lastWallpaper
+        if (target !== "") {
+            for (var i = 0; i < root.wallpaperList.length; i++) {
+                if (root.wallpaperList[i].path === target) {
+                    root.selected = i
+                    return
+                }
             }
         }
+        // No match — clamp to 0 so an unrelated persisted path doesn't
+        // land selection on a silently-deleted index.
+        root.selected = 0
     }
 
     FolderListModel {
@@ -77,7 +91,30 @@ FloatingWindow {
         onCountChanged: if (status === FolderListModel.Ready) root.syncFromModel()
     }
 
-    onVisibleChanged: if (visible) root.restoreSelection()
+    // Read `~/.cache/wal/wal` (pywal's record of the currently-applied
+    // wallpaper — a one-line absolute path). Refreshed each time the picker
+    // opens so out-of-band wallpaper changes are reflected. The cat is
+    // cheap; just one-line stdout, captured synchronously via waitForEnd.
+    Process {
+        id: walReader
+        running: false
+        command: ["cat", Paths.walWallpaper]
+        stdout: StdioCollector {
+            waitForEnd: true
+            onStreamFinished: {
+                root.currentWalPath = text.trim()
+                root.restoreSelection()
+            }
+        }
+    }
+
+    onVisibleChanged: if (visible) {
+        // Have the list re-read selection using the fresh wal value when
+        // it arrives; if the list is already populated, restoreSelection
+        // runs from onStreamFinished above.
+        root.restoreSelection()
+        walReader.running = true
+    }
 
     function applyWallpaper() {
         if (wallpaperList.length === 0) return

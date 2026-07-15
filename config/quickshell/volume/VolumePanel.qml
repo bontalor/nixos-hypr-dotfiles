@@ -19,12 +19,74 @@ Panel {
         { name: "Configuration" }
     ]
 
+    // autoScroll stays true (default) so Panel.qml fires its onSelDevice/
+    // onSelConfigItem/... scroll handlers — we override `scrollToSelection`
+    // below to read the real (variable-height) delegate geometry when a
+    // row's dropdown is open, and to handle the Configuration section
+    // the same way Panel.qml's base would.
+
     // --- Named section indices (replace magic numbers) ---
     readonly property int secPlayback: 0
     readonly property int secRecording: 1
     readonly property int secSinks: 2
     readonly property int secSources: 3
     readonly property int secConfig: 4
+
+    // --- Per-row action dropdown state (sections 0-3) ---
+    // Only one row's dropdown is open at a time so the list stays
+    // scannable. -1 = none. selDeviceAction indexes deviceActions()
+    // while a dropdown is open.
+    property int expandedDeviceIdx: -1
+    property int selDeviceAction: 0
+
+    function closeDropdown() {
+        root.expandedDeviceIdx = -1
+        root.selDeviceAction = 0
+    }
+
+    function openDropdown(idx) {
+        root.expandedDeviceIdx = idx
+        // Land on Mute for devices, Set Default already lands on the
+        // second slot; default to 0 (Mute/Unmute) which is always present.
+        root.selDeviceAction = 0
+    }
+
+    function toggleDropdown(idx) {
+        if (root.expandedDeviceIdx === idx) root.closeDropdown()
+        else root.openDropdown(idx)
+    }
+
+    function deviceActions(idx) {
+        var list = root.currentModel()
+        if (idx >= list.length) return []
+        var node = list[idx]
+        if (!node || !node.audio) return []
+        var acts = [{ name: node.audio.muted ? "Unmute" : "Mute", action: "mute" }]
+        // Streams can't be set as default — only device nodes.
+        if (root.selSection === root.secSinks || root.selSection === root.secSources) {
+            var isCurrentDefault = (root.selSection === root.secSinks
+                                    && Pipewire.defaultAudioSink === node)
+                                || (root.selSection === root.secSources
+                                    && Pipewire.defaultAudioSource === node)
+            acts.push({ name: isCurrentDefault ? "Default (active)" : "Set Default", action: "default" })
+        }
+        return acts
+    }
+
+    function triggerAction(actIdx) {
+        var list = root.currentModel()
+        if (root.selDevice >= list.length) { root.closeDropdown(); return }
+        var node = list[root.selDevice]
+        var acts = root.deviceActions(root.selDevice)
+        var act = acts[actIdx]
+        if (!act) { root.closeDropdown(); return }
+        if (act.action === "mute") root.toggleDeviceMute(root.selDevice)
+        else if (act.action === "default") {
+            if (root.selSection === root.secSinks) Pipewire.preferredDefaultAudioSink = node
+            else if (root.selSection === root.secSources) Pipewire.preferredDefaultAudioSource = node
+        }
+        root.closeDropdown()
+    }
 
     // Panel's expandable-config mode drives all keyboard navigation for
     // the Configuration section (expand/collapse, profile selection,
@@ -93,13 +155,7 @@ Panel {
             if (!nodeRepeater) return
             for (var i = 0; i < nodeRepeater.count; i++) {
                 var item = nodeRepeater.itemAt(i)
-                if (!item) continue
-                var target = item.nodeMuted ? 0 : Math.min(1, item.currentPeak * item.nodeVolume)
-                if (target > item.displayedPeak) {
-                    item.displayedPeak = target
-                } else if (item.displayedPeak > 0) {
-                    item.displayedPeak = Math.max(0, item.displayedPeak - Theme.peakDecay)
-                }
+                if (item && item.tickPeak) item.tickPeak()
             }
         }
     }
@@ -126,18 +182,6 @@ Panel {
         case root.secSources: return root.sourceNodes
         default: return []
         }
-    }
-
-    // Enter/click on an output or input device makes it the Pipewire
-    // default — streams that follow the default (the WirePlumber norm)
-    // move to it immediately. Stream rows have no activation.
-    onDeviceActivated: function(idx) {
-        var list = root.currentModel()
-        if (idx >= list.length) return
-        if (root.selSection === root.secSinks)
-            Pipewire.preferredDefaultAudioSink = list[idx]
-        else if (root.selSection === root.secSources)
-            Pipewire.preferredDefaultAudioSource = list[idx]
     }
 
     function changeVolume(delta) {
@@ -219,20 +263,114 @@ Panel {
     onShown: refreshConfigDevices()
 
     // H/L adjust the selected node's volume in the Pipewire sections.
-    // Runs before Panel's default handler; accepting the event stops the
-    // (no-op) base H/L case from double-handling it.
+    // The section-0..3 dropdown nav (Tab/Enter/J/K/Escape) lives here so
+    // we can pre-empt Panel's default H/L/Tab/Enter handling when the
+    // dropdown is open. Config section stays on the panel's
+    // expandSection machinery; interactions there are untouched.
     onKeyPressed: function(event) {
-        switch (event.key) {
-        case Qt.Key_H:
-        case Qt.Key_Left:
-            if (root.inSection && root.selSection < root.secConfig)
-                root.changeVolume(-Theme.volumeStep)
-            event.accepted = true; break
-        case Qt.Key_L:
-        case Qt.Key_Right:
-            if (root.inSection && root.selSection < root.secConfig)
-                root.changeVolume(Theme.volumeStep)
-            event.accepted = true; break
+        // H/L volume nudge works only when a row is selected in the
+        // device/stream sections, not inside an open dropdown (J/K owns
+        // vertical there). Accept unconditionally so Panel's no-op H/L
+        // default doesn't double-handle.
+        if (root.inSection && root.selSection < root.secConfig) {
+            if (event.key === Qt.Key_H || event.key === Qt.Key_Left) {
+                if (root.expandedDeviceIdx !== root.selDevice) root.changeVolume(-Theme.volumeStep)
+                event.accepted = true; return
+            }
+            if (event.key === Qt.Key_L || event.key === Qt.Key_Right) {
+                if (root.expandedDeviceIdx !== root.selDevice) root.changeVolume(Theme.volumeStep)
+                event.accepted = true; return
+            }
+        }
+
+        // Section-0..3 dropdown nav. Pre-empts PanelNav's Tab/Enter
+        // (which would descend into the section or fire deviceActivated)
+        // so Enter opens the dropdown instead of immediately setting
+        // the default — matches the rest of the shell's dropdown UX.
+        if (root.inSection && root.selSection < root.secConfig) {
+            var open = root.expandedDeviceIdx === root.selDevice
+            switch (event.key) {
+            case Qt.Key_Return:
+            case Qt.Key_Enter:
+            case Qt.Key_Tab:
+                if (event.modifiers & Qt.ShiftModifier) {
+                    if (open) { root.closeDropdown(); event.accepted = true }
+                    // fall through to PanelNav (Shift+Tab climb-out)
+                } else if (open) {
+                    root.triggerAction(root.selDeviceAction)
+                    event.accepted = true
+                } else {
+                    root.openDropdown(root.selDevice)
+                    event.accepted = true
+                }
+                return
+            case Qt.Key_Backtab:
+                if (open) { root.closeDropdown(); event.accepted = true; return }
+                return  // fall through to PanelNav for climb-out
+            case Qt.Key_Escape:
+                if (open) { root.closeDropdown(); event.accepted = true; return }
+                return  // let PanelNav unwind the section
+            case Qt.Key_J:
+            case Qt.Key_Down:
+                if (open) {
+                    root.selDeviceAction = Scroll.step(
+                        root.selDeviceAction, 1,
+                        root.deviceActions(root.selDevice).length)
+                    event.accepted = true; return
+                }
+                return  // PanelNav's section-row down
+            case Qt.Key_K:
+            case Qt.Key_Up:
+                if (open) {
+                    root.selDeviceAction = Scroll.step(
+                        root.selDeviceAction, -1,
+                        root.deviceActions(root.selDevice).length)
+                    event.accepted = true; return
+                }
+                return  // PanelNav's section-row up
+            }
+        }
+    }
+
+    // Closing the panel or leaving the section closes any open dropdown.
+    onVisibleChanged: if (!visible) root.closeDropdown()
+    onSelSectionChanged: root.closeDropdown()
+
+    // Variable-height scroll: read the real delegate geometry from the
+    // Repeater (open dropdowns add Theme.searchRowHeight per action).
+    onSelDeviceActionChanged: Qt.callLater(root.scrollToSelection)
+    onExpandedDeviceIdxChanged: Qt.callLater(root.scrollToSelection)
+
+    function scrollToSelection() {
+        if (!root.inSection) return
+        // Configuration section's expandable rows are fixed-stride —
+        // replicate the base implementation here (it's overridden by
+        // this whole function).
+        if (root.selSection === root.secConfig) {
+            var y = root.headerHeight + root.colSpacing
+                  + root.selConfigItem * (root.rowHeight + root.colSpacing)
+            var h = root.rowHeight
+            if (root.configExpanded) {
+                y += root.rowHeight + root.selConfigProfile * Theme.searchRowHeight
+                h = Theme.searchRowHeight
+            }
+            root.scrollToVisible(y, h)
+            return
+        }
+        if (root.selSection > root.secSources) return
+        var baseY = nodeColumn.y
+        if (root.selDevice < nodeRepeater.count) {
+            var item = nodeRepeater.itemAt(root.selDevice)
+            if (item) {
+                root.scrollToVisible(baseY + item.y, item.height)
+                // Keep the highlighted action row visible inside the
+                // expanded dropdown by extending the target height.
+                if (root.expandedDeviceIdx === root.selDevice && root.selDeviceAction >= 0) {
+                    var actionY = baseY + item.y + root.rowHeight
+                                 + root.selDeviceAction * Theme.searchRowHeight
+                    root.scrollToVisible(actionY, Theme.searchRowHeight)
+                }
+            }
         }
     }
 
@@ -252,6 +390,7 @@ Panel {
 
     // ---- Sections 0-3: Pipewire node lists ----
     Column {
+        id: nodeColumn
         width: parent.width
         spacing: root.colSpacing
         visible: root.selSection < root.secConfig
@@ -265,13 +404,19 @@ Panel {
                 inSection: root.inSection
                 selDevice: root.selDevice
                 rowHeight: root.rowHeight
-                onSelectDefault: (idx) => {
-                    if (!root.inSection) root.inSection = true
-                    root.selDevice = idx
-                    root.deviceActivated(idx)
+                actions: root.deviceActions(index)
+                dropdownOpen: root.expandedDeviceIdx === index
+                selActionIndex: root.expandedDeviceIdx === index ? root.selDeviceAction : -1
+                onDropdownToggled: {
+                    if (!root.inSection) { root.inSection = true; root.selDevice = index }
+                    root.toggleDropdown(index)
                 }
                 onChangeVolume: (idx, fraction) => root.changeDeviceVolume(idx, fraction)
-                onToggleMute: (idx) => root.toggleDeviceMute(idx)
+                onActionTriggered: (idx) => {
+                    if (!root.inSection) { root.inSection = true; root.selDevice = index }
+                    root.selDeviceAction = idx
+                    root.triggerAction(idx)
+                }
             }
         }
 

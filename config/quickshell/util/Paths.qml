@@ -23,4 +23,11 @@ Singleton {
     readonly property string emojiData: home + "/.local/share/emoji-test.txt"
     readonly property string walColors: home + "/.cache/wal/colors.json"
     readonly property string walWallpaper: home + "/.cache/wal/wal"
+
+    // Lock spawn-guard marker — the lockscreen instance writes its PID
+    // here on startup and deletes it on unlock (see lockscreen/LockContext).
+    // The PowerMenu's Lock action reads it back to skip a redundant
+    // spawn when a lockscreen is already running (e.g. user mashed the
+    // Lock button or stuffed the bind).
+    readonly property string lockMarker: stateDir + "/lock.pid"
 }

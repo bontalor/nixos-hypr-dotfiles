@@ -57,17 +57,29 @@ PanelWindow {
                     }
                     spacing: 6
 
-                    // App icon (rendered from the model data the
-                    // daemon already collected — previously fetched
-                    // and transported but never displayed).
+                    // App icon — resolved through the desktop entry /
+                    // icon theme via IconImage (same widget the history
+                    // panel uses). Falls back to the sender's embedded
+                    // image (album cover, screenshot) when no app icon
+                    // is resolvable, matching the history panel.
                     IconImage {
+                        id: popupIcon
                         source: card.appIcon
-                        visible: status === Image.Ready
+                        visible: card.appIcon !== "" && status !== Image.Error
                         width: 16; height: 16
+                    }
+                    Image {
+                        id: popupImg
+                        source: card.image
+                        visible: card.image !== "" && popupIcon.status !== Image.Ready && status !== Image.Error
+                        width: 16; height: 16
+                        fillMode: Image.PreserveAspectCrop
+                        smooth: true
+                        asynchronous: true
                     }
 
                     Column {
-                        width: parent.width - (card.appIcon ? 22 : 0)
+                        width: parent.width - ((popupIcon.visible || popupImg.visible) ? 22 : 0)
                         spacing: 4
 
                         ThemeText {

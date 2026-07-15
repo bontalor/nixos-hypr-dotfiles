@@ -188,6 +188,16 @@ Panel {
                 }
 
                 ThemeText {
+                    // Compact numeric date (M-D-YY), matching the README
+                    // TODO: July 12, 2026 -> "7-12-26". Uses zero-padded
+                    // day for column alignment with the day-of-year line.
+                    text: (root.now.getMonth() + 1) + "-"
+                        + FormatUtil.zeroPad(root.now.getDate()) + "-"
+                        + String(root.now.getFullYear()).slice(-2)
+                    color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
+                }
+
+                ThemeText {
                     text: "Day of year: " + root.doy
                     color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
                 }

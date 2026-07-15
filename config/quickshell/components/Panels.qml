@@ -38,14 +38,8 @@ Singleton {
     readonly property string keybinds: "keybinds"
     readonly property string ffmpeg: "ffmpeg"
 
-    // Launcher-searchable entries, derived from registration (one per
-    // user-facing panel, named "Quickshell <window title>" so shell
-    // panels are visibly distinct from desktop applications in the
-    // results). The launcher merges these with desktop applications;
-    // genericName makes them all match a "panel" query too. The launcher
-    // itself is skipped — searching for yourself in yourself is noise.
+    // Launcher-searchable entries, derived from registration.
     property var launcherEntries: []
-
     property var panels: ({})
 
     function register(name, panel) {
@@ -61,11 +55,76 @@ Singleton {
     }
 
     function toggle(name) {
+        var target = panels[name]
+        if (!target) return
+
+        // Toggling the already-visible panel hides it.
+        if (target.visible) {
+            target.visible = false
+            return
+        }
+
+        // Collect outgoing panels. Show the *new* one first, then hide
+        // the old one — but only after the new surface is actually
+        // mapped (backingWindowVisible = true), otherwise the
+        // compositor renders a blank frame between unmap and map,
+        // which the user sees as a flicker. backingWindowVisible is
+        // QsWindow's readonly "the compositor acknowledges this
+        // surface" state (see Quickshell docs); visible is just the
+        // request. We listen on backingWindowVisibleChanged, fire
+        // once, and detach.
+        var toHide = []
         Object.keys(panels).forEach(function(key) {
-            var p = panels[key]
-            if (key === name) p.visible = !p.visible
-            else if (p.visible) p.visible = false
+            if (key !== name && panels[key].visible) toHide.push(panels[key])
         })
+
+        target.visible = true
+
+        // If nothing was open, there's nothing to clean up.
+        if (toHide.length === 0) return
+
+        // If the new panel is already backing-visible (e.g. it was
+        // shown very recently and the surface is still mapped), hide
+        // the old ones immediately.
+        if (target.backingWindowVisible) {
+            for (var i = 0; i < toHide.length; i++) toHide[i].visible = false
+            return
+        }
+
+        // Otherwise wait for the compositor to map the new surface
+        // before unmapping the old one.
+        function onBackingVisible() {
+            if (target.backingWindowVisible) {
+                target.backingWindowVisibleChanged.disconnect(onBackingVisible)
+                for (var j = 0; j < toHide.length; j++) toHide[j].visible = false
+            }
+        }
+        target.backingWindowVisibleChanged.connect(onBackingVisible)
+
+        // Safety net: if the surface never maps within 200ms (driver
+        // stall, compositor hiccup), unmap the old panels anyway so
+        // they don't linger forever.
+        safetyTimer.toHide = toHide
+        safetyTimer.target = target
+        safetyTimer.slot = onBackingVisible
+        safetyTimer.restart()
     }
 
+    Timer {
+        id: safetyTimer
+        interval: 200
+        repeat: false
+        property var toHide: []
+        property var target: null
+        property var slot: null
+        onTriggered: {
+            if (target && slot) {
+                try { target.backingWindowVisibleChanged.disconnect(slot) } catch (e) {}
+            }
+            for (var i = 0; i < toHide.length; i++) toHide[i].visible = false
+            toHide = []
+            target = null
+            slot = null
+        }
+    }
 }

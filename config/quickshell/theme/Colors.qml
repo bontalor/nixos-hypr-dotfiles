@@ -40,29 +40,36 @@ Singleton {
     component Special: JsonObject {
         // Dark defaults minimize the flash on Quickshell restart (the
         // wal palette loads a few ms after the singleton initialises).
-        // A missing palette is still noticeable — everything is plain
-        // black/white with no accent colors.
-        property string background: "#000000"
-        property string foreground: "#ffffff"
-        property string cursor: "#ffffff"
+        // Previously all-black, which silently made the bar unreadable
+        // (color1=selected on black surface) if pywal's cache was ever
+        // removed — a known-good palette keeps the shell legible while
+        // reloading and on first run.
+        property string background: "#1e1e2e"
+        property string foreground: "#cdd6f4"
+        property string cursor: "#f5e0dc"
     }
 
     component Colors: JsonObject {
-        property string color0: "#000000"
-        property string color1: "#000000"
-        property string color2: "#000000"
-        property string color3: "#000000"
-        property string color4: "#000000"
-        property string color5: "#000000"
-        property string color6: "#000000"
-        property string color7: "#000000"
-        property string color8: "#000000"
-        property string color9: "#000000"
-        property string color10: "#000000"
-        property string color11: "#000000"
-        property string color12: "#000000"
-        property string color13: "#000000"
-        property string color14: "#000000"
-        property string color15: "#000000"
+        // Catppuccin Mocha (defaults while the wal cache loads / on a
+        // missing palette). The semantic aliases in this singleton
+        // (critical=color8, accent=color13, selected=color1, surface=color0,
+        // border=color5, success=color11) all stay readable against the
+        // dark `background` above.
+        property string color0:  "#1e1e2e"   // surface       (selected row bg)
+        property string color1:  "#45475a"   // selected      (panel surface)
+        property string color2:  "#a6e3a1"
+        property string color3:  "#f9e2af"
+        property string color4:  "#89b4fa"
+        property string color5:  "#f5c2e7"   // border
+        property string color6:  "#94e2d5"
+        property string color7:  "#bac2de"
+        property string color8:  "#f38ba8"   // critical
+        property string color9:  "#fab387"   // warning
+        property string color10: "#a6e3a1"
+        property string color11: "#a6e3a1"   // success
+        property string color12: "#89b4fa"
+        property string color13: "#cba6f7"   // accent
+        property string color14: "#94e2d5"
+        property string color15: "#a6adc8"
     }
 }

@@ -4,11 +4,16 @@
 // entries from `NotifDaemon.history` (newest first).
 //
 // Long entries are truncated (NotifDaemon.notifBodyMaxLines); Tab, Enter, or
-// click toggles the selected entry open to its full text (a chevron
-// marks entries with more to read), mirroring the VolumePanel
-// configuration section: Shift+Tab or Escape collapses first, then
-// backs out as usual. The Clear All row is the only way to remove
-// entries.
+// click toggles the selected entry open to its *full* text — `maximumLineCount: 0`
+// and `elide: ElideNone` while expanded mean truly long notifications unroll
+// completely (the old chevron marker is gone, matching the rest of the shell's
+// "the row itself is the affordance" convention). Mirrors the VolumePanel
+// configuration section: Shift+Tab or Escape collapses first, then backs out
+// as usual. The Clear All row is the only way to remove entries.
+//
+// Each entry shows the sender's app icon (resolved via IconImage through
+// the desktop entry / icon theme), with the notification's embedded image
+// preview as a fallback when no appIcon is resolvable.
 //
 // Uses custom scrolling (autoScroll: false) because notification entries
 // have variable heights — the base Panel's scrollToSelection assumes a
@@ -138,15 +143,19 @@ Panel {
                 required property string summary
                 required property string body
                 required property string appName
+                required property string appIcon
+                required property string image
                 required property var timestamp
                 required property int index
 
                 property bool expanded: index === root.expandedIndex
-                // More to read than the collapsed entry shows?
-                property bool expandable: expanded || summaryText.truncated || bodyText.truncated
+                // Whether the left-edge icon is actually rendered (source
+                // resolved) — drives the text column width so a missing
+                // icon doesn't reserve dead space.
+                property bool hasIcon: entryIcon.status === Image.Ready || entryImage.status === Image.Ready
 
                 width: parent.width
-                height: Math.max(root.rowHeight, col.implicitHeight + 2 * Theme.margin)
+                height: Math.max(root.rowHeight, entryRow.implicitHeight + 2 * Theme.margin)
                 selected: root.inSection && root.selDevice - 1 === index
                 panel: root
                 // History entries sit below the Clear All row in the
@@ -154,62 +163,84 @@ Panel {
                 itemIndex: index + 1
                 onClicked: root.toggleExpand(index)
 
-                Column {
-                    id: col
+                Row {
+                    id: entryRow
                     anchors { left: parent.left; leftMargin: Theme.margin; right: parent.right; rightMargin: Theme.margin; verticalCenter: parent.verticalCenter }
-                    width: parent.width - 2 * Theme.margin
-                    spacing: 4
+                    spacing: 6
 
-                    ThemeText {
-                        id: summaryText
-                        width: parent.width
-                        text: entry.summary || "(no summary)"
-                        font.bold: true
-                        wrapMode: Text.WordWrap
-                        maximumLineCount: entry.expanded ? 9999 : 1
-                        elide: Text.ElideRight
+                    // Sender app icon (preferred) or the notification's
+                    // embedded image preview (album cover, screenshot).
+                    // Same IconImage widget as the popup — resolve failures
+                    // collapse the column width via hasIcon.
+                    IconImage {
+                        id: entryIcon
+                        source: entry.appIcon
+                        visible: entry.appIcon !== "" && status !== Image.Error
+                        width: 16; height: 16
+                        anchors.top: parent.top; anchors.topMargin: 2
+                    }
+                    Image {
+                        id: entryImage
+                        source: entry.image
+                        visible: entry.image !== "" && entryIcon.status !== Image.Ready && status !== Image.Error
+                        width: 16; height: 16
+                        fillMode: Image.PreserveAspectCrop
+                        smooth: true
+                        asynchronous: true
+                        anchors.top: parent.top; anchors.topMargin: 2
                     }
 
-                    ThemeText {
-                        id: bodyText
-                        width: parent.width
-                        text: entry.body || ""
-                        wrapMode: Text.WordWrap
-                        maximumLineCount: entry.expanded ? 9999 : NotifDaemon.notifBodyMaxLines
-                        elide: Text.ElideRight
-                        visible: text !== ""
-                    }
-
-                    Item {
-                        width: parent.width
-                        height: Math.max(appNameLbl.implicitHeight, tsLbl.implicitHeight)
+                    Column {
+                        width: entryRow.width - (entry.hasIcon ? 22 : 0)
+                        spacing: 4
 
                         ThemeText {
-                            id: appNameLbl
-                            anchors.left: parent.left
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: entry.appName || ""
-                            color: Qt.alpha(Colors.foreground, Theme.alphaDim)
-                            size: "small"
+                            id: summaryText
+                            width: parent.width
+                            text: entry.summary || "(no summary)"
+                            font.bold: true
+                            wrapMode: Text.WordWrap
+                            // maximumLineCount: 0 disables the cap entirely
+                            // (Qt default is 0 = unlimited). Elide is dropped
+                            // when expanded, otherwise elide would silently
+                            // truncate the unwrapped tail even under 9999 —
+                            // long notifications stayed cut off when expanded.
+                            maximumLineCount: entry.expanded ? 0 : 1
+                            elide: entry.expanded ? Text.ElideNone : Text.ElideRight
                         }
 
                         ThemeText {
-                            anchors.horizontalCenter: parent.horizontalCenter
-                            anchors.verticalCenter: parent.verticalCenter
-                            visible: entry.expandable
-                            text: entry.expanded ? Icon.chevronCollapse : Icon.chevronExpand
-                            color: Qt.alpha(Colors.foreground, Theme.alphaDim)
-                            size: "small"
+                            id: bodyText
+                            width: parent.width
+                            text: entry.body || ""
+                            wrapMode: Text.WordWrap
+                            maximumLineCount: entry.expanded ? 0 : NotifDaemon.notifBodyMaxLines
+                            elide: entry.expanded ? Text.ElideNone : Text.ElideRight
+                            visible: text !== ""
                         }
 
-                        ThemeText {
-                            id: tsLbl
-                            anchors.right: parent.right
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: root.fmtTimestamp(entry.timestamp)
-                            color: Qt.alpha(Colors.foreground, Theme.alphaDim)
-                            size: "small"
-                            horizontalAlignment: Text.AlignRight
+                        Item {
+                            width: parent.width
+                            height: Math.max(appNameLbl.implicitHeight, tsLbl.implicitHeight)
+
+                            ThemeText {
+                                id: appNameLbl
+                                anchors.left: parent.left
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: entry.appName || ""
+                                color: Qt.alpha(Colors.foreground, Theme.alphaDim)
+                                size: "small"
+                            }
+
+                            ThemeText {
+                                id: tsLbl
+                                anchors.right: parent.right
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: root.fmtTimestamp(entry.timestamp)
+                                color: Qt.alpha(Colors.foreground, Theme.alphaDim)
+                                size: "small"
+                                horizontalAlignment: Text.AlignRight
+                            }
                         }
                     }
                 }

@@ -7,7 +7,6 @@ import "../models"
 import "../util"
 import QtQuick
 import Quickshell
-import Quickshell.Bluetooth
 import Quickshell.Io
 import Quickshell.Networking
 
@@ -28,6 +27,113 @@ Panel {
     readonly property int secBluetooth: 2
     readonly property int secConfig: 3
     readonly property int secNm: 4
+
+    // autoScroll stays true (default) so Panel.qml fires its onSelDevice /
+    // onSelConfigItem / ... scroll handlers; we override `scrollToSelection`
+    // below to read the real (variable-height) delegate geometry when a
+    // Wi-Fi or Ethernet row's dropdown is open.
+
+    // --- Per-row action dropdown state (Wi-Fi + Ethernet sections) ---
+    // Bluetooth keeps the panel-level ConfigExpandItem machinery
+    // (expandSection = secBluetooth) since that section's whole UX is
+    // dropdown-driven; for Wi-Fi/Ethernet we add an in-row dropdown on
+    // top of the existing single-action rows without consuming PanelNav's
+    // expandSection slot (one per panel).
+    property int expandedRowIdx: -1
+    property int selRowAction: 0
+
+    function closeRowDropdown() {
+        root.expandedRowIdx = -1
+        root.selRowAction = 0
+    }
+    function toggleRowDropdown(idx) {
+        if (root.expandedRowIdx === idx) root.closeRowDropdown()
+        else { root.expandedRowIdx = idx; root.selRowAction = 0 }
+    }
+    function ethActions(dev, idx) {
+        if (!dev) return []
+        // Only one of Connect/Disconnect makes sense per current state.
+        return [{ name: dev.connected ? "Disconnect" : "Connect",
+                  action: dev.connected ? "disconnect" : "connect" }]
+    }
+    function wifiActions(net) {
+        if (!net) return []
+        if (net.active) return [{ name: "Disconnect", action: "disconnect" }]
+        if (net.known) return [
+            { name: "Connect",    action: "connect" },
+            { name: "Forget",     action: "forget" }
+        ]
+        // Unknown secured: Connect opens the password row, falls back to
+        // nmtui for hidden-SSID networks (handled in doWifiAction below).
+        return [{ name: "Connect", action: "connect" }]
+    }
+    function currentRowActions(idx) {
+        switch (root.selSection) {
+        case root.secWifi:
+            return root.wifiActions(root.wifiNetworks[idx] || null)
+        case root.secEthernet:
+            return root.ethActions(root.wiredDevices[idx] || null, idx)
+        default:
+            return []
+        }
+    }
+    function doEthAction(idx, actIdx) {
+        var list = root.wiredDevices
+        if (idx >= list.length) return
+        var dev = list[idx]
+        var acts = root.ethActions(dev, idx)
+        var act = acts[actIdx]
+        if (!act) return
+        if (act.action === "disconnect") dev.disconnect()
+        else {
+            // Reconnecting a wired device isn't exposed by the Quickshell
+            // API — nmcli fallback (same caveat as the prior single-click
+            // connect; the dropdown is UI-only, behavior is unchanged).
+            nmcliProc.command = ["nmcli", "device", "connect", dev.name]
+            nmcliProc.running = true
+        }
+    }
+    function doWifiAction(idx, actIdx) {
+        var list = root.wifiNetworks
+        if (idx >= list.length) return
+        var net = list[idx]
+        var acts = root.wifiActions(net)
+        var act = acts[actIdx]
+        if (!act) return
+        if (act.action === "connect") {
+            if (net.active) return
+            if (net.secured && !net.known) {
+                var ssid = net.network.name || ""
+                if (ssid === "") launchNmtui()
+                else root.pwSsid = ssid  // opens the inline password row
+            } else {
+                net.network.connect()
+            }
+        } else if (act.action === "disconnect") {
+            net.network.disconnect()
+        } else if (act.action === "forget") {
+            // Quickshell.Networking exposes disconnect() but not
+            // forget() of known WifiNetwork profiles in 0.3.0; route
+            // via nmcli so the action row is fulfilled.
+            var ssid = net.network.name || ""
+            if (ssid !== "") {
+                nmcliProc.command = ["nmcli", "connection", "delete", ssid]
+                nmcliProc.running = true
+            }
+        }
+    }
+    function triggerRowAction(idx, actIdx) {
+        if (root.selSection === root.secWifi) root.doWifiAction(idx, actIdx)
+        else if (root.selSection === root.secEthernet) root.doEthAction(idx, actIdx)
+        root.closeRowDropdown()
+    }
+
+    // Reset the password row + dropdown on hide or section change. The
+    // `sectionChanged` signal (forwarded by Panel.qml from PanelNav)
+    // fires alongside `selSection`-property change, so a single handler
+    // does both reset paths instead of binding both.
+    onVisibleChanged: if (!visible) { root.pwSsid = ""; root.closeRowDropdown() }
+    onSectionChanged: { root.pwSsid = ""; root.closeRowDropdown() }
 
     // Live D-Bus-backed state from NetworkModel. No fetch, no parse, no
     // manual refresh relay.
@@ -57,10 +163,14 @@ Panel {
         return out
     }
 
-    // Live BlueZ-backed state from the native Quickshell.Bluetooth
-    // service — same no-shell-out approach as NetworkModel for NM.
-    readonly property var btAdapter: Bluetooth.defaultAdapter
-    readonly property bool btOn: btAdapter !== null && btAdapter.enabled
+    // Live BlueZ-backed state from BluetoothModel — same single-source
+    // pattern as NetworkModel/BatteryModel. The bar could surface a BT
+    // chip from this singleton without reaching into panel internals.
+    readonly property var btAdapter: BluetoothModel.adapter
+    readonly property bool btOn: BluetoothModel.on
+    readonly property var btMyDevices: BluetoothModel.knownDevices
+    readonly property var btFoundDevices: BluetoothModel.foundDevices
+    readonly property var btDevices: BluetoothModel.allDevices
 
     // Discover while the Bluetooth section is on screen (GNOME-style) —
     // no manual scan toggle to forget about. Note BlueZ keeps
@@ -73,36 +183,6 @@ Panel {
             root.btAdapter.discovering = root.btScanWanted
     }
 
-    // A device belongs in "My devices" if BlueZ has any lasting
-    // relationship with it: paired/bonded (link keys stored), trusted
-    // (we set it on the first connect attempt), or currently connected.
-    // Mirrors DankMaterialShell's `paired || trusted` classification.
-    function btKnown(dev) { return dev.paired || dev.bonded || dev.trusted || dev.connected }
-
-    // Two lists: known devices ("My devices") and discovered ones
-    // (below the scanning header), alphabetical within each. Scan
-    // results are limited to devices that advertise a real name
-    // (deviceName) — address-only entries are BLE beacon noise. The
-    // concatenated btDevices is the flat index space the expandSection
-    // keyboard nav (selConfigItem) operates on.
-    readonly property var btMyDevices: btFilterSort(true)
-    readonly property var btFoundDevices: btFilterSort(false)
-    readonly property var btDevices: btMyDevices.concat(btFoundDevices)
-
-    function btFilterSort(known) {
-        var raw = Bluetooth.devices ? Bluetooth.devices.values : []
-        var out = []
-        for (var i = 0; i < raw.length; i++) {
-            if (btKnown(raw[i]) !== known) continue
-            if (!known && !raw[i].deviceName) continue
-            out.push(raw[i])
-        }
-        out.sort(function(a, b) {
-            return (a.name || a.address).localeCompare(b.name || b.address)
-        })
-        return out
-    }
-
     // The Bluetooth section is the panel's expandable-config section:
     // each device row opens a dropdown of actions (Connect/Disconnect,
     // Forget). Panel's expandSection machinery drives the keyboard nav.
@@ -110,75 +190,165 @@ Panel {
     configItemCount: function() { return root.btOn ? root.btDevices.length : 0 }
     configProfileCount: function() {
         var dev = root.btDevices[root.selConfigItem]
-        return dev ? root.btDeviceOptions(dev).length : 0
+        return dev ? BluetoothModel.deviceOptions(dev).length : 0
     }
-    onConfigActivated: btApplyOption(root.selConfigItem, root.selConfigProfile)
-
-    // Dropdown actions for a device. Discovered devices only offer
-    // Connect (which pairs implicitly, see btConnectAction); known ones
-    // get Connect/Disconnect plus Forget.
-    function btDeviceOptions(dev) {
-        if (!btKnown(dev)) return [{ name: "Connect", action: "connect" }]
-        return [
-            { name: dev.connected ? "Disconnect" : "Connect", action: "connect" },
-            { name: "Forget", action: "forget" }
-        ]
-    }
-
-    function btApplyOption(idx, optIdx) {
-        var dev = root.btDevices[idx]
+    onConfigActivated: {
+        var dev = root.btDevices[root.selConfigItem]
         if (!dev) return
-        var opt = root.btDeviceOptions(dev)[optIdx]
+        var opts = BluetoothModel.deviceOptions(dev)
+        var opt = opts[root.selConfigProfile]
         if (!opt) return
-        if (opt.action === "forget") dev.forget()
-        else btConnectAction(dev)
+        BluetoothModel.applyOption(dev, opt.action)
         root.configExpanded = false
     }
 
-    function btConnectAction(dev) {
-        if (dev.state === BluetoothDeviceState.Connecting
-            || dev.state === BluetoothDeviceState.Disconnecting || dev.pairing) return
-        if (dev.connected) {
-            dev.disconnect()
-        } else {
-            // Never pair() here: BlueZ's Connect() pairs implicitly when
-            // a profile requires it and the bond persists, whereas the
-            // explicit Pair() call needs a registered agent to answer
-            // authorization requests and doesn't connect afterwards —
-            // agent-less it leaves the device connected-but-unbonded.
-            // Trusted first so the device may reconnect on its own.
-            // (Same flow as DankMaterialShell and caelestia; passkey-
-            // confirmation devices still need a one-time bluetoothctl
-            // pairing since the shell registers no agent.)
-            dev.trusted = true
-            dev.connect()
+    // scrollToSelection is overridden below — it handles Wi-Fi/Ethernet
+    // (variable-height with inline dropdowns) and Bluetooth's sub-header
+    // + expandable-profile geometry. Properties selConfigItem etc. are
+    // aliased via PanelNav, so Panel.qml's autoScroll-gated handlers
+    // route back through the override below.
+
+    currentModelLength: function() {
+        switch (root.selSection) {
+        case root.secWifi: return root.wifiEnabled ? root.wifiNetworks.length : 0
+        case root.secEthernet: return root.wiredDevices.length
+        case root.secConfig: return 2
+        case root.secNm: return 1
+        default: return 0
         }
     }
 
-    // Sublabel for a device row: state plus battery when reported.
-    function btStatusText(dev) {
-        var status
-        switch (dev.state) {
-        case BluetoothDeviceState.Connecting: status = "Connecting..."; break
-        case BluetoothDeviceState.Disconnecting: status = "Disconnecting..."; break
-        default:
-            status = dev.pairing ? "Pairing..."
-                : dev.connected ? "Connected"
-                : dev.paired ? "Paired" : ""
+    onDeviceActivated: function(idx) {
+        // Wi-Fi + Ethernet are now driven by per-row dropdowns (see
+        // onKeyPressed). Enter still falls through here as a no-op so
+        // PanelNav's contract is satisfied for the other sections.
+        switch (root.selSection) {
+        case root.secConfig:
+            if (idx === 0) setWifiEnabled(!root.wifiEnabled)
+            else if (idx === 1) BluetoothModel.setOn(!root.btOn)
+            break
+        case root.secNm:
+            if (idx === 0) launchNmtui()
+            break
         }
-        if (dev.batteryAvailable) {
-            var bat = Math.round(dev.battery * 100) + "%"
-            status = status ? status + " · " + bat : bat
-        }
-        return status
     }
 
-    // Shadows Panel.scrollToSelection: the Bluetooth section interleaves
-    // the "My devices" / "Scanning for devices..." sub-headers
-    // (Theme.subHeaderHeight + spacing each, plus the "No paired devices"
-    // placeholder when relevant) that the base fixed-stride arithmetic
-    // doesn't know about.
+    // Escape backs out of the password row before Panel's default
+    // handler would exit the section / close the panel. The Wi-Fi and
+    // Ethernet sections additionally get a Tab/Enter/J/K dropdown nav
+    // layer; Enter opens the action dropdown instead of immediately
+    // connecting/disconnecting, mirroring the rest of the shell's dropdown
+    // UX. Bluetooth's dropdown stays on the panel's expandSection machinery.
+    onKeyPressed: function(event) {
+        if (root.pwSsid !== "" && event.key === Qt.Key_Escape) {
+            root.pwSsid = ""
+            Qt.callLater(root.forceFocus)
+            event.accepted = true
+            return
+        }
+
+        if (root.inSection
+            && (root.selSection === root.secWifi || root.selSection === root.secEthernet)) {
+            var open = root.expandedRowIdx === root.selDevice
+            switch (event.key) {
+            case Qt.Key_Return:
+            case Qt.Key_Enter:
+            case Qt.Key_Tab:
+                if (event.modifiers & Qt.ShiftModifier) {
+                    if (open) { root.closeRowDropdown(); event.accepted = true; return }
+                    return  // fall through to PanelNav (Shift+Tab climbs out)
+                }
+                if (open) root.triggerRowAction(root.selDevice, root.selRowAction)
+                else root.toggleRowDropdown(root.selDevice)
+                event.accepted = true; return
+            case Qt.Key_Backtab:
+                if (open) { root.closeRowDropdown(); event.accepted = true; return }
+                return
+            case Qt.Key_Escape:
+                if (open) { root.closeRowDropdown(); event.accepted = true; return }
+                return  // PanelNav unwinds the section
+            case Qt.Key_J:
+            case Qt.Key_Down:
+                if (open) {
+                    root.selRowAction = Scroll.step(
+                        root.selRowAction, 1,
+                        root.currentRowActions(root.selDevice).length)
+                    event.accepted = true; return
+                }
+                return
+            case Qt.Key_K:
+            case Qt.Key_Up:
+                if (open) {
+                    root.selRowAction = Scroll.step(
+                        root.selRowAction, -1,
+                        root.currentRowActions(root.selDevice).length)
+                    event.accepted = true; return
+                }
+                return
+            }
+        }
+    }
+
+    function setWifiEnabled(val) { NetworkModel.setWifiEnabled(val) }
+
+    // Secured network we're collecting a password for ("" = none). The
+    // input lives in a dedicated row above the list — the network rows
+    // themselves are recreated whenever the live wifiNetworks binding
+    // updates (signal strength changes constantly), which would destroy
+    // an in-row TextInput mid-typing.
+    property string pwSsid: ""
+    onShown: { root.pwSsid = ""; root.closeRowDropdown() }
+
+    // Enter in the password row: nmcli creates the profile and connects.
+    // A wrong password or other failure surfaces as a notification via
+    // CheckedProcess; the row closes either way.
+    function connectWifiPassword(password) {
+        if (root.pwSsid === "") return
+        nmcliProc.command = ["nmcli", "device", "wifi", "connect", root.pwSsid,
+                             "password", password]
+        nmcliProc.running = true
+        root.pwSsid = ""
+        Qt.callLater(root.forceFocus)
+    }
+
+    CheckedProcess {
+        id: nmcliProc
+        running: false
+    }
+
+    // Variable-height scroll for the Wi-Fi / Ethernet lists (open
+    // dropdowns add Theme.searchRowHeight per action). Mirrors the
+    // per-delegate-geometry approach used by NotifHistoryPanel and
+    // VolumePanel — overrides Panel.qml's fixed-stride scrollToSelection.
+    onSelRowActionChanged: Qt.callLater(root.scrollToSelection)
+    onExpandedRowIdxChanged: Qt.callLater(root.scrollToSelection)
+
     function scrollToSelection() {
+        if (!root.inSection) return
+
+        // Wi-Fi / Ethernet: read the real delegate height (variable
+        // because of the inline dropdown) rather than the base's
+        // fixed-stride rowHeight math.
+        if (root.selSection === root.secWifi
+            || root.selSection === root.secEthernet) {
+            var rep = root.selSection === root.secWifi ? wifiRepeater : ethRepeater
+            var col = root.selSection === root.secWifi ? wifiColumn : ethColumn
+            if (root.selDevice >= rep.count) return
+            var item = rep.itemAt(root.selDevice)
+            if (item) {
+                root.scrollToVisible(col.y + item.y, item.height)
+                if (root.expandedRowIdx === root.selDevice && root.selRowAction >= 0) {
+                    var actY = col.y + item.y + root.rowHeight
+                              + root.selRowAction * Theme.searchRowHeight
+                    root.scrollToVisible(actY, Theme.searchRowHeight)
+                }
+            }
+            return
+        }
+
+        // Bluetooth: same geometry the original NetworkPanel override
+        // used — original sub-headers, paired/found offset, and the
+        // inline profile sub-list of searchRowHeight rows.
         if (root.selSection !== root.secBluetooth) {
             root.scrollToVisible(
                 root.headerHeight + root.colSpacing + root.selDevice * (root.rowHeight + root.colSpacing),
@@ -202,102 +372,6 @@ Panel {
         root.scrollToVisible(y, h)
     }
 
-    currentModelLength: function() {
-        switch (root.selSection) {
-        case root.secWifi: return root.wifiEnabled ? root.wifiNetworks.length : 0
-        case root.secEthernet: return root.wiredDevices.length
-        case root.secConfig: return 2
-        case root.secNm: return 1
-        default: return 0
-        }
-    }
-
-    onDeviceActivated: function(idx) {
-        switch (root.selSection) {
-        case root.secWifi: toggleWifiNetwork(idx); break
-        case root.secEthernet: toggleEthernet(idx); break
-        case root.secConfig:
-            if (idx === 0) setWifiEnabled(!root.wifiEnabled)
-            else if (idx === 1 && root.btAdapter) root.btAdapter.enabled = !root.btOn
-            break
-        case root.secNm:
-            if (idx === 0) launchNmtui()
-            break
-        }
-    }
-
-    function setWifiEnabled(val) { NetworkModel.setWifiEnabled(val) }
-
-    // Secured network we're collecting a password for ("" = none). The
-    // input lives in a dedicated row above the list — the network rows
-    // themselves are recreated whenever the live wifiNetworks binding
-    // updates (signal strength changes constantly), which would destroy
-    // an in-row TextInput mid-typing.
-    property string pwSsid: ""
-    onSectionChanged: root.pwSsid = ""
-    onShown: root.pwSsid = ""
-
-    function toggleWifiNetwork(idx) {
-        var list = root.wifiNetworks
-        if (idx >= list.length) return
-        var net = list[idx]
-        root.pwSsid = ""
-        if (net.active) {
-            net.network.disconnect()
-        } else if (net.secured && !net.known) {
-            // Hidden networks (no broadcast SSID) can't be joined by
-            // name — nmtui remains the path for those.
-            var ssid = net.network.name || ""
-            if (ssid === "") launchNmtui()
-            else root.pwSsid = ssid
-        } else {
-            net.network.connect()
-        }
-    }
-
-    // Enter in the password row: nmcli creates the profile and connects.
-    // A wrong password or other failure surfaces as a notification via
-    // CheckedProcess; the row closes either way.
-    function connectWifiPassword(password) {
-        if (root.pwSsid === "") return
-        nmcliProc.command = ["nmcli", "device", "wifi", "connect", root.pwSsid,
-                             "password", password]
-        nmcliProc.running = true
-        root.pwSsid = ""
-        Qt.callLater(root.forceFocus)
-    }
-
-    // Escape backs out of the password row before Panel's default
-    // handler would exit the section / close the panel.
-    onKeyPressed: function(event) {
-        if (root.pwSsid !== "" && event.key === Qt.Key_Escape) {
-            root.pwSsid = ""
-            Qt.callLater(root.forceFocus)
-            event.accepted = true
-        }
-    }
-
-    function toggleEthernet(idx) {
-        var list = root.wiredDevices
-        if (idx >= list.length) return
-        var dev = list[idx]
-        if (dev.connected) {
-            dev.disconnect()
-        } else {
-            // Reconnecting a wired device isn't exposed by the Quickshell API;
-            // nmcli still has it as a fallback for the rare off case.
-            // (Braces here are load-bearing — without them `nmcliProc.running
-            // = true` fired unconditionally, including on the disconnect branch.)
-            nmcliProc.command = ["nmcli", "device", "connect", dev.name]
-            nmcliProc.running = true
-        }
-    }
-
-    CheckedProcess {
-        id: nmcliProc
-        running: false
-    }
-
     // Terminal comes from Settings (PrefStore.terminal, default foot);
     // whatever is configured must accept `-e <command>`.
     function launchNmtui() {
@@ -307,6 +381,7 @@ Panel {
 
     // ---- Wi-Fi list ----
     Column {
+        id: wifiColumn
         width: parent.width
         spacing: root.colSpacing
         visible: root.selSection === root.secWifi
@@ -316,8 +391,8 @@ Panel {
             text: "Wi-Fi is turned off"
         }
 
-        // Inline password entry for the network picked in
-        // toggleWifiNetwork. Enter connects, Escape cancels.
+        // Inline password entry for the network picked in the Wi-Fi
+        // Connect action. Enter connects, Escape cancels.
         Rectangle {
             visible: root.pwSsid !== ""
             width: parent.width
@@ -360,19 +435,30 @@ Panel {
         }
 
         Repeater {
+            id: wifiRepeater
             // `visible` on a Repeater doesn't hide its delegates (they're
             // parented to the Column) — gate the model instead.
             model: root.wifiEnabled ? root.wifiNetworks : []
 
-            delegate: PanelRow {
+            delegate: DropdownRow {
                 id: wifiItem
                 width: parent.width
-                height: root.rowHeight
+                rowHeight: root.rowHeight
                 property int wifiSignal: modelData.signal || 0
-                selected: root.inSection && index === root.selDevice
-                panel: root
-                itemIndex: index
-                onClicked: root.toggleWifiNetwork(index)
+                isSelected: root.inSection && index === root.selDevice
+                isExpanded: root.expandedRowIdx === index
+                selActionIndex: root.expandedRowIdx === index ? root.selRowAction : -1
+                actions: root.wifiActions(modelData)
+
+                onToggled: {
+                    if (!root.inSection) { root.inSection = true; root.selDevice = index }
+                    root.toggleRowDropdown(index)
+                }
+                onActionTriggered: (idx) => {
+                    if (!root.inSection) { root.inSection = true; root.selDevice = index }
+                    root.selRowAction = idx
+                    root.triggerRowAction(index, idx)
+                }
 
                 ThemeText {
                     id: wifiLabel
@@ -421,20 +507,32 @@ Panel {
 
     // ---- Ethernet ----
     Column {
+        id: ethColumn
         width: parent.width
         spacing: root.colSpacing
         visible: root.selSection === root.secEthernet
 
         Repeater {
+            id: ethRepeater
             model: root.wiredDevices
 
-            delegate: PanelRow {
+            delegate: DropdownRow {
                 width: parent.width
-                height: root.rowHeight
-                selected: root.inSection && index === root.selDevice
-                panel: root
-                itemIndex: index
-                onClicked: root.toggleEthernet(index)
+                rowHeight: root.rowHeight
+                isSelected: root.inSection && index === root.selDevice
+                isExpanded: root.expandedRowIdx === index
+                selActionIndex: root.expandedRowIdx === index ? root.selRowAction : -1
+                actions: root.ethActions(modelData, index)
+
+                onToggled: {
+                    if (!root.inSection) { root.inSection = true; root.selDevice = index }
+                    root.toggleRowDropdown(index)
+                }
+                onActionTriggered: (idx) => {
+                    if (!root.inSection) { root.inSection = true; root.selDevice = index }
+                    root.selRowAction = idx
+                    root.triggerRowAction(index, idx)
+                }
 
                 ThemeText {
                     id: ethLabel
@@ -478,20 +576,25 @@ Panel {
         property int flatIndex
 
         label: dev.name || dev.deviceName || dev.address
-        sublabel: root.btStatusText(dev)
+        sublabel: BluetoothModel.statusText(dev)
         isSelected: root.inSection && flatIndex === root.selConfigItem
         isExpanded: root.configExpanded && flatIndex === root.selConfigItem
-        profileCount: root.btDeviceOptions(dev).length
+        profileCount: BluetoothModel.deviceOptions(dev).length
         panel: root
         itemIndex: flatIndex
 
         Repeater {
-            model: btItem.isExpanded ? root.btDeviceOptions(btItem.dev) : []
+            model: btItem.isExpanded ? BluetoothModel.deviceOptions(btItem.dev) : []
 
             delegate: ConfigProfileRow {
                 label: modelData.name
                 isSelected: index === root.selConfigProfile
-                onClicked: if (root.inSection) root.btApplyOption(btItem.flatIndex, index)
+                onClicked: {
+                    if (!root.inSection) return
+                    var d = root.btDevices[btItem.flatIndex]
+                    BluetoothModel.applyOption(d, modelData.action)
+                    root.configExpanded = false
+                }
             }
         }
     }
@@ -583,7 +686,7 @@ Panel {
             selected: root.inSection && 1 === root.selDevice
             panel: root
             itemIndex: 1
-            onClicked: if (root.btAdapter) root.btAdapter.enabled = !root.btOn
+            onClicked: BluetoothModel.setOn(!root.btOn)
 
             ThemeText {
                 text: root.btAdapter
