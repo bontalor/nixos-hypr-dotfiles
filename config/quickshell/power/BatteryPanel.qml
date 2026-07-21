@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import "../theme"
 import "../components"
 import "../models"
@@ -33,6 +34,7 @@ Panel {
     // triggerAction(idx, actIdx) hook (per-section perform).
     DropdownState {
         id: dropdown
+        selectRow: function(idx) { root.selectRow(idx) }
         rowActions: function(idx) { return root.currentRowActions(idx) }
         triggerAction: function(idx, actIdx) {
             var acts = root.currentRowActions(idx)
@@ -137,6 +139,7 @@ Panel {
             model: BatteryModel.batteryDevices
 
             delegate: DropdownRow {
+                id: batRow
                 width: parent.width
                 rowHeight: root.rowHeight
                 required property var modelData
@@ -150,46 +153,37 @@ Panel {
                 selActionIndex: root.expandedRowIdx === index ? root.selRowAction : -1
                 actions: root.batteryActions(modelData)
 
-                onToggled: {
-                    root.inSection = true
-                    root.selDevice = index
-                    root.toggleRowDropdown(index)
-                }
-                onActionTriggered: (idx) => {
-                    root.inSection = true
-                    root.selDevice = index
-                    root.selRowAction = idx
-                    root.triggerRowAction(index, idx)
-                }
+                onToggled: root.toggleRowDropdown(index)
+                onActionTriggered: (idx) => root.triggerRowAction(index, idx)
 
                 ThemeText {
                     id: devName
-                    text: BatteryModel.deviceName(modelData)
+                    text: BatteryModel.deviceName(batRow.modelData)
                     anchors { left: parent.left; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
-                    color: isActive ? Colors.success : Colors.foreground
-                    font.bold: isActive
+                    color: batRow.isActive ? Colors.success : Colors.foreground
+                    font.bold: batRow.isActive
                 }
 
                 ThemeText {
-                    text: pct + "%"
+                    text: batRow.pct + "%"
                     anchors { left: devName.right; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
-                    color: pct <= BatteryModel.batteryCritical ? Colors.critical
-                        : pct <= BatteryModel.batteryWarning ? Colors.warning
+                    color: batRow.pct <= BatteryModel.batteryCritical ? Colors.critical
+                        : batRow.pct <= BatteryModel.batteryWarning ? Colors.warning
                         : Colors.foreground
                     font.bold: true
                 }
 
                 ThemeText {
                     text: {
-                        var s = BatteryModel.stateText(modelData)
+                        var s = BatteryModel.stateText(batRow.modelData)
                         s = s ? s.charAt(0).toUpperCase() + s.slice(1) : ""
                         var t = FormatUtil.fmtDuration(
-                            modelData.state === UPowerDeviceState.Charging
-                                ? modelData.timeToFull : modelData.timeToEmpty)
+                            batRow.modelData.state === UPowerDeviceState.Charging
+                                ? batRow.modelData.timeToFull : batRow.modelData.timeToEmpty)
                         return t ? s + " · " + t : s
                     }
                     anchors { right: parent.right; rightMargin: Theme.margin; verticalCenter: parent.verticalCenter }
-                    color: modelData.state === UPowerDeviceState.Charging ? Colors.success
+                    color: batRow.modelData.state === UPowerDeviceState.Charging ? Colors.success
                         : Qt.alpha(Colors.foreground, Theme.alphaBackground)
                 }
             }
@@ -215,6 +209,7 @@ Panel {
             model: root.profileDaemonAvailable ? root.powerProfiles : []
 
             delegate: DropdownRow {
+                id: profRow
                 width: parent.width
                 rowHeight: root.rowHeight
                 required property var modelData
@@ -227,38 +222,29 @@ Panel {
                 selActionIndex: root.expandedRowIdx === index ? root.selRowAction : -1
                 actions: root.profileActions(modelData)
 
-                onToggled: {
-                    root.inSection = true
-                    root.selDevice = index
-                    root.toggleRowDropdown(index)
-                }
-                onActionTriggered: (idx) => {
-                    root.inSection = true
-                    root.selDevice = index
-                    root.selRowAction = idx
-                    root.triggerRowAction(index, idx)
-                }
+                onToggled: root.toggleRowDropdown(index)
+                onActionTriggered: (idx) => root.triggerRowAction(index, idx)
 
                 Row {
                     anchors { left: parent.left; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
                     spacing: Theme.margin
 
                     ThemeText {
-                        text: modelData.icon
-                        color: isActive ? Colors.success : Qt.alpha(Colors.foreground, Theme.alphaBackground)
+                        text: profRow.modelData.icon
+                        color: profRow.isActive ? Colors.success : Qt.alpha(Colors.foreground, Theme.alphaBackground)
                         verticalAlignment: Text.AlignVCenter
                     }
 
                     ThemeText {
-                        text: modelData.name
-                        color: isActive ? Colors.success : Colors.foreground
-                        font.bold: isActive
+                        text: profRow.modelData.name
+                        color: profRow.isActive ? Colors.success : Colors.foreground
+                        font.bold: profRow.isActive
                         verticalAlignment: Text.AlignVCenter
                     }
                 }
 
                 ThemeText {
-                    text: isActive ? "Active" : ""
+                    text: profRow.isActive ? "Active" : ""
                     anchors { right: parent.right; rightMargin: Theme.margin; verticalCenter: parent.verticalCenter }
                     color: Colors.success
                     font.bold: true

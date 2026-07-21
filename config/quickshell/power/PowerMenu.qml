@@ -9,6 +9,8 @@ import "../util"
 import "."
 import QtQuick
 
+pragma ComponentBehavior: Bound
+
 SearchPanel {
     id: root
     title: "Power Menu"
@@ -29,14 +31,15 @@ SearchPanel {
     }
 
     rowDelegate: SearchRow {
+        id: powerRow
         ThemeText {
             anchors.verticalCenter: parent.verticalCenter
-            text: modelData?.glyph ?? ""
+            text: powerRow.modelData?.glyph ?? ""
             font.pixelSize: Theme.iconSize
         }
         ThemeText {
             anchors.verticalCenter: parent.verticalCenter
-            text: modelData?.name ?? ""
+            text: powerRow.modelData?.name ?? ""
         }
     }
 }

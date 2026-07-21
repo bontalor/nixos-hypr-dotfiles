@@ -10,6 +10,16 @@ import Quickshell
 Singleton {
     readonly property string home: Quickshell.env("HOME")
 
+    // Strip the `file://` prefix from a QUrl-as-string and decode its
+    // escapes. Platform FileDialog returns a QUrl; callers without this
+    // helper used to inline the (URL-encoded) string into argv. Reused
+    // by every file-picker surface (FfmpegPanel, wallpaper Picker).
+    function urlToLocalFile(url) {
+        var s = url ? url.toString() : ""
+        if (s.startsWith("file://")) return decodeURIComponent(s.slice(7))
+        return s
+    }
+
     // Expand a leading "~/" — Settings path prefs are typed by hand.
     function expandHome(p) { return p && p.startsWith("~/") ? home + p.slice(1) : p }
 

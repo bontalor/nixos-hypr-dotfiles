@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import "../../theme"
 import "../../components"
 import "../../util"
@@ -74,6 +76,8 @@ WidgetButton {
             Repeater {
                 model: Theme.peakBands
                 delegate: Item {
+                    id: bandItem
+                    required property int index
                     property int colIdx: index
                     x: 1 + colIdx * root.dotStride
                     width: 2
@@ -87,7 +91,7 @@ WidgetButton {
                             height: 2
                             y: parent.height - 2 - index * root.dotStride
                             color: Colors.foreground
-                            opacity: index === 0 ? 1.0 : (index < Math.round(SpectrumModel.bands[colIdx] * root.dotRows) ? 1.0 : 0.0)
+                            opacity: index === 0 ? 1.0 : (index < Math.round(SpectrumModel.bands[bandItem.colIdx] * root.dotRows) ? 1.0 : 0.0)
                         }
                     }
                 }

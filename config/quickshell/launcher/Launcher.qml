@@ -5,6 +5,8 @@ import QtQuick
 import Quickshell
 import Quickshell.Widgets
 
+pragma ComponentBehavior: Bound
+
 SearchPanel {
     id: root
     title: "App Launcher"
@@ -12,7 +14,7 @@ SearchPanel {
     property var allApps: []
 
     Component.onCompleted: rebuildApps()
-    Timer { id: rebuildDebounce; interval: 50; onTriggered: rebuildApps() }
+    Timer { id: rebuildDebounce; interval: 50; onTriggered: root.rebuildApps() }
     Connections {
         target: DesktopEntries
         function onApplicationsChanged() { rebuildDebounce.restart() }
@@ -59,21 +61,22 @@ SearchPanel {
     }
 
     rowDelegate: SearchRow {
+        id: appRow
         IconImage {
             anchors.verticalCenter: parent.verticalCenter
             // Panel entries get the Quickshell logo (copied into assets/
             // from the package's org.quickshell.svg — not resolvable via
             // iconPath, it isn't installed into the system icon theme).
-            source: modelData?.panelKey
+            source: appRow.modelData?.panelKey
                 ? "file://" + Quickshell.shellDir + "/assets/quickshell-logo.svg"
-                : modelData?.icon ? Quickshell.iconPath(modelData.icon, false) : ""
+                : appRow.modelData?.icon ? Quickshell.iconPath(appRow.modelData.icon, false) : ""
             width: Theme.iconSize
             height: Theme.iconSize
             visible: source.toString() !== ""
         }
         ThemeText {
             anchors.verticalCenter: parent.verticalCenter
-            text: modelData?.name ?? ""
+            text: appRow.modelData?.name ?? ""
         }
     }
 }

@@ -8,10 +8,10 @@ import Quickshell.Services.Mpris
 
 // Media panel — now-playing UI for MPRIS players.
 //
-// Extends the shared Panel scaffold (previously duplicated the sidebar,
-// keyboard nav, Escape shortcut, visibility reset, and ▶ selection marker
-// from Panel.qml). The sidebar lists players; the content area shows the
-// selected player's track info, album art, seek bar, and transport buttons.
+// Uses the shared Panel scaffold (Panel owns sidebar, keyboard nav,
+// Escape shortcut, and visibility reset). The sidebar lists players; the
+// content area shows the selected player's track info, album art, seek
+// bar, and transport buttons.
 
 Panel {
     id: root
@@ -60,6 +60,13 @@ Panel {
 
     function fmtTime(sec) { return FormatUtil.fmtSeconds(sec) }
 
+    // If a player disconnects mid-panel-open, selSection may end up past
+    // the end of the players list — clamp it back so currentPlayer never
+    // nulls out and the panel keeps showing a live track.
+    onAllPlayersChanged: {
+        if (selSection >= allPlayers.length) selSection = Math.max(0, allPlayers.length - 1)
+    }
+
     onShown: {
         // Open on the currently-playing player so the user sees what's
         // active immediately, rather than always landing on index 0.
@@ -83,14 +90,13 @@ Panel {
     onKeyPressed: function(event) {
         switch (event.key) {
         case Qt.Key_Tab:
-            if (event.modifiers & Qt.ShiftModifier) {
-                root.selSection = Scroll.clamp(root.selSection - 1, 0, root.allPlayers.length - 1)
-            } else {
-                root.selSection = Scroll.clamp(root.selSection + 1, 0, root.allPlayers.length - 1)
-            }
+            if (event.modifiers & Qt.ShiftModifier)
+                root.selSection = Scroll.step(root.selSection, -1, root.allPlayers.length)
+            else
+                root.selSection = Scroll.step(root.selSection, 1, root.allPlayers.length)
             event.accepted = true; break
         case Qt.Key_Backtab:
-            root.selSection = Scroll.clamp(root.selSection - 1, 0, root.allPlayers.length - 1)
+            root.selSection = Scroll.step(root.selSection, -1, root.allPlayers.length)
             event.accepted = true; break
         case Qt.Key_Return:
         case Qt.Key_Enter:
@@ -99,11 +105,11 @@ Panel {
             event.accepted = true; break
         case Qt.Key_J:
         case Qt.Key_Down:
-            root.selSection = Scroll.clamp(root.selSection + 1, 0, root.allPlayers.length - 1)
+            root.selSection = Scroll.step(root.selSection, 1, root.allPlayers.length)
             event.accepted = true; break
         case Qt.Key_K:
         case Qt.Key_Up:
-            root.selSection = Scroll.clamp(root.selSection - 1, 0, root.allPlayers.length - 1)
+            root.selSection = Scroll.step(root.selSection, -1, root.allPlayers.length)
             event.accepted = true; break
         case Qt.Key_H:
         case Qt.Key_Left:

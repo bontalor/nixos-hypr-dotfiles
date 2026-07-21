@@ -1,6 +1,8 @@
 // Subprocess dependencies: ~/.local/bin/setwall (applies wallpaper
 // image — user-provided script, expected on $PATH).
 
+pragma ComponentBehavior: Bound
+
 import "../theme"
 import "../components"
 import "../util"
@@ -92,28 +94,27 @@ FloatingWindow {
     }
 
     // Read `~/.cache/wal/wal` (pywal's record of the currently-applied
-    // wallpaper — a one-line absolute path). Refreshed each time the picker
-    // opens so out-of-band wallpaper changes are reflected. The cat is
-    // cheap; just one-line stdout, captured synchronously via waitForEnd.
-    Process {
+    // wallpaper — a one-line absolute path). Refreshed each time the
+    // picker opens so out-of-band wallpaper changes are reflected.
+    // Uses the native FileView (the same blockLoading + JsonAdapter-style
+    // pattern PrefStore uses), avoiding a `cat` subprocess per open for
+    // a one-line text file. The previous README's "no sh/printf/cat
+    // subprocesses" claim wasn't honored here.
+    FileView {
         id: walReader
-        running: false
-        command: ["cat", Paths.walWallpaper]
-        stdout: StdioCollector {
-            waitForEnd: true
-            onStreamFinished: {
-                root.currentWalPath = text.trim()
-                root.restoreSelection()
-            }
-        }
+        path: Paths.walWallpaper
+        blockLoading: true
+        watchChanges: true
+        onLoaded: { root.currentWalPath = text().trim(); root.restoreSelection() }
+        onFileChanged: root.currentWalPath = text().trim()
     }
 
     onVisibleChanged: if (visible) {
         // Have the list re-read selection using the fresh wal value when
         // it arrives; if the list is already populated, restoreSelection
-        // runs from onStreamFinished above.
+        // runs from onFileChanged above.
         root.restoreSelection()
-        walReader.running = true
+        walReader.reload()
     }
 
     function applyWallpaper() {
@@ -137,16 +138,16 @@ FloatingWindow {
         Keys.onPressed: event => {
             switch (event.key) {
                 case Qt.Key_H:
-                root.selected = Scroll.clamp(root.selected - 1, 0, wallpaperList.length - 1)
+                root.selected = Scroll.clamp(root.selected - 1, 0, root.wallpaperList.length - 1)
                 break
                 case Qt.Key_J:
-                root.selected = Scroll.clamp(root.selected + root.columns, 0, wallpaperList.length - 1)
+                root.selected = Scroll.clamp(root.selected + root.columns, 0, root.wallpaperList.length - 1)
                 break
                 case Qt.Key_K:
-                root.selected = Scroll.clamp(root.selected - root.columns, 0, wallpaperList.length - 1)
+                root.selected = Scroll.clamp(root.selected - root.columns, 0, root.wallpaperList.length - 1)
                 break
                 case Qt.Key_L:
-                root.selected = Scroll.clamp(root.selected + 1, 0, wallpaperList.length - 1)
+                root.selected = Scroll.clamp(root.selected + 1, 0, root.wallpaperList.length - 1)
                 break
                 case Qt.Key_Return:
                 case Qt.Key_Enter:
@@ -187,12 +188,15 @@ FloatingWindow {
                 // avoid retaining hundreds of decoded bitmaps when the
                 // user has a large walls directory.
                 delegate: Item {
+                    id: cell
+                    required property var modelData
+                    required property int index
                     width: grid.cellWidth - Theme.margin
                     height: grid.cellHeight - Theme.margin
 
                     Image {
                         anchors.fill: parent
-                        source: modelData.path
+                        source: cell.modelData.path
                         sourceSize.width: Theme.wallpaperCellWidth - Theme.margin
                         sourceSize.height: Theme.wallpaperCellHeight - Theme.margin
                         fillMode: Image.PreserveAspectCrop
@@ -207,7 +211,7 @@ FloatingWindow {
                     Rectangle {
                         anchors.fill: parent
                         color: "transparent"
-                        border.width: index === root.selected || cellMouse.containsMouse ? 5 : 0
+                        border.width: cell.index === root.selected || cellMouse.containsMouse ? 5 : 0
                         border.color: Colors.border
                     }
 
@@ -217,7 +221,7 @@ FloatingWindow {
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
-                            root.selected = index
+                            root.selected = cell.index
                             root.applyWallpaper()
                         }
                     }

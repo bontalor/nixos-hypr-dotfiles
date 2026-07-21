@@ -7,6 +7,8 @@ import Quickshell.Wayland
 import Quickshell.Services.SystemTray
 import Quickshell.Widgets
 
+pragma ComponentBehavior: Bound
+
 Item {
     id: root
     width: trayContent.width
@@ -119,24 +121,31 @@ Item {
         exclusionMode: ExclusionMode.Ignore
         aboveWindows: true
         WlrLayershell.namespace: "quickshell:tray"
+        // Anchor the popup flush below (top-bar) or above (bottom-bar)
+        // the bar — the previous `top: true; left: true` only + a
+        // mirror formula never actually placed the popup above the
+        // chevron for the bottom case, since neither `bottom` anchor
+        // nor the screen height were consulted.
         anchors {
-            top: true
+            top: !root.parentWindow.barAtBottom
+            bottom: root.parentWindow.barAtBottom
             left: true
         }
 
-        // Position the dropdown exactly under the chevron button when the
-        // popup opens. `itemPosition` returns the chevron's screen-
-        // absolute coordinates (already accounting for the bar's 10px
-        // layer-shell margins), so:
-        //   dropdown top  = chevronY + 30  (chevron height, flush below)
-        //   dropdown left = chevronX      (aligns with chevron left edge)
-        // With the bar at the bottom, the dropdown mirrors upward: its
-        // bottom edge sits flush above the chevron instead.
+        // Vertical offset from the popup's anchor edge: bar margin +
+        // bar height clears the bar, plus a small Theme.margin gap.
+        // Horizontal: align the popup's left edge with the chevron's
+        // left edge (offset by Theme.margin for visual breathing room).
+        // `itemPosition` returns the chevron's coordinates relative to
+        // the bar window's content surface; since both the popup and
+        // the bar ultimately alignto the same screen edges, this gives
+        // a consistent horizontal offset regardless of which side the
+        // bar sits on.
         onVisibleChanged: if (visible) {
             var pos = root.parentWindow.itemPosition(chevronItem)
-            margins.top = root.parentWindow.barAtBottom
-                ? pos.y - Theme.margin - Theme.barHeight - overflowPopup.implicitHeight
-                : pos.y - Theme.margin
+            var vClear = Theme.barMargin + Theme.barHeight + Theme.margin
+            margins.top = root.parentWindow.barAtBottom ? 0 : vClear
+            margins.bottom = root.parentWindow.barAtBottom ? vClear : 0
             margins.left = pos.x + Theme.margin
         }
 

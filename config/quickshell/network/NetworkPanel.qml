@@ -1,6 +1,8 @@
 // Subprocess dependencies: nmcli (Wi-Fi password connect, Ethernet
 // reconnect), <terminal> -e nmtui (NetworkManager TUI).
 
+pragma ComponentBehavior: Bound
+
 import "../theme"
 import "../components"
 import "../models"
@@ -43,6 +45,11 @@ Panel {
     DropdownState {
         id: dropdown
         rowActions: function(idx) { return root.currentRowActions(idx) }
+        // Hoisted state-stomp: dropdown.toggle/trigger set
+        // `inSection = true; selDevice = idx` via this callback,
+        // so each DropdownRow delegate below just calls
+        // `root.toggleRowDropdown` / `root.triggerRowAction`.
+        selectRow: function(idx) { root.selectRow(idx) }
         triggerAction: function(idx, actIdx) {
             if (root.selSection === root.secWifi) root.doWifiAction(idx, actIdx)
             else if (root.selSection === root.secEthernet) root.doEthAction(idx, actIdx)
@@ -137,8 +144,8 @@ Panel {
             // Reconnecting a wired device isn't exposed by the Quickshell
             // API — nmcli fallback (same caveat as the prior single-click
             // connect; the dropdown is UI-only, behavior is unchanged).
-            nmcliProc.command = ["nmcli", "device", "connect", dev.name]
-            nmcliProc.running = true
+            ethConnectProc.command = ["nmcli", "device", "connect", dev.name]
+            ethConnectProc.running = true
         }
     }
     function doWifiAction(idx, actIdx) {
@@ -165,8 +172,8 @@ Panel {
             // via nmcli so the action row is fulfilled.
             var ssid = net.network.name || ""
             if (ssid !== "") {
-                nmcliProc.command = ["nmcli", "connection", "delete", ssid]
-                nmcliProc.running = true
+                wifiForgetProc.command = ["nmcli", "connection", "delete", ssid]
+                wifiForgetProc.running = true
             }
         }
     }
@@ -304,17 +311,54 @@ Panel {
     // Enter in the password row: nmcli creates the profile and connects.
     // A wrong password or other failure surfaces as a notification via
     // CheckedProcess; the row closes either way.
+    //
+    // The password is written to a mktemp'd 0600 file and passed via
+    // `secret-file` instead of an argv `password <pw>` arg — the old
+    // form leaked the secret into /proc/<pid>/cmdline and any audit
+    // log of the spawn. Requires NetworkManager 1.46+ (the `secret-file`
+    // flag was added there). On older NM the failure surfaces as a
+    // normal nmcli exit-1; the script always removes the temp file
+    // regardless of exit, so no secret lingers on disk.
     function connectWifiPassword(password) {
         if (root.pwSsid === "") return
-        nmcliProc.command = ["nmcli", "device", "wifi", "connect", root.pwSsid,
-                             "password", password]
-        nmcliProc.running = true
+        wifiConnectProc.command = ["sh", "-c",
+            'f=$(mktemp -t qs-wifi-pw.XXXXXX) || exit 1; ' +
+            'chmod 600 "$f"; ' +
+            'printf "%s\n" "$1" > "$f"; ' +
+            'nmcli --wait 30 device wifi connect "$2" secret-file "$f"; ' +
+            's=$?; rm -f "$f"; exit $s',
+            "sh", password, root.pwSsid]
+        wifiConnectProc.running = true
         root.pwSsid = ""
         Qt.callLater(root.forceFocus)
     }
 
+    // One CheckedProcess per nmcli job — the previous design shared a
+    // single Process for connect/delete/wifi-connect/launch terminal,
+    // which meant launching nmtui (long-lived) blocked every Wi-Fi
+    // action and reassigning `command` mid-flight dropped pending work.
     CheckedProcess {
-        id: nmcliProc
+        id: ethConnectProc
+        label: "nmcli device connect"
+        running: false
+    }
+    CheckedProcess {
+        id: wifiForgetProc
+        label: "nmcli connection delete"
+        running: false
+    }
+    CheckedProcess {
+        id: wifiConnectProc
+        label: "nmcli wifi connect"
+        running: false
+    }
+
+    // Long-lived terminal — separate plain Process so its lifetime is
+    // not coupled to nmcli completion. No CheckedProcess wrapper: a
+    // non-zero terminal exit (user closes window with Ctrl-C) would
+    // spuriously notify "command failed".
+    Process {
+        id: nmtuiProc
         running: false
     }
 
@@ -407,8 +451,8 @@ Panel {
     // Terminal comes from Settings (PrefStore.terminal, default foot);
     // whatever is configured must accept `-e <command>`.
     function launchNmtui() {
-        nmcliProc.command = [PrefStore.terminal || "foot", "-e", "nmtui"]
-        nmcliProc.running = true
+        nmtuiProc.command = [PrefStore.terminal || "foot", "-e", "nmtui"]
+        nmtuiProc.running = true
     }
 
     // ---- Wi-Fi list ----
@@ -474,29 +518,22 @@ Panel {
 
             delegate: DropdownRow {
                 id: wifiItem
+                required property var modelData
+                required property int index
                 width: parent.width
                 rowHeight: root.rowHeight
-                property int wifiSignal: modelData.signal || 0
+                property int wifiSignal: wifiItem.modelData.signal || 0
                 isSelected: root.inSection && index === root.selDevice
                 isExpanded: root.expandedRowIdx === index
                 selActionIndex: root.expandedRowIdx === index ? root.selRowAction : -1
                 actions: root.wifiActions(modelData)
 
-                onToggled: {
-                    root.inSection = true
-                    root.selDevice = index
-                    root.toggleRowDropdown(index)
-                }
-                onActionTriggered: (idx) => {
-                    root.inSection = true
-                    root.selDevice = index
-                    root.selRowAction = idx
-                    root.triggerRowAction(index, idx)
-                }
+                onToggled: root.toggleRowDropdown(index)
+                onActionTriggered: (idx) => root.triggerRowAction(index, idx)
 
                 ThemeText {
                     id: wifiLabel
-                    text: modelData.ssid
+                    text: wifiItem.modelData.ssid
                     anchors { left: parent.left; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
                     elide: Text.ElideRight
                     width: parent.width * 0.45
@@ -510,6 +547,7 @@ Panel {
                     Repeater {
                         model: 4
                         delegate: Rectangle {
+                            required property int index
                             width: Theme.meterHeight
                             height: Theme.meterHeight
                             color: index < Math.round(wifiItem.wifiSignal / 25)
@@ -521,14 +559,14 @@ Panel {
                 ThemeText {
                     anchors { right: parent.right; rightMargin: Theme.margin; verticalCenter: parent.verticalCenter }
                     text: {
-                        if (modelData.network.stateChanging) {
-                            return modelData.network.state === ConnectionState.Connecting
+                        if (wifiItem.modelData.network.stateChanging) {
+                            return wifiItem.modelData.network.state === ConnectionState.Connecting
                                 ? "Connecting..." : "Disconnecting..."
                         }
-                        return modelData.active ? "Connected" : "Off"
+                        return wifiItem.modelData.active ? "Connected" : "Off"
                     }
-                    color: modelData.active ? Colors.success : Qt.alpha(Colors.foreground, Theme.alphaBackground)
-                    font.bold: modelData.active
+                    color: wifiItem.modelData.active ? Colors.success : Qt.alpha(Colors.foreground, Theme.alphaBackground)
+                    font.bold: wifiItem.modelData.active
                 }
             }
         }
@@ -551,6 +589,9 @@ Panel {
             model: root.wiredDevices
 
             delegate: DropdownRow {
+                id: ethRow
+                required property var modelData
+                required property int index
                 width: parent.width
                 rowHeight: root.rowHeight
                 isSelected: root.inSection && index === root.selDevice
@@ -558,41 +599,32 @@ Panel {
                 selActionIndex: root.expandedRowIdx === index ? root.selRowAction : -1
                 actions: root.ethActions(modelData, index)
 
-                onToggled: {
-                    root.inSection = true
-                    root.selDevice = index
-                    root.toggleRowDropdown(index)
-                }
-                onActionTriggered: (idx) => {
-                    root.inSection = true
-                    root.selDevice = index
-                    root.selRowAction = idx
-                    root.triggerRowAction(index, idx)
-                }
+                onToggled: root.toggleRowDropdown(index)
+                onActionTriggered: (idx) => root.triggerRowAction(index, idx)
 
                 ThemeText {
                     id: ethLabel
-                    text: modelData.name || "(unnamed)"
+                    text: ethRow.modelData.name || "(unnamed)"
                     anchors { left: parent.left; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
                     elide: Text.ElideRight
                     width: parent.width * 0.45
                 }
 
                 ThemeText {
-                    text: modelData.address || (modelData.connected ? "Connected" : "Disconnected")
+                    text: ethRow.modelData.address || (ethRow.modelData.connected ? "Connected" : "Disconnected")
                     anchors { left: ethLabel.right; leftMargin: Theme.margin; right: ethStatus.left; rightMargin: Theme.margin; verticalCenter: parent.verticalCenter }
-                    color: modelData.connected ? Colors.foreground : Qt.alpha(Colors.foreground, Theme.alphaBackground)
+                    color: ethRow.modelData.connected ? Colors.foreground : Qt.alpha(Colors.foreground, Theme.alphaBackground)
                     elide: Text.ElideRight
                 }
 
                 ThemeText {
                     id: ethStatus
                     anchors { right: parent.right; rightMargin: Theme.margin; verticalCenter: parent.verticalCenter }
-                    text: modelData.stateChanging
-                        ? (modelData.state === ConnectionState.Disconnecting ? "Disconnecting..." : "Connecting...")
-                        : modelData.connected ? "Connected" : "Off"
-                    color: modelData.connected ? Colors.success : Colors.foreground
-                    font.bold: modelData.connected
+                    text: ethRow.modelData.stateChanging
+                        ? (ethRow.modelData.state === ConnectionState.Disconnecting ? "Disconnecting..." : "Connecting...")
+                        : ethRow.modelData.connected ? "Connected" : "Off"
+                    color: ethRow.modelData.connected ? Colors.success : Colors.foreground
+                    font.bold: ethRow.modelData.connected
                 }
             }
         }
@@ -608,8 +640,14 @@ Panel {
     // (found devices are offset by the paired count).
     component BtDeviceItem: ConfigExpandItem {
         id: btItem
-        property var dev
-        property int flatIndex
+        required property var modelData
+        required property int index
+        // Outer Repeater injects modelData (the BtDevice dict) and index.
+        // Wire them into this component's dev + flatIndex defaults; the
+        // outer `delegate: BtDeviceItem {…}` blocks need only override
+        // flatIndex for the found-devices Repeater (which offsets).
+        property var dev: btItem.modelData
+        property int flatIndex: btItem.index
 
         label: dev.name || dev.deviceName || dev.address
         sublabel: BluetoothModel.statusText(dev)
@@ -623,12 +661,15 @@ Panel {
             model: btItem.isExpanded ? BluetoothModel.deviceOptions(btItem.dev) : []
 
             delegate: ConfigProfileRow {
-                label: modelData.name
-                isSelected: index === root.selConfigProfile
+                id: btProfileRow
+                required property var modelData
+                required property int index
+                label: btProfileRow.modelData.name
+                isSelected: btProfileRow.index === root.selConfigProfile
                 onClicked: {
                     if (!root.inSection) return
                     var d = root.btDevices[btItem.flatIndex]
-                    BluetoothModel.applyOption(d, modelData.action)
+                    BluetoothModel.applyOption(d, btProfileRow.modelData.action)
                     root.configExpanded = false
                 }
             }
@@ -658,7 +699,7 @@ Panel {
 
         Repeater {
             model: root.btOn ? root.btMyDevices : []
-            delegate: BtDeviceItem { dev: modelData; flatIndex: index }
+            delegate: BtDeviceItem { }
         }
 
         EmptyLabel {
@@ -673,7 +714,7 @@ Panel {
 
         Repeater {
             model: root.btOn ? root.btFoundDevices : []
-            delegate: BtDeviceItem { dev: modelData; flatIndex: index + root.btMyDevices.length }
+            delegate: BtDeviceItem { flatIndex: index + root.btMyDevices.length }
         }
     }
 
@@ -694,17 +735,8 @@ Panel {
             selActionIndex: root.expandedRowIdx === 0 ? root.selRowAction : -1
             actions: root.configToggleActions(0)
 
-            onToggled: {
-                root.inSection = true
-                root.selDevice = 0
-                root.toggleRowDropdown(0)
-            }
-            onActionTriggered: (idx) => {
-                root.inSection = true
-                root.selDevice = 0
-                root.selRowAction = idx
-                root.triggerRowAction(0, idx)
-            }
+            onToggled: root.toggleRowDropdown(0)
+            onActionTriggered: (idx) => root.triggerRowAction(0, idx)
 
             ThemeText {
                 text: "Wi-Fi: " + (root.wifiEnabled ? "On" : "Off")
@@ -737,17 +769,8 @@ Panel {
             selActionIndex: root.expandedRowIdx === 1 ? root.selRowAction : -1
             actions: root.configToggleActions(1)
 
-            onToggled: {
-                root.inSection = true
-                root.selDevice = 1
-                root.toggleRowDropdown(1)
-            }
-            onActionTriggered: (idx) => {
-                root.inSection = true
-                root.selDevice = 1
-                root.selRowAction = idx
-                root.triggerRowAction(1, idx)
-            }
+            onToggled: root.toggleRowDropdown(1)
+            onActionTriggered: (idx) => root.triggerRowAction(1, idx)
 
             ThemeText {
                 text: root.btAdapter
@@ -773,17 +796,8 @@ Panel {
             selActionIndex: root.expandedRowIdx === 0 ? root.selRowAction : -1
             actions: root.nmActions(0)
 
-            onToggled: {
-                root.inSection = true
-                root.selDevice = 0
-                root.toggleRowDropdown(0)
-            }
-            onActionTriggered: (idx) => {
-                root.inSection = true
-                root.selDevice = 0
-                root.selRowAction = idx
-                root.triggerRowAction(0, idx)
-            }
+            onToggled: root.toggleRowDropdown(0)
+            onActionTriggered: (idx) => root.triggerRowAction(0, idx)
 
             ThemeText {
                 text: "nmtui"

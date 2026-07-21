@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import "../../theme"
 import "../../components"
 import QtQuick
@@ -18,18 +20,22 @@ Row {
         return ids
     }
 
-    // Bind to the actual Hyprland workspace list instead of a hardcoded
-    // `model: 9`. Falls back to 9 if the Hyprland service hasn't populated
-    // yet, so the bar is usable before the compositor reports workspaces.
+    // Bind to the actual Hyprland workspace list but always render at least
+    // `Theme.workspacesMin` slots so the bar is usable before the
+    // compositor reports workspaces (Hyprland lazily-populates the list
+    // until workspaces are explicitly created). Per user preference: 9
+    // slots are always visible, even if Hyprland reports fewer.
     property int wsCount: {
         var ws = Hyprland.workspaces
         var n = ws ? ws.values.length : 0
-        return Math.max(9, n)
+        return Math.max(Theme.workspacesMin, n)
     }
 
     Repeater {
         model: root.wsCount
         Item {
+            id: ws
+            required property int index
             property int wsId: index + 1
             property bool isActive: Hyprland.focusedWorkspace?.id === wsId
             property bool hasToplevels: root.activeToplevelWsIds[wsId] === true
@@ -38,7 +44,7 @@ Row {
 
             Rectangle {
                 anchors.fill: parent
-                color: isActive || mouseArea.containsMouse
+                color: ws.isActive || mouseArea.containsMouse
                     ? Qt.alpha(Colors.foreground, Theme.alphaHover)
                     : "transparent"
             }
@@ -48,12 +54,12 @@ Row {
                 height: 4
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.bottom: parent.bottom
-                color: hasToplevels ? Colors.foreground : "transparent"
+                color: ws.hasToplevels ? Colors.foreground : "transparent"
             }
 
             ThemeText {
                 anchors.centerIn: parent
-                text: wsId
+                text: ws.wsId
             }
 
             MouseArea {
@@ -64,7 +70,7 @@ Row {
                 onClicked: {
                     // Raw Hyprland dispatch string (the only inline
                     // compositor command in the shell): focuses wsId.
-                    Hyprland.dispatch("hl.dsp.focus({ workspace = " + wsId + "})")
+                    Hyprland.dispatch("hl.dsp.focus({ workspace = " + ws.wsId + "})")
                 }
             }
         }

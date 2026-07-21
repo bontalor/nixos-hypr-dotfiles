@@ -28,9 +28,13 @@ Singleton {
 
     // Percentage thresholds for the low-battery alerts (power/BatteryAlerts)
     // and the bar widget / panel color tint. The warning level is a
-    // Settings pref; critical stays fixed below any warning option.
+    // Settings pref; critical stays fixed below any warning option. Clamp
+    // the warning pref to at least critical+1 — if the user picks a value
+    // lower than critical, BatteryAlerts's `else if` branch never fires
+    // (the critical branch hits first), so the low-battery warning would
+    // be silently skipped entirely.
     readonly property int batteryCritical: 10
-    readonly property int batteryWarning: PrefStore.batteryWarnLevel
+    readonly property int batteryWarning: Math.max(batteryCritical + 1, PrefStore.batteryWarnLevel)
 
     // All UPower devices with a real battery — skips line-power supplies
     // and devices whose state is Unknown (no battery). Recomputed when the

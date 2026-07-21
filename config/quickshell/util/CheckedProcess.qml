@@ -18,15 +18,17 @@ Process {
 
     // Notification summary prefix; defaults to the executable name.
     property string label: ""
+    signal queueFinished()
 
     stderr: StdioCollector { id: errCollector }
 
     onExited: (exitCode, exitStatus) => {
-        if (exitCode === 0) return
+        if (exitCode === 0) { root.queueFinished(); return }
         var what = root.label
             || (root.command && root.command.length > 0 ? root.command[0] : "command")
         var detail = (errCollector.text || "").trim()
         NotifDaemon.notify(what + " failed (exit " + exitCode + ")",
             detail.slice(0, 300), NotificationUrgency.Normal)
+        root.queueFinished()
     }
 }

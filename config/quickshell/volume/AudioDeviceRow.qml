@@ -19,6 +19,8 @@
 //   dropdownOpen    whether the dropdown list is currently shown
 //   selActionIndex  keyboard-highlighted action, -1 = none
 
+pragma ComponentBehavior: Bound
+
 import "../components"
 import "../theme"
 import "../util"
@@ -95,7 +97,7 @@ Item {
 
         ThemeText {
             id: labelText
-            text: modelData.description || modelData.name || "(unnamed)"
+            text: devRow.modelData.description || devRow.modelData.name || "(unnamed)"
             anchors {
                 left: parent.left; leftMargin: Theme.margin
                 verticalCenter: parent.verticalCenter
@@ -120,9 +122,9 @@ Item {
             color: Qt.alpha(Colors.surface, 1)
 
             Rectangle {
-                width: parent.width * (modelData.audio?.volume ?? 0)
+                width: parent.width * (devRow.modelData.audio?.volume ?? 0)
                 height: parent.height
-                color: (modelData.audio?.muted ?? false) ? Qt.alpha(Colors.foreground, Theme.alphaBackground) : Colors.accent
+                color: (devRow.modelData.audio?.muted ?? false) ? Qt.alpha(Colors.foreground, Theme.alphaBackground) : Colors.accent
             }
 
             MouseArea {
@@ -152,6 +154,7 @@ Item {
                 model: Math.max(1, Math.floor((peakRow.width + Theme.margin) / 20))
 
                 delegate: Rectangle {
+                    required property int index
                     width: Theme.meterHeight
                     height: Theme.meterHeight
                     color: index < Math.round(devRow.displayedPeak * peakRepeater.count)
@@ -166,9 +169,9 @@ Item {
                 right: parent.right; rightMargin: Theme.margin
                 verticalCenter: parent.verticalCenter
             }
-            text: (modelData.audio?.muted ?? false) ? "MUT" : FormatUtil.padNum(Math.round((modelData.audio?.volume ?? 0) * 100), 3) + "%"
-            color: (modelData.audio?.muted ?? false) ? Colors.critical : Colors.foreground
-            font.bold: (modelData.audio?.muted ?? false)
+            text: (devRow.modelData.audio?.muted ?? false) ? "MUT" : FormatUtil.padNum(Math.round((devRow.modelData.audio?.volume ?? 0) * 100), 3) + "%"
+            color: (devRow.modelData.audio?.muted ?? false) ? Colors.critical : Colors.foreground
+            font.bold: (devRow.modelData.audio?.muted ?? false)
         }
     }
 
@@ -185,6 +188,9 @@ Item {
             model: devRow.actions
 
             delegate: Rectangle {
+                id: actionRow
+                required property int index
+                required property var modelData
                 width: parent.width
                 height: Theme.searchRowHeight
                 color: index === devRow.selActionIndex
@@ -194,7 +200,7 @@ Item {
                          : Qt.alpha(Colors.surface, Theme.alphaBackground)
 
                 ThemeText {
-                    text: modelData.name
+                    text: actionRow.modelData.name
                     anchors {
                         left: parent.left; leftMargin: 3 * Theme.margin
                         right: parent.right; rightMargin: Theme.margin
@@ -208,7 +214,7 @@ Item {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: devRow.actionTriggered(index)
+                    onClicked: devRow.actionTriggered(actionRow.index)
                 }
             }
         }

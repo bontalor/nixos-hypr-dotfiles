@@ -34,6 +34,15 @@ Scope {
     property bool fingerprintScanning: fprintProc.running && root.fingerprintEnabled
     property bool fingerprintFailed: false
     property string fingerprintHint: "or touch fingerprint"
+    // Backstop counter: if fprintd-verify keeps exit-1'ing with no
+    // permanent-failure message AND no match, the watchdog re-arms
+    // forever — silently polling every 5s for the entire lock session
+    // if upstream rewords an unrecoverable "you can't use this" message
+    // outside our string-match list. Cap consecutive transient failures
+    // at `fingerprintMaxTransientFails`; the script then latches
+    // fingerprintEnabled off permanently rather than churning the reader.
+    property int fingerprintMaxTransientFails: 6
+    property int _transientFailCount: 0
 
     onCurrentTextChanged: showFailure = false
 
@@ -123,7 +132,22 @@ Scope {
             }
 
             // Transient no-match / retry-scan / inactivity timeout / session
-            // bus hiccup after suspend — re-arm shortly.
+            // bus hiccup after suspend — re-arm shortly. Count consecutive
+            // transient failures so an unrecognised upstream rewording (or
+            // a permanently-broken reader that keeps returning exit-1 w/o a
+            // known message) eventually latches fingerprintEnabled off
+            // instead of polling every 5s forever. A successful match
+            // (handled in the exitCode === 0 branch above) stays out of
+            // this path; the counter is reset by `rearmFingerprint()` to
+            // keep legitimate brief stutters retrying.
+            root._transientFailCount++
+            if (root._transientFailCount > root.fingerprintMaxTransientFails) {
+                root.fingerprintEnabled = false
+                root.fingerprintFailed = false
+                root.fingerprintHint = "fingerprint unavailable — type password"
+                return
+            }
+
             root.fingerprintFailed = true
             root.fingerprintHint = "no match — retry"
             retryTimer.restart()
@@ -162,6 +186,13 @@ Scope {
 
         onCompleted: result => {
             root.unlockInProgress = false
+            // Suppress a late PAM completion racing a fingerprint unlock:
+            // fprintd-verify can exit 0 between tryUnlock's `pam.start()`
+            // and PamContext.onCompleted (the device matched faster than
+            // the user pressed Enter). Without this gate, the post-failure
+            // branch wrongly clears currentText/showFailure state on a
+            // session that already unlocked.
+            if (root.fingerprintMatched) return
             if (result == PamResult.Success) {
                 root.unlocked()
             } else {

@@ -92,39 +92,39 @@ Singleton {
         }
 
         // Otherwise wait for the compositor to map the new surface
-        // before unmapping the old one.
+        // before unmapping the old one. Each in-flight wait owns its
+        // own Timer + closure so rapid consecutive toggles (Launcher →
+        // Clipboard in <200ms) don't overwrite each other's pending
+        // hide state — the previous design shared a single safetyTimer
+        // across overlapping toggles, which leaked stale closures onto
+        // later-mapping surfaces and silently hid the wrong panel.
+        var handled = false
+        var safety = null
         const onBackingVisible = () => {
-            if (target.backingWindowVisible) {
-                target.backingWindowVisibleChanged.disconnect(onBackingVisible)
-                for (let j = 0; j < toHide.length; j++) toHide[j].visible = false
-            }
+            if (handled || !target.backingWindowVisible) return
+            handled = true
+            target.backingWindowVisibleChanged.disconnect(onBackingVisible)
+            try { safety.stop(); safety.destroy() } catch (e) {}
+            for (let j = 0; j < toHide.length; j++) toHide[j].visible = false
         }
         target.backingWindowVisibleChanged.connect(onBackingVisible)
 
         // Safety net: if the surface never maps within 200ms (driver
         // stall, compositor hiccup), unmap the old panels anyway so
-        // they don't linger forever.
-        safetyTimer.toHide = toHide
-        safetyTimer.target = target
-        safetyTimer.slot = onBackingVisible
-        safetyTimer.restart()
-    }
-
-    Timer {
-        id: safetyTimer
-        interval: 200
-        repeat: false
-        property var toHide: []
-        property var target: null
-        property var slot: null
-        onTriggered: {
-            if (target && slot) {
-                try { target.backingWindowVisibleChanged.disconnect(slot) } catch (e) {}
-            }
+        // they don't linger forever. Per-in-flight timer (parented to
+        // `target` so it dies with the window) keeps the state isolated
+        // from simultaneous toggles — no shared safetyTimer fields are
+        // overwritten.
+        safety = Qt.createQmlObject(
+            'import QtQuick; Timer { interval: 200; repeat: false }',
+            target, 'Panels.toggle.safety')
+        safety.triggered.connect(() => {
+            if (handled) return
+            handled = true
+            target.backingWindowVisibleChanged.disconnect(onBackingVisible)
+            try { safety.destroy() } catch (e) {}
             for (let i = 0; i < toHide.length; i++) toHide[i].visible = false
-            toHide = []
-            target = null
-            slot = null
-        }
+        })
+        safety.start()
     }
 }

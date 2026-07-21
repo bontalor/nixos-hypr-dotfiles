@@ -14,6 +14,7 @@
 // state dir, so it survives shell restarts.
 
 pragma Singleton
+pragma ComponentBehavior: Bound
 
 import QtQuick
 import Quickshell
@@ -44,11 +45,25 @@ Singleton {
     // this map and calls notification.expire() on due entries — replaces
     // the prior per-notification Qt.createQmlObject("Timer {}", ...)
     // anti-pattern (no static analysis, per-notif QObject allocation).
+    //
+    // Each entry shape: { notification, notifId, expireAt, expireMs }.
+    // - `expireAt`: epoch-ms when the entry becomes due, or -1 to mean
+    //   "deferred while a toplevel is fullscreen" — the scan timer
+    //   skips these. Re-armed when fullscreen ends (so the popup gets
+    //   its full lifetime once the user can actually see it).
+    // - `expireMs`: original requested lifetime, used to re-arm.
     property var pendingExpiries: ({})
 
     // Mirror of the map's size (plain-object mutations don't notify) so
     // the scan timer only runs while something is actually pending.
     property int pendingCount: 0
+
+    // True while any toplevel is fullscreened (mirrored from NotifPopup's
+    // binding). Expiry of normal popups is deferred until fullscreen ends
+    // so notifications sent during a fullscreen session aren't silently
+    // dropped while the popup window is invisible.
+    property bool fullscreenActive: false
+    onFullscreenActiveChanged: if (!fullscreenActive) root.rearmDeferredExpiries()
 
     NotificationServer {
         id: server
@@ -143,29 +158,48 @@ Singleton {
     }
 
     function scheduleExpire(notification, ms) {
+        // Defer while fullscreen — the popup window isn't visible, so
+        // `expireAt` is left at -1 (sentinel) and re-armed to
+        // `Date.now() + ms` when fullscreen ends.
         root.pendingExpiries[notification.id] = {
             notification: notification,
             notifId: notification.id,
-            expireAt: Date.now() + ms
+            expireAt: root.fullscreenActive ? -1 : Date.now() + ms,
+            expireMs: ms
         }
         root.pendingCount = Object.keys(root.pendingExpiries).length
+    }
+
+    // Re-arm any deferred (-1) expiries when fullscreen ends so the
+    // notifications get their full lifetime visible to the user.
+    function rearmDeferredExpiries() {
+        var now = Date.now()
+        for (var id in root.pendingExpiries) {
+            if (root.pendingExpiries[id].expireAt === -1) {
+                root.pendingExpiries[id].expireAt = now + root.pendingExpiries[id].expireMs
+            }
+        }
     }
 
     function scanExpiries() {
         var now = Date.now()
         var due = []
         for (var id in root.pendingExpiries) {
-            if (root.pendingExpiries[id].expireAt <= now) due.push(id)
+            var entry = root.pendingExpiries[id]
+            // Skip deferred entries (during fullscreen) — they're not
+            // ticking down. They'll be re-armed when fullscreen ends.
+            if (entry.expireAt === -1) continue
+            if (entry.expireAt <= now) due.push(id)
         }
         for (var i = 0; i < due.length; i++) {
-            var entry = root.pendingExpiries[due[i]]
+            var e = root.pendingExpiries[due[i]]
             delete root.pendingExpiries[due[i]]
             // Internal notifications have no server object to expire —
             // drop their popup directly.
-            if (entry.notification.expire) {
-                try { entry.notification.expire() } catch (e) {}
+            if (e.notification.expire) {
+                try { e.notification.expire() } catch (e2) {}
             } else {
-                root.removePopupById(entry.notifId)
+                root.removePopupById(e.notifId)
             }
         }
         root.pendingCount = Object.keys(root.pendingExpiries).length
@@ -196,6 +230,13 @@ Singleton {
     }
 
     function dismissPopup(notifId) {
+        // Cancel any pending expiry for this id — otherwise the timer
+        // keeps running for a dismissed notification, and the eventual
+        // expire() call hits an already-dismissed server object.
+        if (root.pendingExpiries[notifId] !== undefined) {
+            delete root.pendingExpiries[notifId]
+            root.pendingCount = Object.keys(root.pendingExpiries).length
+        }
         var tracked = server.trackedNotifications
         var values = tracked ? tracked.values : []
         for (var i = 0; i < values.length; i++) {
@@ -242,6 +283,21 @@ Singleton {
     // notifHistoryMax; rewritten on every change. Because every
     // snapshot is persisted as it lands, the history survives both
     // config reloads and full shell restarts.
+    FileView {
+        id: histFile
+        path: Paths.stateDir + "/notif-history.json"
+        blockLoading: true
+        atomicWrites: true
+        onAdapterUpdated: writeAdapter()
+
+        JsonAdapter {
+            id: histStore
+            property var entries: []
+        }
+
+        property alias histEntries: histStore.entries
+    }
+
     function persistHistory() {
         var out = []
         for (var i = 0; i < root.history.count; i++) {
@@ -252,11 +308,11 @@ Singleton {
                 urgency: e.urgency, timestamp: e.timestamp, hasAction: false
             })
         }
-        histStore.entries = out
+        histFile.histEntries = out
     }
 
     Component.onCompleted: {
-        var es = histStore.entries || []
+        var es = histFile.histEntries || []
         for (var i = 0; i < es.length && i < root.notifHistoryMax; i++) {
             var e = es[i]
             root.history.append({
@@ -270,18 +326,6 @@ Singleton {
                 timestamp: e.timestamp ?? 0,
                 hasAction: false
             })
-        }
-    }
-
-    FileView {
-        path: Paths.stateDir + "/notif-history.json"
-        blockLoading: true
-        atomicWrites: true
-        onAdapterUpdated: writeAdapter()
-
-        JsonAdapter {
-            id: histStore
-            property var entries: []
         }
     }
 }

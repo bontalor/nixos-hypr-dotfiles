@@ -1,4 +1,5 @@
 pragma Singleton
+pragma ComponentBehavior: Bound
 
 import QtQuick
 import Quickshell
@@ -111,11 +112,14 @@ Singleton {
             weatherData = json
             dataReady = true
             fetchError = ""
+            _lastFetchMs = Date.now()
             updateMoonData()
         } else if (!dataReady) {
             fetchError = "no data"
         }
     }
+
+    property int _lastFetchMs: 0   // last successful fetch timestamp
 
     function parseTimeToMinutes(timeStr) {
         var parts = timeStr.split(" ")
@@ -165,13 +169,22 @@ Singleton {
         root.nextFullMoon = MoonUtil.nextFullMoon(age)
     }
 
+    // Visibility gate: refetch only while a consumer (the bar's weather
+    // chip or the WeatherPanel) — or an eager-fallback retry — needs
+    // data. Saves the app-server wakeup cost when nobody is looking at
+    // the panel AND the bar's chip isn't rendered (still rendered →
+    // still considered a consumer; the bar widget is always visible).
+    property bool panelVisible: false
+    readonly property bool widgetVisible: true   // bar's WeatherWidget is always rendered
+    readonly property bool anyConsumerVisible: root.panelVisible || root.widgetVisible
+
     // Only poll after the first fetch completes (or the user opens the
     // panel) — running before `dataReady` would race with startup.
     Timer {
         interval: root.refreshMillis
         repeat: true
-        running: root.dataReady
-        onTriggered: fetchWeather()
+        running: root.dataReady && root.anyConsumerVisible
+        onTriggered: root.fetchWeather()
     }
 
     // Retry-on-failure: if the first fetch fails (no network at boot),
@@ -181,7 +194,7 @@ Singleton {
         interval: 60000
         repeat: true
         running: !root.dataReady && root.ready && !root.fetchRunning
-        onTriggered: fetchWeather()
+        onTriggered: root.fetchWeather()
     }
 
     // A city change (from Settings) refetches immediately; unit changes

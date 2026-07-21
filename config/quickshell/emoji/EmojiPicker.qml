@@ -8,6 +8,8 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 
+pragma ComponentBehavior: Bound
+
 SearchPanel {
     id: root
     title: "Emoji Picker"
@@ -91,13 +93,14 @@ SearchPanel {
     }
 
     rowDelegate: SearchRow {
+        id: emojiRow
         ThemeText {
             anchors.verticalCenter: parent.verticalCenter
-            text: modelData?.char ?? ""
+            text: emojiRow.modelData?.char ?? ""
         }
         ThemeText {
             anchors.verticalCenter: parent.verticalCenter
-            text: modelData?.name ?? ""
+            text: emojiRow.modelData?.name ?? ""
         }
     }
 }

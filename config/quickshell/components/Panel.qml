@@ -26,6 +26,8 @@
 // Panel content (visual + non-visual QObjects) goes in the default slot and is
 // appended to contentCol below the section header bar.
 
+pragma ComponentBehavior: Bound
+
 import "."
 import "../theme"
 import "../util"
@@ -131,19 +133,35 @@ FloatingWindow {
     function toggleSidebarDropdown() { nav.toggleSidebarDropdown() }
     function toggleConfigItem(idx) { nav.toggleConfigItem(idx) }
 
+    // Standard per-delegate "select this row" stomp used by every panel
+    // with a DropdownState — sets inSection + selDevice so the row
+    // becomes the keyboard highlight and PanelNav's section-row nav
+    // takes over from here. Panels bind `dropdown.selectRow: root.selectRow`
+    // once per DropdownState instance, then every dropdown delegate
+    // just calls root.toggleRowDropdown(idx) / root.triggerRowAction(idx, a),
+    // skipping the inline `inSection=true; selDevice=idx` block that
+    // used to appear ~16 times across Network/Volume/Ffmpeg/Battery.
+    function selectRow(idx) {
+        nav.inSection = true
+        nav.selDevice = idx
+    }
+
     // Scroll the content Flickable so the currently-selected row is
     // visible. Handles both the standard fixed-stride rows and the
     // expandable-config geometry (item rows with an inline profile
-    // sub-list of searchRowHeight rows below the selected item).
+    // sub-list of searchRowHeight rows below the selected item). The
+    // config-section math is shared via Scroll.expandConfigTarget so
+    // VolumePanel's override (which needs the same computation) calls
+    // the same helper instead of carrying a verbatim copy.
     function scrollToSelection() {
         var y, h
-        if (root.selSection === root.expandSection) {
-            y = root.headerHeight + root.colSpacing + root.selConfigItem * (root.rowHeight + root.colSpacing)
-            h = root.rowHeight
-            if (root.configExpanded) {
-                y += root.rowHeight + root.selConfigProfile * Theme.searchRowHeight
-                h = Theme.searchRowHeight
-            }
+        if (root.selSection === root.expandSection && root.expandSection !== -1) {
+            var t = Scroll.expandConfigTarget(
+                root.headerHeight, root.colSpacing,
+                root.rowHeight, Theme.searchRowHeight,
+                root.selConfigItem, root.configExpanded,
+                root.selConfigProfile)
+            y = t.y; h = t.h
         } else {
             y = root.headerHeight + root.colSpacing + root.selDevice * (root.rowHeight + root.colSpacing)
             h = root.rowHeight
@@ -208,9 +226,11 @@ FloatingWindow {
                         model: root.sections
                         delegate: Column {
                             id: sectionCol
+                            required property var modelData
+                            required property int index
                             width: parent.width
                             property int sectionIndex: index
-                            property var subs: modelData.subs ?? []
+                            property var subs: sectionCol.modelData.subs ?? []
                             property bool hasSubs: subs.length > 0
                             property bool expanded: root.expandedSection === index
 
@@ -223,7 +243,7 @@ FloatingWindow {
                                        ? Qt.alpha(Colors.selected, Theme.alphaSelected) : "transparent"
 
                                 ThemeText {
-                                    text: modelData.name
+                                    text: sectionCol.modelData.name
                                     anchors {
                                         left: parent.left; leftMargin: Theme.margin
                                         right: parent.right; rightMargin: Theme.margin
@@ -264,7 +284,7 @@ FloatingWindow {
                             // section, like any other section row.
                             ConfigExpandItem {
                                 visible: sectionCol.hasSubs
-                                label: modelData.name
+                                label: sectionCol.modelData.name
                                 isSelected: root.selSection === sectionCol.sectionIndex
                                 isExpanded: sectionCol.expanded
                                 profileCount: sectionCol.subs.length
@@ -277,7 +297,10 @@ FloatingWindow {
                                 Repeater {
                                     model: sectionCol.subs
                                     delegate: ConfigProfileRow {
-                                        label: modelData.name
+                                        id: profileRow
+                                        required property var modelData
+                                        required property int index
+                                        label: profileRow.modelData.name
                                         isSelected: root.selSection === sectionCol.sectionIndex && root.selSub === index
                                         marker: isSelected && root.inSection
                                         onClicked: {

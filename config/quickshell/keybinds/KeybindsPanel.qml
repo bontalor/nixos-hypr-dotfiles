@@ -10,6 +10,8 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 
+pragma ComponentBehavior: Bound
+
 SearchPanel {
     id: root
     title: "Keybinds"
@@ -73,15 +75,16 @@ SearchPanel {
     onLaunched: root.visible = false
 
     rowDelegate: SearchRow {
+        id: keybindRow
         ThemeText {
             anchors.verticalCenter: parent.verticalCenter
-            text: modelData?.name ?? ""
+            text: keybindRow.modelData?.name ?? ""
             width: Theme.keybindKeyColumnWidth
             elide: Text.ElideRight
         }
         ThemeText {
             anchors.verticalCenter: parent.verticalCenter
-            text: modelData?.action ?? ""
+            text: keybindRow.modelData?.action ?? ""
             color: Qt.alpha(Colors.foreground, Theme.alphaDim)
             width: Theme.panelWidth - Theme.keybindKeyColumnWidth - 8 * Theme.margin
             elide: Text.ElideRight

@@ -6,6 +6,8 @@
 // Outputs land next to the input file, named
 // <basename>_<op>_<HHMMSS>.<ext> so repeated runs never collide.
 
+pragma ComponentBehavior: Bound
+
 import "../theme"
 import "../components"
 import "../util"
@@ -68,9 +70,8 @@ Panel {
         title: "Open Video File"
         fileMode: Platform.FileDialog.OpenFile
         nameFilters: ["Video files (*.mp4 *.mkv *.webm *.mov *.avi *.ts *.mts *.wmv *.flv *.m4v *.mpg *.mpeg *.3gp)", "All files (*)"]
-        onAccepted: root.pickFile(_path(videoPicker.file))
+        onAccepted: root.pickFile(Paths.urlToLocalFile(videoPicker.file))
         onRejected: {}
-        function _path(url) { var s = url.toString(); return s.startsWith("file://") ? s.slice(7) : s }
     }
 
     Platform.FileDialog {
@@ -78,9 +79,8 @@ Panel {
         title: "Pick Audio Track"
         fileMode: Platform.FileDialog.OpenFile
         nameFilters: ["Audio & video files (*.mp3 *.m4a *.aac *.flac *.wav *.opus *.ogg *.wma *.mka *.mp4 *.mkv *.mov)", "All files (*)"]
-        onAccepted: root.audioPath = _path(audioPicker.file)
+        onAccepted: root.audioPath = Paths.urlToLocalFile(audioPicker.file)
         onRejected: {}
-        function _path(url) { var s = url.toString(); return s.startsWith("file://") ? s.slice(7) : s }
     }
 
     // ================= Input metadata =================
@@ -379,6 +379,7 @@ Panel {
     // dropdown's single "Edit" action (see EditRow below).
     DropdownState {
         id: dropdown
+        selectRow: function(idx) { root.selectRow(idx) }
         rowActions: function(idx) { return root.rowActions(idx) }
         triggerAction: function(idx, actIdx) { root.doRowAction(idx, actIdx) }
     }
@@ -550,6 +551,8 @@ Panel {
 
     component OpRow: DropdownRow {
         id: opRow
+        required property var modelData
+        required property int index
         property string name: ""
         property string desc: ""
         width: parent.width
@@ -664,17 +667,8 @@ Panel {
             selActionIndex: root.expandedRowIdx === 0 ? root.selRowAction : -1
             actions: root.rowActions(0)
 
-            onToggled: {
-                root.inSection = true
-                root.selDevice = 0
-                root.toggleRowDropdown(0)
-            }
-            onActionTriggered: (idx) => {
-                root.inSection = true
-                root.selDevice = 0
-                root.selRowAction = idx
-                root.triggerRowAction(0, idx)
-            }
+            onToggled: root.toggleRowDropdown(0)
+            onActionTriggered: (idx) => root.triggerRowAction(0, idx)
 
             ThemeText {
                 text: root.hasInput ? "Browse for another file…" : "Browse for video file…"
@@ -701,17 +695,8 @@ Panel {
                 isExpanded: root.expandedRowIdx === index
                 selActionIndex: root.expandedRowIdx === index ? root.selRowAction : -1
                 actions: root.rowActions(index)
-                onToggled: {
-                    root.inSection = true
-                    root.selDevice = index
-                    root.toggleRowDropdown(index)
-                }
-                onActionTriggered: (idx) => {
-                    root.inSection = true
-                    root.selDevice = index
-                    root.selRowAction = idx
-                    root.triggerRowAction(index, idx)
-                }
+                onToggled: root.toggleRowDropdown(index)
+                onActionTriggered: (idx) => root.triggerRowAction(index, idx)
             }
         }
     }
@@ -740,17 +725,8 @@ Panel {
                 isExpanded: root.expandedRowIdx === index
                 selActionIndex: root.expandedRowIdx === index ? root.selRowAction : -1
                 actions: root.rowActions(index)
-                onToggled: {
-                    root.inSection = true
-                    root.selDevice = index
-                    root.toggleRowDropdown(index)
-                }
-                onActionTriggered: (idx) => {
-                    root.inSection = true
-                    root.selDevice = index
-                    root.selRowAction = idx
-                    root.triggerRowAction(index, idx)
-                }
+                onToggled: root.toggleRowDropdown(index)
+                onActionTriggered: (idx) => root.triggerRowAction(index, idx)
             }
         }
     }
@@ -772,17 +748,8 @@ Panel {
             isExpanded: root.expandedRowIdx === 0
             selActionIndex: root.expandedRowIdx === 0 ? root.selRowAction : -1
             actions: root.rowActions(0)
-            onToggled: {
-                root.inSection = true
-                root.selDevice = 0
-                root.toggleRowDropdown(0)
-            }
-            onActionTriggered: (idx) => {
-                root.inSection = true
-                root.selDevice = 0
-                root.selRowAction = idx
-                root.triggerRowAction(0, idx)
-            }
+            onToggled: root.toggleRowDropdown(0)
+            onActionTriggered: (idx) => root.triggerRowAction(0, idx)
             onCommitted: text => root.commitTrim("start", text)
         }
 
@@ -793,21 +760,14 @@ Panel {
             isExpanded: root.expandedRowIdx === 1
             selActionIndex: root.expandedRowIdx === 1 ? root.selRowAction : -1
             actions: root.rowActions(1)
-            onToggled: {
-                root.inSection = true
-                root.selDevice = 1
-                root.toggleRowDropdown(1)
-            }
-            onActionTriggered: (idx) => {
-                root.inSection = true
-                root.selDevice = 1
-                root.selRowAction = idx
-                root.triggerRowAction(1, idx)
-            }
+            onToggled: root.toggleRowDropdown(1)
+            onActionTriggered: (idx) => root.triggerRowAction(1, idx)
             onCommitted: text => root.commitTrim("end", text)
         }
 
         OpRow {
+            index: -1
+            modelData: null
             visible: root.hasInput
             name: "Cut " + root.fmtTime(root.trimStartSec) + " – " + root.fmtTime(root.trimEndSec)
             desc: "stream copy — instant, cuts on keyframes"
@@ -815,17 +775,8 @@ Panel {
             isExpanded: root.expandedRowIdx === 2
             selActionIndex: root.expandedRowIdx === 2 ? root.selRowAction : -1
             actions: root.rowActions(2)
-            onToggled: {
-                root.inSection = true
-                root.selDevice = 2
-                root.toggleRowDropdown(2)
-            }
-            onActionTriggered: (idx) => {
-                root.inSection = true
-                root.selDevice = 2
-                root.selRowAction = idx
-                root.triggerRowAction(2, idx)
-            }
+            onToggled: root.toggleRowDropdown(2)
+            onActionTriggered: (idx) => root.triggerRowAction(2, idx)
         }
     }
 
@@ -847,17 +798,8 @@ Panel {
                 isExpanded: root.expandedRowIdx === index
                 selActionIndex: root.expandedRowIdx === index ? root.selRowAction : -1
                 actions: root.rowActions(index)
-                onToggled: {
-                    root.inSection = true
-                    root.selDevice = index
-                    root.toggleRowDropdown(index)
-                }
-                onActionTriggered: (idx) => {
-                    root.inSection = true
-                    root.selDevice = index
-                    root.selRowAction = idx
-                    root.triggerRowAction(index, idx)
-                }
+                onToggled: root.toggleRowDropdown(index)
+                onActionTriggered: (idx) => root.triggerRowAction(index, idx)
             }
         }
 
@@ -869,17 +811,8 @@ Panel {
             isExpanded: root.expandedRowIdx === root.resizeHeights.length
             selActionIndex: root.expandedRowIdx === root.resizeHeights.length ? root.selRowAction : -1
             actions: root.rowActions(root.resizeHeights.length)
-            onToggled: {
-                root.inSection = true
-                root.selDevice = root.resizeHeights.length
-                root.toggleRowDropdown(root.resizeHeights.length)
-            }
-            onActionTriggered: (idx) => {
-                root.inSection = true
-                root.selDevice = root.resizeHeights.length
-                root.selRowAction = idx
-                root.triggerRowAction(root.resizeHeights.length, idx)
-            }
+            onToggled: root.toggleRowDropdown(root.resizeHeights.length)
+            onActionTriggered: (idx) => root.triggerRowAction(root.resizeHeights.length, idx)
             onCommitted: text => root.commitResize(text)
         }
     }
@@ -902,17 +835,8 @@ Panel {
                 isExpanded: root.expandedRowIdx === index
                 selActionIndex: root.expandedRowIdx === index ? root.selRowAction : -1
                 actions: root.rowActions(index)
-                onToggled: {
-                    root.inSection = true
-                    root.selDevice = index
-                    root.toggleRowDropdown(index)
-                }
-                onActionTriggered: (idx) => {
-                    root.inSection = true
-                    root.selDevice = index
-                    root.selRowAction = idx
-                    root.triggerRowAction(index, idx)
-                }
+                onToggled: root.toggleRowDropdown(index)
+                onActionTriggered: (idx) => root.triggerRowAction(index, idx)
             }
         }
     }
@@ -928,6 +852,8 @@ Panel {
         NoFileLabel {}
 
         OpRow {
+            index: -1
+            modelData: null
             visible: root.hasInput
             name: "Frame rate: " + root.gifFpsOpts[root.gifFpsIdx] + " fps"
             desc: "Click to pick"
@@ -935,20 +861,13 @@ Panel {
             isExpanded: root.expandedRowIdx === 0
             selActionIndex: root.expandedRowIdx === 0 ? root.selRowAction : -1
             actions: root.rowActions(0)
-            onToggled: {
-                root.inSection = true
-                root.selDevice = 0
-                root.toggleRowDropdown(0)
-            }
-            onActionTriggered: (idx) => {
-                root.inSection = true
-                root.selDevice = 0
-                root.selRowAction = idx
-                root.triggerRowAction(0, idx)
-            }
+            onToggled: root.toggleRowDropdown(0)
+            onActionTriggered: (idx) => root.triggerRowAction(0, idx)
         }
 
         OpRow {
+            index: -1
+            modelData: null
             visible: root.hasInput
             name: "Width: " + root.gifWidthOpts[root.gifWidthIdx]
                   + (root.gifWidthOpts[root.gifWidthIdx] === "source" ? "" : " px")
@@ -957,20 +876,13 @@ Panel {
             isExpanded: root.expandedRowIdx === 1
             selActionIndex: root.expandedRowIdx === 1 ? root.selRowAction : -1
             actions: root.rowActions(1)
-            onToggled: {
-                root.inSection = true
-                root.selDevice = 1
-                root.toggleRowDropdown(1)
-            }
-            onActionTriggered: (idx) => {
-                root.inSection = true
-                root.selDevice = 1
-                root.selRowAction = idx
-                root.triggerRowAction(1, idx)
-            }
+            onToggled: root.toggleRowDropdown(1)
+            onActionTriggered: (idx) => root.triggerRowAction(1, idx)
         }
 
         OpRow {
+            index: -1
+            modelData: null
             visible: root.hasInput
             name: "Create GIF"
             desc: "palettegen two-pass — trim first for a short clip"
@@ -978,17 +890,8 @@ Panel {
             isExpanded: root.expandedRowIdx === 2
             selActionIndex: root.expandedRowIdx === 2 ? root.selRowAction : -1
             actions: root.rowActions(2)
-            onToggled: {
-                root.inSection = true
-                root.selDevice = 2
-                root.toggleRowDropdown(2)
-            }
-            onActionTriggered: (idx) => {
-                root.inSection = true
-                root.selDevice = 2
-                root.selRowAction = idx
-                root.triggerRowAction(2, idx)
-            }
+            onToggled: root.toggleRowDropdown(2)
+            onActionTriggered: (idx) => root.triggerRowAction(2, idx)
         }
     }
 
@@ -1008,6 +911,8 @@ Panel {
         }
 
         OpRow {
+            index: -1
+            modelData: null
             visible: root.hasInput
             name: "Audio: " + (root.audioPath !== "" ? root.baseName(root.audioPath) : "none")
             desc: "Click for options"
@@ -1015,20 +920,13 @@ Panel {
             isExpanded: root.expandedRowIdx === 0
             selActionIndex: root.expandedRowIdx === 0 ? root.selRowAction : -1
             actions: root.rowActions(0)
-            onToggled: {
-                root.inSection = true
-                root.selDevice = 0
-                root.toggleRowDropdown(0)
-            }
-            onActionTriggered: (idx) => {
-                root.inSection = true
-                root.selDevice = 0
-                root.selRowAction = idx
-                root.triggerRowAction(0, idx)
-            }
+            onToggled: root.toggleRowDropdown(0)
+            onActionTriggered: (idx) => root.triggerRowAction(0, idx)
         }
 
         OpRow {
+            index: -1
+            modelData: null
             visible: root.hasInput
             name: "Merge → MKV"
             desc: "copy both streams — instant, any codec"
@@ -1036,20 +934,13 @@ Panel {
             isExpanded: root.expandedRowIdx === 1
             selActionIndex: root.expandedRowIdx === 1 ? root.selRowAction : -1
             actions: root.rowActions(1)
-            onToggled: {
-                root.inSection = true
-                root.selDevice = 1
-                root.toggleRowDropdown(1)
-            }
-            onActionTriggered: (idx) => {
-                root.inSection = true
-                root.selDevice = 1
-                root.selRowAction = idx
-                root.triggerRowAction(1, idx)
-            }
+            onToggled: root.toggleRowDropdown(1)
+            onActionTriggered: (idx) => root.triggerRowAction(1, idx)
         }
 
         OpRow {
+            index: -1
+            modelData: null
             visible: root.hasInput
             name: "Merge → MP4"
             desc: "video copy, audio → AAC"
@@ -1057,17 +948,8 @@ Panel {
             isExpanded: root.expandedRowIdx === 2
             selActionIndex: root.expandedRowIdx === 2 ? root.selRowAction : -1
             actions: root.rowActions(2)
-            onToggled: {
-                root.inSection = true
-                root.selDevice = 2
-                root.toggleRowDropdown(2)
-            }
-            onActionTriggered: (idx) => {
-                root.inSection = true
-                root.selDevice = 2
-                root.selRowAction = idx
-                root.triggerRowAction(2, idx)
-            }
+            onToggled: root.toggleRowDropdown(2)
+            onActionTriggered: (idx) => root.triggerRowAction(2, idx)
         }
     }
 
@@ -1080,12 +962,12 @@ Panel {
         visible: root.selSection === root.secJob
 
         EmptyLabel {
-            visible: jobRunner.state === "idle"
+            visible: jobRunner.phase === "idle"
             text: "No job has run yet"
         }
 
         Item {
-            visible: jobRunner.state !== "idle"
+            visible: jobRunner.phase !== "idle"
             width: parent.width
             height: root.rowHeight
 
@@ -1097,7 +979,7 @@ Panel {
 
             ThemeText {
                 text: {
-                    switch (jobRunner.state) {
+                    switch (jobRunner.phase) {
                     case "running":
                         return "Running — " + Math.round(jobRunner.progress * 100) + "%  ("
                              + root.fmtTime(jobRunner.outTimeSec) + " / " + root.fmtTime(jobRunner.durationSec) + ")"
@@ -1108,14 +990,14 @@ Panel {
                     }
                 }
                 anchors { left: parent.left; leftMargin: Theme.margin; right: parent.right; rightMargin: Theme.margin; top: parent.top; topMargin: 24 }
-                color: jobRunner.state === "failed" ? Colors.critical
-                     : jobRunner.state === "done"   ? Colors.success
+                color: jobRunner.phase === "failed" ? Colors.critical
+                     : jobRunner.phase === "done"   ? Colors.success
                      : Qt.alpha(Colors.foreground, Theme.alphaDim)
             }
         }
 
         Rectangle {
-            visible: jobRunner.state === "running" || jobRunner.state === "done"
+            visible: jobRunner.phase === "running" || jobRunner.phase === "done"
             width: parent.width - 2 * Theme.margin; x: Theme.margin
             height: Theme.meterHeight
             color: Qt.alpha(Colors.foreground, Theme.alphaInactive)
@@ -1128,7 +1010,7 @@ Panel {
         }
 
         ThemeText {
-            visible: jobRunner.output !== "" && jobRunner.state !== "cancelled"
+            visible: jobRunner.output !== "" && jobRunner.phase !== "cancelled"
             text: root.tildify(jobRunner.output)
             width: parent.width
             leftPadding: Theme.margin; rightPadding: Theme.margin
@@ -1145,17 +1027,8 @@ Panel {
             isExpanded: root.expandedRowIdx === 0
             selActionIndex: root.expandedRowIdx === 0 ? root.selRowAction : -1
             actions: root.rowActions(0)
-            onToggled: {
-                root.inSection = true
-                root.selDevice = 0
-                root.toggleRowDropdown(0)
-            }
-            onActionTriggered: (idx) => {
-                root.inSection = true
-                root.selDevice = 0
-                root.selRowAction = idx
-                root.triggerRowAction(0, idx)
-            }
+            onToggled: root.toggleRowDropdown(0)
+            onActionTriggered: (idx) => root.triggerRowAction(0, idx)
 
             ThemeText {
                 text: "Cancel job"; color: Colors.critical
@@ -1164,12 +1037,12 @@ Panel {
         }
 
         SectionSubHeader {
-            visible: jobRunner.state === "failed" && jobRunner.error !== ""
+            visible: jobRunner.phase === "failed" && jobRunner.error !== ""
             text: "ffmpeg output"
         }
 
         ThemeText {
-            visible: jobRunner.state === "failed" && jobRunner.error !== ""
+            visible: jobRunner.phase === "failed" && jobRunner.error !== ""
             text: jobRunner.error
             width: parent.width; leftPadding: Theme.margin; rightPadding: Theme.margin
             wrapMode: Text.WrapAnywhere

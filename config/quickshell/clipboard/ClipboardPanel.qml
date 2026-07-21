@@ -3,6 +3,8 @@
 // Enter or click copies the entry back to the clipboard; the search
 // matches anywhere in the full text, not just the preview line.
 
+pragma ComponentBehavior: Bound
+
 import "../theme"
 import "../components"
 import "../util"
@@ -13,6 +15,13 @@ import Quickshell
 SearchPanel {
     id: root
     title: "Clipboard"
+
+    // Trigger lazy self-heal on first open (see ClipboardModel.pruneIfNeeded):
+    // runs `ls imageDir` once to evict history entries whose backing file
+    // is gone, avoiding per-open "Cannot open" thumbnail warnings. Run
+    // here rather than at singleton startup so the snapshot can't race
+    // a fresh wl-paste push.
+    onVisibleChanged: if (visible) ClipboardModel.pruneIfNeeded()
 
     // One row per history entry: `text` is the exact clipboard content,
     // `name` a single-line preview (whitespace runs collapsed). A
@@ -112,9 +121,9 @@ SearchPanel {
         ThemeText {
             visible: row.imgSrc === ""
             anchors.verticalCenter: parent.verticalCenter
-            text: modelData?.name ?? ""
+            text: row.modelData?.name ?? ""
             // The pinned Clear All row reads as an action, not an entry.
-            font.bold: modelData?.clearAll ?? false
+            font.bold: row.modelData?.clearAll ?? false
             // Never render copied HTML — previews are always literal.
             textFormat: Text.PlainText
             // SearchRow's content Row only anchors left — cap the width

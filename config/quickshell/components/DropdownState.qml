@@ -33,6 +33,15 @@ QtObject {
     // --- Caller-supplied hooks ---
     property var rowActions: function(idx) { return [] }
     property var triggerAction: function(idx, actIdx) {}
+    // The owning PanelNav. When set, `toggle` and `trigger` stomp the
+    // standard click-state (`nav.inSection = true; nav.selDevice = idx`)
+    // before dispatching — collapses the per-delegate
+    //   onToggled: { root.inSection = true; root.selDevice = idx; root.toggleRowDropdown(idx) }
+    //   onActionTriggered: (actIdx) => { root.inSection = true; root.selDevice = idx; ... }
+    // boilerplate that previously appeared ~16 times across Network /
+    // Volume / Ffmpeg / Battery panels into a single line at each
+    // delegate site.
+    property var selectRow: null
 
     // --- Open / close / trigger ---
     function close() {
@@ -40,7 +49,12 @@ QtObject {
         root.selRowAction = 0
     }
 
+    function _stompNav(idx) {
+        if (root.selectRow) root.selectRow(idx)
+    }
+
     function toggle(idx) {
+        root._stompNav(idx)
         if (root.expandedRowIdx === idx) root.close()
         else {
             root.expandedRowIdx = idx
@@ -49,6 +63,8 @@ QtObject {
     }
 
     function trigger(idx, actIdx) {
+        root._stompNav(idx)
+        root.selRowAction = actIdx
         root.triggerAction(idx, actIdx)
         root.close()
     }

@@ -41,7 +41,7 @@ Rectangle {
     property string formattedDate: FormatUtil.formattedDate(clock.date)
 
     property var lockActions: PowerActions.actions.filter(function(a) {
-        return a.name !== "Lock"
+        return !a._lockOnly
     })
 
     Rectangle {
@@ -121,7 +121,7 @@ Rectangle {
                         }
                         Connections {
                             target: root.context
-                            function onCurrentTextChanged() {
+                            onCurrentTextChanged: {
                                 if (passwordBox.text !== root.context.currentText) {
                                     passwordBox.text = root.context.currentText
                                 }

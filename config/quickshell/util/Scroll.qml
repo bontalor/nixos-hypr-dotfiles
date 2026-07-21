@@ -35,4 +35,24 @@ Singleton {
             flickable.contentY = Math.min(maxY, itemY + itemH - viewH)
         }
     }
+
+    // Compose the y/h target for the Configuration section row highlight.
+    // The Panel.qml scaffold and the VolumePanel override both used to
+    // carry the same fixed-stride expandable-config math (selConfigItem *
+    // (rowHeight + colSpacing), expand-onto selConfigProfile * searchRowHeight,
+    // height swap rowHeight → searchRowHeight on expand). Hoisted here so
+    // both callers share one evaluation. `searchRowHeight` is passed in
+    // (Theme import) so this util stays state-free.
+    function expandConfigTarget(headerHeight, colSpacing, rowHeight, searchRowHeight,
+                                 selConfigItem, configExpanded,
+                                 selConfigProfile) {
+        var y = headerHeight + colSpacing
+              + selConfigItem * (rowHeight + colSpacing)
+        var h = rowHeight
+        if (configExpanded) {
+            y += rowHeight + selConfigProfile * searchRowHeight
+            h = searchRowHeight
+        }
+        return { y: y, h: h }
+    }
 }

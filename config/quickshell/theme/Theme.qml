@@ -24,6 +24,12 @@ Singleton {
     property int barMargin: 10
     // Tray icons shown inline before overflowing into the dropdown.
     property int trayMaxVisible: 3
+    // Workspaces always shown in the bar. The bar reserves these 9 slots
+    // regardless of how many workspaces Hyprland currently reports, so
+    // the bar is usable as soon as the surface maps (Hyprland may report
+    // fewer than 9 until workspaces are explicitly created). Clicking a
+    // slot below the live count focuses (creating) that workspace.
+    property int workspacesMin: 9
 
     // --- Panel geometry ---
     property int panelWidth: 850

@@ -21,6 +21,7 @@
 // Note: history is plaintext on disk (same trade-off as cliphist's db);
 // clear() wipes it.
 
+pragma ComponentBehavior: Bound
 pragma Singleton
 
 import QtQuick
@@ -50,8 +51,22 @@ Singleton {
     function push(text) {
         if (text === "" || text.trim() === "") return
         // Oversized copies (accidental huge-file pastes) would bloat the
-        // JSON store, which is rewritten on every change.
-        if (text.length > root.entryMaxLength) return
+        // JSON store, which is rewritten on every change. Surface this
+        // as a notification so the "I copied that — where is it?" gap
+        // doesn't go invisible (matches the image-watcher's oversize notify).
+        if (text.length > root.entryMaxLength) {
+            NotifDaemon.notify("Clipboard text not kept",
+                Math.round(text.length / 1000) + "k chars exceeds the "
+                + Math.round(root.entryMaxLength / 1000)
+                + "k limit (ClipboardModel.entryMaxLength)",
+                NotificationUrgency.Normal)
+            return
+        }
+        // Short-circuit re-copies of whatever's already at the front:
+        // every re-copy rewrites the whole JSON file (atomicWrites), so
+        // filtering the common case — re-selecting the same text —
+        // is a free disk-write savings on the most-frequent path.
+        if (adapter.entries.length > 0 && adapter.entries[0] === text) return
         var out = [text]
         for (var i = 0; i < adapter.entries.length; i++) {
             if (adapter.entries[i] !== text) out.push(adapter.entries[i])
@@ -63,6 +78,11 @@ Singleton {
 
     // Delete the backing files of evicted image entries so imageDir
     // doesn't grow past the history cap. Silent — a missing file is fine.
+    // Evictions are queued (rmQueue) and drained by rmProc.onExited so a
+    // flood of pushes (rapidly copying different images) can't drop
+    // commands by reassigning `rmProc.command` while the previous rm is
+    // still running. The previous single-shared-Process pattern leaked
+    // image files in imageDir under burst.
     function deleteImageFiles(list) {
         var files = []
         for (var i = 0; i < list.length; i++) {
@@ -70,9 +90,18 @@ Singleton {
                 files.push(list[i].slice(7))
         }
         if (files.length === 0) return
-        rmProc.command = ["rm", "-f"].concat(files)
+        rmQueue = rmQueue.concat(files)
+        root.drainRmQueue()
+    }
+
+    function drainRmQueue() {
+        if (rmProc.running || rmQueue.length === 0) return
+        rmProc.command = ["rm", "-f"].concat(rmQueue)
+        rmQueue = []
         rmProc.running = true
     }
+
+    property var rmQueue: []
 
     // Copying re-triggers the watcher, which push()es the entry back to
     // the front — the MRU reorder falls out for free.
@@ -87,23 +116,37 @@ Singleton {
     // is needed. Remote URLs go through curl — if the link has expired
     // (e.g. signed CDN URLs), the pipefail surfaces it as a
     // notification instead of silently copying nothing.
+    //
+    // Requests are queued (imgQueue) and drained by imgProc.onExited so
+    // two adjacent `copyImage` calls (rapid Enter in the panel) don't both
+    // write to one shared Process and lose the first request mid-flight.
     function copyImage(src) {
+        var cmd
         if (src.startsWith("file://")) {
-            imgProc.command = ["bash", "-c", 'set -o pipefail; wl-copy < "$1"',
-                               "bash", decodeURIComponent(src.slice(7))]
+            cmd = ["bash", "-c", 'set -o pipefail; wl-copy < "$1"',
+                   "bash", decodeURIComponent(src.slice(7))]
         } else if (src.startsWith("data:")) {
             var comma = src.indexOf(",")
             var meta = src.slice(5, comma)
             var payload = src.slice(comma + 1)
-            imgProc.command = meta.endsWith(";base64")
+            cmd = meta.endsWith(";base64")
                 ? ["bash", "-c", 'set -o pipefail; printf %s "$1" | base64 -d | wl-copy', "bash", payload]
                 : ["bash", "-c", 'set -o pipefail; printf %s "$1" | wl-copy', "bash", decodeURIComponent(payload)]
         } else {
-            imgProc.command = ["bash", "-c",
+            cmd = ["bash", "-c",
                 'set -o pipefail; curl -sfL --max-time 15 "$1" | wl-copy', "bash", src]
         }
+        imgQueue.push(cmd)
+        root.drainImgQueue()
+    }
+
+    function drainImgQueue() {
+        if (imgProc.running || imgQueue.length === 0) return
+        imgProc.command = imgQueue.shift()
         imgProc.running = true
     }
+
+    property var imgQueue: []
 
     function clear() {
         root.deleteImageFiles(adapter.entries)
@@ -160,11 +203,11 @@ Singleton {
                   't=$(mktemp "$1/.tmp-XXXXXX") || exit 0; ' +
                   'cat > "$t"; ' +
                   's=$(stat -c%s "$t"); ' +
-                  'if [ "$s" -gt ' + imageMaxBytes + ' ]; then rm -f "$t"; printf "oversize:%s\\0" "$s"; exit 0; fi; ' +
+                  'if [ "$s" -gt ' + root.imageMaxBytes + ' ]; then rm -f "$t"; printf "oversize:%s\\0" "$s"; exit 0; fi; ' +
                   'h=$(sha256sum "$t" | cut -c1-16); ' +
                   'f="$1/$h"; mv "$t" "$f"; ' +
                   'printf "file://%s\\0" "$f"',
-                  "sh", imageDir]
+                  "sh", root.imageDir]
         stdout: SplitParser {
             splitMarker: "\0"
             onRead: msg => {
@@ -195,19 +238,32 @@ Singleton {
         onTriggered: imageWatcher.running = PrefStore.clipboardHistory
     }
 
+    // `rm -f` for eviction; clears `rmProc.running` and drains the next
+    // queued batch (see deleteImageFiles).
     Process {
         id: rmProc
         running: false
+        onExited: root.drainRmQueue()
     }
 
-    // Startup self-heal: drop history entries whose backing image file
-    // is gone (deleted out-of-band, or orphaned by an old eviction bug).
-    // Without this, every dead entry logs a thumbnail "Cannot open"
-    // warning on each panel open, forever.
+    // Self-heal: drop history entries whose backing image file is gone
+    // (deleted out-of-band, or orphaned by an old eviction bug). Without
+    // this, every dead entry logs a thumbnail "Cannot open" warning on
+    // each panel open, forever. Run lazily on the first panel open, not
+    // at singleton startup — running at startup races fresh wl-paste
+    // pushes that land between prune's for-loop and the
+    // `adapter.entries = out` assignment, silently discarding the
+    // just-pushed entry.
+    property bool _pruned: false
+    function pruneIfNeeded() {
+        if (root._pruned) return
+        root._pruned = true
+        pruneProc.command = ["sh", "-c", 'ls -- "$1" 2>/dev/null || true', "sh", imageDir]
+        pruneProc.running = true
+    }
     Process {
         id: pruneProc
-        running: true
-        command: ["sh", "-c", 'ls -- "$1" 2>/dev/null || true', "sh", imageDir]
+        running: false
         stdout: StdioCollector {
             waitForEnd: true
             onStreamFinished: root.pruneMissingImages(text)
@@ -221,12 +277,16 @@ Singleton {
         for (var i = 0; i < names.length; i++) {
             if (names[i] !== "") existing[prefix + names[i]] = true
         }
+        // Snapshot once. Iterating the live `adapter.entries` while a
+        // wl-paste packet lands and reassigns it mid-loop led to entries
+        // being dropped from `out` despite existing seconds earlier.
+        var snapshot = adapter.entries.slice()
         var out = []
-        for (var j = 0; j < adapter.entries.length; j++) {
-            var e = adapter.entries[j]
+        for (var j = 0; j < snapshot.length; j++) {
+            var e = snapshot[j]
             if (!e.startsWith(prefix) || existing[e]) out.push(e)
         }
-        if (out.length !== adapter.entries.length) adapter.entries = out
+        if (out.length !== snapshot.length) adapter.entries = out
     }
 
     CheckedProcess {
@@ -235,10 +295,12 @@ Singleton {
         running: false
     }
 
+    // `wl-copy` for image entries; drains the next queued request on exit.
     CheckedProcess {
         id: imgProc
         label: "image copy"
         running: false
+        onQueueFinished: root.drainImgQueue()
     }
 
     FileView {

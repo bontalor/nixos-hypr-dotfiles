@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import "../theme"
 import "../components"
 import "../util"
@@ -51,8 +53,22 @@ Panel {
             root.expandedDay = root.expandedDay === idx ? -1 : idx
     }
 
+    // Mark the panel as a consumer of WeatherModel so the singleton's
+    // refresh timer keeps polling while the panel is visible. (The bar
+    // chip is always a consumer — see widgetVisible on WeatherModel.)
+    onVisibleChanged: WeatherModel.panelVisible = visible
+
     onShown: {
-        WeatherModel.fetchWeather()
+        // Skip the forced refetch if we're within the cache window —
+        // wttr.in itself caches upstream data on a similar window, so
+        // this used to burn bandwidth on every open with no benefit.
+        if (WeatherModel.dataReady
+            && Date.now() - (WeatherModel.weatherData._lastFetchMs || 0)
+               < WeatherModel.refreshMillis) {
+            // Cache still warm; nothing to do.
+        } else {
+            WeatherModel.fetchWeather()
+        }
         root.expandedDay = -1
     }
 
@@ -160,14 +176,16 @@ Panel {
 
             delegate: PanelRow {
                 id: dayRow
-                property var day: modelData
+                required property var modelData
+                required property int index
+                property var day: dayRow.modelData
                 property bool expanded: index === root.expandedDay
 
                 width: parent.width
                 height: root.rowHeight + (expanded ? hourlyCol.height : 0)
                 selected: root.inSection && index === root.selDevice
                 panel: root
-                itemIndex: index
+                itemIndex: dayRow.index
                 onClicked: root.expandedDay = dayRow.expanded ? -1 : index
 
                 Item {
@@ -175,7 +193,7 @@ Panel {
                     height: root.rowHeight
 
                     ThemeText {
-                        text: root.dayName(index, dayRow.day.date)
+                        text: root.dayName(dayRow.index, dayRow.day.date)
                         anchors { left: parent.left; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
                         font.bold: dayRow.expanded
                         width: parent.width * 0.35
@@ -209,23 +227,26 @@ Panel {
                         model: dayRow.expanded ? dayRow.day.hourly : []
 
                         delegate: Item {
+                            id: hourItem
+                            required property var modelData
+                            required property int index
                             width: parent.width
                             height: Theme.searchRowHeight
 
                             ThemeText {
-                                text: root.fmtHour(modelData.time)
+                                text: root.fmtHour(hourItem.modelData.time)
                                 anchors { left: parent.left; leftMargin: 3 * Theme.margin; verticalCenter: parent.verticalCenter }
                                 color: Qt.alpha(Colors.foreground, Theme.alphaDim)
                             }
 
                             ThemeText {
                                 anchors.centerIn: parent
-                                text: WeatherCodes.icon(modelData.weatherCode) + "  "
-                                      + root.temp(modelData, "temp") + "°"
+                                text: WeatherCodes.icon(hourItem.modelData.weatherCode) + "  "
+                                      + root.temp(hourItem.modelData, "temp") + "°"
                             }
 
                             ThemeText {
-                                text: (parseInt(modelData.chanceofrain) || 0) + "%"
+                                text: (parseInt(hourItem.modelData.chanceofrain) || 0) + "%"
                                 anchors { right: parent.right; rightMargin: Theme.margin; verticalCenter: parent.verticalCenter }
                                 color: Qt.alpha(Colors.foreground, Theme.alphaDim)
                             }

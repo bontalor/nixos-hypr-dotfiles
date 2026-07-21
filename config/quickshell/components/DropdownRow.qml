@@ -22,6 +22,8 @@
 // Caller-side header content is laid out inside `headerItem` (an Item of
 // height rowHeight); its children anchor to that Item by `parent.*`.
 
+pragma ComponentBehavior: Bound
+
 import "../theme"
 import QtQuick
 
@@ -83,6 +85,9 @@ Item {
             model: root.isExpanded ? root.actions : []
 
             delegate: Rectangle {
+                id: actionRect
+                required property var modelData
+                required property int index
                 width: root.width
                 height: Theme.searchRowHeight
                 color: index === root.selActionIndex
@@ -92,7 +97,7 @@ Item {
                          : Qt.alpha(Colors.surface, Theme.alphaBackground)
 
                 ThemeText {
-                    text: modelData.name
+                    text: actionRect.modelData.name
                     anchors {
                         left: parent.left; leftMargin: 3 * Theme.margin
                         right: parent.right; rightMargin: Theme.margin
@@ -106,7 +111,7 @@ Item {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: root.actionTriggered(index)
+                    onClicked: root.actionTriggered(actionRect.index)
                 }
             }
         }

@@ -13,6 +13,8 @@
 // the typed value to the pref, Escape/Shift+Tab cancels. The paired
 // plain option (value: "") is the "use the default" reset.
 
+pragma ComponentBehavior: Bound
+
 import "../theme"
 import "../components"
 import "../util"
@@ -223,17 +225,19 @@ Panel {
 
             delegate: ConfigExpandItem {
                 id: settingItem
+                required property var modelData
+                required property int index
                 // The inner Repeater's modelData shadows this one.
-                property var setting: modelData
+                property var setting: settingItem.modelData
 
-                label: modelData.label
+                label: settingItem.modelData.label
                 // Reading PrefStore[pref] inside the binding registers a
                 // dependency on that property, so the shown value tracks
                 // changes live (including edits from another instance).
-                sublabel: root.optionName(modelData, PrefStore[modelData.pref])
+                sublabel: root.optionName(settingItem.modelData, PrefStore[settingItem.modelData.pref])
                 isSelected: root.inSection && index === root.selConfigItem
                 isExpanded: root.configExpanded && index === root.selConfigItem
-                profileCount: modelData.options.length
+                profileCount: settingItem.modelData.options.length
                 panel: root
                 itemIndex: index
 
@@ -242,13 +246,15 @@ Panel {
 
                     delegate: ConfigProfileRow {
                         id: optionRow
+                        required property var modelData
+                        required property int index
                         // While editing a typed custom value, the label yields
                         // to the inline TextInput. Picker-type options (`picker`
                         // property set) open the OS portal instead — no TextInput.
-                        readonly property bool editing: modelData.custom === true
-                            && !modelData.picker
+                        readonly property bool editing: optionRow.modelData.custom === true
+                            && !optionRow.modelData.picker
                             && root.editingItem === settingItem.itemIndex
-                        label: editing ? "" : modelData.name
+                        label: editing ? "" : optionRow.modelData.name
                         isSelected: !editing && index === root.selConfigProfile
                         onClicked: {
                             if (root.inSection && !optionRow.editing) {

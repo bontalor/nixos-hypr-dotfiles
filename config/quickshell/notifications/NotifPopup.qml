@@ -20,6 +20,11 @@ PanelWindow {
 
     property bool fullscreenActive: ToplevelManager.activeToplevel
         ? ToplevelManager.activeToplevel.fullscreen : false
+    // Mirror fullscreenActive into the daemon so it can defer expiry
+    // of popups sent during a fullscreen session (otherwise they expire
+    // invisibly and disappear before the user ever sees them).
+    onFullscreenActiveChanged: NotifDaemon.fullscreenActive = fullscreenActive
+    Component.onCompleted: NotifDaemon.fullscreenActive = fullscreenActive
 
     Column {
         id: popupColumn
@@ -62,24 +67,14 @@ PanelWindow {
                     // panel uses). Falls back to the sender's embedded
                     // image (album cover, screenshot) when no app icon
                     // is resolvable, matching the history panel.
-                    IconImage {
+                    NotifIcon {
                         id: popupIcon
-                        source: card.appIcon
-                        visible: card.appIcon !== "" && status !== Image.Error
-                        width: Theme.iconSize; height: Theme.iconSize
-                    }
-                    Image {
-                        id: popupImg
-                        source: card.image
-                        visible: card.image !== "" && popupIcon.status !== Image.Ready && status !== Image.Error
-                        width: Theme.iconSize; height: Theme.iconSize
-                        fillMode: Image.PreserveAspectCrop
-                        smooth: true
-                        asynchronous: true
+                        appIcon: card.appIcon
+                        image: card.image
                     }
 
                     Column {
-                        width: parent.width - ((popupIcon.visible || popupImg.visible) ? Theme.iconSize + Theme.margin : 0)
+                        width: parent.width - (popupIcon.resolved ? Theme.iconSize + Theme.margin : 0)
                         spacing: Theme.margin
 
                         ThemeText {

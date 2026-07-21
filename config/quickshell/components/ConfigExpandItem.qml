@@ -21,6 +21,8 @@ import "."
 import "../theme"
 import QtQuick
 
+pragma ComponentBehavior: Bound
+
 Item {
     id: root
     property string label: ""
@@ -42,7 +44,7 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        color: isSelected || headerMouse.containsMouse
+        color: root.isSelected || headerMouse.containsMouse
                ? Qt.alpha(Colors.selected, Theme.alphaSelected) : "transparent"
     }
 

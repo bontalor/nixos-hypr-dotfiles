@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 pragma Singleton
 
 import QtQuick
@@ -102,13 +103,15 @@ Singleton {
     Instantiator {
         model: Mpris.players
         delegate: Connections {
-            target: modelData
-            function onPlaybackStateChanged() { root.updateTimestamp(modelData); root.playersChanged() }
-            function onTrackTitleChanged()    { root.updateTimestamp(modelData); root.playersChanged() }
+            id: conn
+            required property var modelData
+            target: conn.modelData
+            function onPlaybackStateChanged() { root.updateTimestamp(conn.modelData); root.playersChanged() }
+            function onTrackTitleChanged()    { root.updateTimestamp(conn.modelData); root.playersChanged() }
             // Prune the timestamp entry when this player disappears from
             // the Mpris list — prevents unbounded growth as players churn.
             Component.onDestruction: {
-                var key = root._key(modelData)
+                var key = root._key(conn.modelData)
                 if (root.playerTimestamps[key] !== undefined) {
                     delete root.playerTimestamps[key]
                     root.playersChanged()

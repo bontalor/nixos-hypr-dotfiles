@@ -1,3 +1,4 @@
+pragma ComponentBehavior: Bound
 import "../theme"
 import "../components"
 import "../util"
@@ -17,12 +18,17 @@ Panel {
     autoScroll: false
 
 
+    // Panel-local clock. Time section shows seconds so this needs Seconds
+    // precision when the panel is open; when closed, drop to Hours so the
+    // QML engine doesn't wake every second just to evaluate stale
+    // calendar / month-offset bindings (README convention: timers gated
+    // on visibility / pending work so the shell idles).
     SystemClock {
         id: clock
-        precision: SystemClock.Seconds
+        precision: root.visible ? SystemClock.Seconds : SystemClock.Hours
     }
 
-    property var now: clock.date
+    readonly property var now: clock.date
 
     // Month shown in the calendar, as an offset from the current month.
     // Paged from the month-selector level (or the header chevrons);
@@ -331,6 +337,7 @@ Panel {
                     model: root.weekdayNames
 
                     delegate: ThemeText {
+                        required property var modelData
                         width: parent.width / 7
                         height: Theme.headerHeight
                         horizontalAlignment: Text.AlignHCenter
@@ -352,6 +359,7 @@ Panel {
                 model: root.cellDates
 
                 delegate: Rectangle {
+                    id: cell
                     required property var modelData
                     required property int index
                     width: calendarGrid.width / 7
@@ -371,8 +379,8 @@ Panel {
 
                     ThemeText {
                         anchors.centerIn: parent
-                        text: modelData.getDate()
-                        color: modelData.getMonth() !== root._month
+                        text: cell.modelData.getDate()
+                        color: cell.modelData.getMonth() !== root._month
                                ? Qt.alpha(Colors.foreground, Theme.alphaBackground)
                                : Colors.foreground
                     }
@@ -386,7 +394,7 @@ Panel {
                             root.selSection = 2
                             root.inSection = true
                             root.inMonthGrid = true
-                            root.selDevice = index
+                            root.selDevice = cell.index
                             root.forceFocus()
                         }
                     }

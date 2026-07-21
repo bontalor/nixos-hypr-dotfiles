@@ -3,6 +3,8 @@ import "../../components"
 import "../../models"
 import QtQuick
 
+pragma ComponentBehavior: Bound
+
 WidgetButton {
     id: root
 
@@ -30,6 +32,7 @@ WidgetButton {
             Repeater {
                 model: 4
                 delegate: Rectangle {
+                    required property int index
                     width: 4
                     height: 4
                     color: index < Math.round(NetworkModel.activeWifiSignal / 25)

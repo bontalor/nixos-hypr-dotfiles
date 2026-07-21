@@ -12,6 +12,13 @@ import "../util"
 // through Pipewire; brightness shells out to `brightnessctl` (Quickshell
 // 0.3.0 ships no backlight service). Maintains activeKind/value/glyph
 // and a hide timer (hideInterval) that OsdPopup mirrors.
+//
+// Brightness note: `value` holds the *display* fraction (volume|mic|
+// brightness — whatever the last popup was about). `brightnessValue` is
+// a dedicated cache of the latest known brightness fraction so the
+// `brightnessDown` floor check can't be confused by an interleaved
+// volume/mic popup. `brightSetProc` updates `brightnessValue` from every
+// `brightnessctl` reply; `brightReadProc` is the silent prime at startup.
 
 Singleton {
     id: root
@@ -27,9 +34,14 @@ Singleton {
     property real volumeGlyphThreshold: 0.5
 
     property string activeKind: ""    // "volume" | "brightness"
-    property real value: 0
+    property real value: 0            // display fraction (depends on activeKind)
     property string glyph: ""
     property bool visible: false
+
+    // Separate brightness cache (0..1) so volume/mic popups can't pollute
+    // the floor check on `brightnessDown`. Always set from the
+    // `brightnessctl` reply in onBrightness; used by `brightnessDown`.
+    property real brightnessValue: 0
 
     // Pipewire volume state. `?? 0`/`?? false` guards against
     // defaultAudioSink being null at startup.
@@ -50,16 +62,26 @@ Singleton {
         onTriggered: root.visible = false
     }
 
-    // Single shared Process for brightnessctl commands. Reused across
-    // up/down/refresh; command is rebound per call. Reentrancy is
-    // guarded by Process's restart-on-running semantics.
+    // Two separate Process instances — one for silent info reads, one
+    // for set commands — so a `brightnessUp` mid-prime can't drop the
+    // initial info reply.
     CheckedProcess {
-        id: brightProc
-        label: "brightnessctl"
+        id: brightReadProc
+        label: "brightnessctl info"
         running: false
         stdout: StdioCollector {
             waitForEnd: true
-            onStreamFinished: root.onBrightness(text)
+            onStreamFinished: root.onBrightnessRead(text)
+        }
+    }
+
+    CheckedProcess {
+        id: brightSetProc
+        label: "brightnessctl set"
+        running: false
+        stdout: StdioCollector {
+            waitForEnd: true
+            onStreamFinished: root.onBrightnessSet(text)
         }
     }
 
@@ -113,62 +135,83 @@ Singleton {
         }
     }
 
+    // Show the OSD synchronously (matching the volume path) using the
+    // predicted next brightness so the user sees feedback before the
+    // `brightnessctl` reply lands. The reply corrects any drift (e.g.
+    // hardware clamping the value).
     function brightnessUp() {
-        brightProc.command = ["brightnessctl", "s", "+" + root.brightnessStep + "%"]
-        brightProc.running = true
+        var pct = Math.round(root.brightnessValue * 100)
+        var next = Math.min(100, pct + root.brightnessStep) / 100
+        root.brightnessValue = next
+        root.showBrightness(next, Icon.brightness)
+        brightSetProc.command = ["brightnessctl", "s", "+" + root.brightnessStep + "%"]
+        brightSetProc.running = true
     }
 
-    // OsdModel.value caches the current brightness (0..1) parsed from
-    // the last refresh. Suppress a down step that would land below
-    // brightnessMin so the panel can't go pitch-black from a blind
-    // brightness-down mash (a real footgun — `brightnessctl s N%-`
-    // reduces by N% of *current*, eventually arriving at <1%, which
-    // reads as black on most panels).
+    // Brightness-down floor guard. Reads `brightnessValue` (the dedicated
+    // brightness cache) so a prior volume or mic popup can't poison the
+    // check — pre-fix, `value` got overwritten by `showVolume`/`micMute`
+    // and `brightnessDown` would parse the audio fraction as brightness.
     function brightnessDown() {
-        var pct = Math.round(root.value * 100)
+        var pct = Math.round(root.brightnessValue * 100)
         if (pct <= root.brightnessMin) return  // already at or below the floor
+        var nextPct
         // Would the step underflow? Set the floor directly rather than
         // overshoot to a screen-blanking 0%.
         if (pct - root.brightnessStep < root.brightnessMin)
-            brightProc.command = ["brightnessctl", "s", String(root.brightnessMin) + "%"]
+            nextPct = root.brightnessMin
         else
-            brightProc.command = ["brightnessctl", "s", root.brightnessStep + "%-"]
-        brightProc.running = true
+            nextPct = pct - root.brightnessStep
+        root.brightnessValue = nextPct / 100
+        root.showBrightness(nextPct / 100, Icon.brightness)
+        if (nextPct === root.brightnessMin)
+            brightSetProc.command = ["brightnessctl", "s", String(root.brightnessMin) + "%"]
+        else
+            brightSetProc.command = ["brightnessctl", "s", root.brightnessStep + "%-"]
+        brightSetProc.running = true
+    }
+
+    function showBrightness(fraction, glyph) {
+        root.activeKind = "brightness"
+        root.value = fraction
+        root.glyph = glyph
+        root.visible = true
+        hideTimer.restart()
     }
 
     function refreshBrightness() {
-        brightProc.command = ["brightnessctl", "info"]
-        brightProc.running = true
+        brightReadProc.running = true
     }
 
-    function onBrightness(text) {
-        // Parse "cur max" percentages from `brightnessctl info`/`set`.
+    // onBrightnessSet: confirm/correct the predicted value from
+    // brightnessctl's set reply. Pops the OSD only if `_show` is true
+    // (which it is for normal key presses; the silent prime only happens
+    // via onBrightnessRead below).
+    function onBrightnessSet(text) {
         var m = text.match(/\((\d+)%\)/)
         var pct = m ? parseInt(m[1]) / 100 : 0
-        if (!isFinite(pct) || pct <= 0) {
-            // Initial read may fail if brightnessctl isn't ready yet —
-            // still re-enable _show so future key presses work.
-            if (!root._show) root._show = true
-            return
-        }
-        if (root._show) {
-            root.activeKind = "brightness"
+        if (!isFinite(pct) || pct <= 0) return
+        root.brightnessValue = pct
+        if (root._show && root.activeKind === "brightness") {
+            // Correct the optimistic popup value to the real one.
             root.value = pct
-            root.glyph = Icon.brightness
-            root.visible = true
-            hideTimer.restart()
-        } else {
-            // Initial silent read (from Component.onCompleted) — cache
-            // the value, re-enable _show, but don't pop the OSD.
-            root._show = true
         }
+    }
+
+    // onBrightnessRead: silent prime at startup (or any future refresh).
+    // Caches the value and arms `_show`; never pops the OSD.
+    function onBrightnessRead(text) {
+        var m = text.match(/\((\d+)%\)/)
+        var pct = m ? parseInt(m[1]) / 100 : 0
+        if (isFinite(pct) && pct > 0) root.brightnessValue = pct
+        root._show = true
     }
 
     Component.onCompleted: {
         // Prime the brightness cache silently (no OSD pop on startup).
-        // _show is re-enabled inside onBrightness after this initial
-        // read completes — setting it here would race the async process
-        // and cause a spurious OSD pop on restart.
+        // `_show` is armed inside onBrightnessRead — setting it here
+        // would race the async process and a stray key press could pop
+        // the OSD before the cache lands.
         root._show = false
         refreshBrightness()
     }

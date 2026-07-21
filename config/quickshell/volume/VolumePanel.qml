@@ -1,6 +1,8 @@
 // Subprocess dependencies: pw-dump (device profile discovery), pw-cli
 // (profile activation for PipeWire devices).
 
+pragma ComponentBehavior: Bound
+
 import "../theme"
 import "../components"
 import "../util"
@@ -40,6 +42,7 @@ Panel {
     // the action — DropdownState closes the dropdown after).
     DropdownState {
         id: dropdown
+        selectRow: function(idx) { root.selectRow(idx) }
         rowActions: function(idx) { return root.deviceActions(idx) }
         triggerAction: function(idx, actIdx) { root.doDeviceAction(idx, actIdx) }
     }
@@ -114,12 +117,16 @@ Panel {
 
     PwObjectTracker {
         id: nodeTracker
-        objects: []
+        // Bind directly rather than seeding `[]` and updating in an
+        // onAllNodesChanged handler — QML change handlers don't fire for
+        // the initial property evaluation, so seeding `[]` left nodes
+        // present at startup un-tracked until the first Pipewire.nodes
+        // change. Direct binding tracks the initial set immediately
+        // (this is what OsdModel.qml and bar/widgets/VolumeWidget do).
+        objects: root.allNodes.allNodes
     }
 
-    // All Pipewire nodes, categorized. nodeTracker.objects is updated
-    // in onAllNodesChanged (not inside the binding) to avoid the
-    // side-effect-in-binding anti-pattern.
+    // All Pipewire nodes, categorized.
     property var allNodes: {
         var raw = Pipewire.nodes
         var vals = raw && raw.values ? raw.values : []
@@ -136,8 +143,6 @@ Panel {
         }
         return { playbackStreams: pbs, recordingStreams: rcs, sinkNodes: sks, sourceNodes: srcs, allNodes: vals }
     }
-
-    onAllNodesChanged: nodeTracker.objects = allNodes.allNodes
 
     property var playbackStreams: allNodes.playbackStreams
     property var recordingStreams: allNodes.recordingStreams
@@ -303,17 +308,15 @@ Panel {
     function scrollToSelection() {
         if (!root.inSection) return
         // Configuration section's expandable rows are fixed-stride —
-        // replicate the base implementation here (it's overridden by
-        // this whole function).
+        // the math is identical to Panel.qml's base, so share the
+        // Scroll.expandConfigTarget helper instead of duplicating it.
         if (root.selSection === root.secConfig) {
-            var y = root.headerHeight + root.colSpacing
-                  + root.selConfigItem * (root.rowHeight + root.colSpacing)
-            var h = root.rowHeight
-            if (root.configExpanded) {
-                y += root.rowHeight + root.selConfigProfile * Theme.searchRowHeight
-                h = Theme.searchRowHeight
-            }
-            root.scrollToVisible(y, h)
+            var t = Scroll.expandConfigTarget(
+                root.headerHeight, root.colSpacing,
+                root.rowHeight, Theme.searchRowHeight,
+                root.selConfigItem, root.configExpanded,
+                root.selConfigProfile)
+            root.scrollToVisible(t.y, t.h)
             return
         }
         if (root.selSection > root.secSources) return
@@ -366,18 +369,11 @@ Panel {
                 actions: root.deviceActions(index)
                 dropdownOpen: root.expandedDeviceIdx === index
                 selActionIndex: root.expandedDeviceIdx === index ? root.selDeviceAction : -1
-                onDropdownToggled: {
-                    root.inSection = true
-                    root.selDevice = index
-                    root.toggleDropdown(index)
-                }
+                // Hoisted — DropdownState.toggle stomps inSection +
+                // selDevice via the panel's `selectRow` callback.
+                onDropdownToggled: root.toggleDropdown(index)
                 onChangeVolume: (idx, fraction) => root.changeDeviceVolume(idx, fraction)
-                onActionTriggered: (idx) => {
-                    root.inSection = true
-                    root.selDevice = index
-                    root.selDeviceAction = idx
-                    root.triggerAction(index, idx)
-                }
+                onActionTriggered: (idx) => root.triggerAction(index, idx)
             }
         }
 
@@ -398,32 +394,37 @@ Panel {
 
             delegate: ConfigExpandItem {
                 id: deviceItem
+                required property var modelData
+                required property int index
 
                 function currentProfileDesc() {
-                    for (var i = 0; i < modelData.profiles.length; i++) {
-                        if (modelData.profiles[i].index === modelData.currentProfile)
-                            return modelData.profiles[i].description
+                    for (var i = 0; i < deviceItem.modelData.profiles.length; i++) {
+                        if (deviceItem.modelData.profiles[i].index === deviceItem.modelData.currentProfile)
+                            return deviceItem.modelData.profiles[i].description
                     }
                     return ""
                 }
 
-                label: modelData.description
+                label: deviceItem.modelData.description
                 sublabel: currentProfileDesc()
                 isSelected: root.inSection && index === root.selConfigItem
                 isExpanded: root.configExpanded && index === root.selConfigItem
-                profileCount: modelData.profiles.length
+                profileCount: deviceItem.modelData.profiles.length
                 panel: root
                 itemIndex: index
 
                 Repeater {
-                    model: deviceItem.isExpanded ? modelData.profiles : []
+                    model: deviceItem.isExpanded ? deviceItem.modelData.profiles : []
 
                     delegate: ConfigProfileRow {
-                        label: modelData.description || modelData.name
+                        id: profileRow
+                        required property var modelData
+                        required property int index
+                        label: profileRow.modelData.description || profileRow.modelData.name
                         isSelected: index === root.selConfigProfile
                         onClicked: {
                             if (root.inSection)
-                                root.setConfigProfile(root.configDevices[root.selConfigItem].id, modelData.index)
+                                root.setConfigProfile(root.configDevices[root.selConfigItem].id, profileRow.modelData.index)
                         }
                     }
                 }

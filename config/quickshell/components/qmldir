@@ -16,3 +16,4 @@ SectionSubHeader SectionSubHeader.qml
 EmptyLabel EmptyLabel.qml
 DropShadow DropShadow.qml
 ThemeText ThemeText.qml
+NotifIcon NotifIcon.qml

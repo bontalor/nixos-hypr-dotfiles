@@ -28,6 +28,8 @@ import Quickshell
 import Quickshell.Services.Notifications
 import Quickshell.Widgets
 
+pragma ComponentBehavior: Bound
+
 Panel {
     id: root
     title: "Notifications"
@@ -152,7 +154,7 @@ Panel {
                 // Whether the left-edge icon is actually rendered (source
                 // resolved) — drives the text column width so a missing
                 // icon doesn't reserve dead space.
-                property bool hasIcon: entryIcon.status === Image.Ready || entryImage.status === Image.Ready
+                property bool hasIcon: entryIcon.resolved
 
                 width: parent.width
                 height: Math.max(root.rowHeight, entryRow.implicitHeight + 2 * Theme.margin)
@@ -172,26 +174,14 @@ Panel {
                     // embedded image preview (album cover, screenshot).
                     // Same IconImage widget as the popup — resolve failures
                     // collapse the column width via hasIcon.
-                    IconImage {
+                    NotifIcon {
                         id: entryIcon
-                        source: entry.appIcon
-                        visible: entry.appIcon !== "" && status !== Image.Error
-                        width: Theme.iconSize; height: Theme.iconSize
-                        anchors.top: parent.top; anchors.topMargin: 2
-                    }
-                    Image {
-                        id: entryImage
-                        source: entry.image
-                        visible: entry.image !== "" && entryIcon.status !== Image.Ready && status !== Image.Error
-                        width: Theme.iconSize; height: Theme.iconSize
-                        fillMode: Image.PreserveAspectCrop
-                        smooth: true
-                        asynchronous: true
-                        anchors.top: parent.top; anchors.topMargin: 2
+                        appIcon: entry.appIcon
+                        image: entry.image
                     }
 
                     Column {
-                        width: entryRow.width - (entry.hasIcon ? Theme.iconSize + Theme.margin : 0)
+                        width: entryRow.width - (entryIcon.resolved ? Theme.iconSize + Theme.margin : 0)
                         spacing: Theme.margin
 
                         ThemeText {
