@@ -368,32 +368,161 @@ Panel {
         }
     }
 
-    onDeviceActivated: function(idx) {
+    // --- Per-row dropdown state (every panel row except inline-edit
+    // EditRows opens a dropdown of one or more actions on click rather
+    // than direct-activating). State + close/toggle/trigger + keyboard
+    // nav all live on the shared DropdownState; the panel supplies
+    // rowActions(idx) (per-section action list) and triggerAction(idx,
+    // actIdx) (per-section perform).
+    //
+    // EditRows keep their inline-text edit mode reached via their own
+    // dropdown's single "Edit" action (see EditRow below).
+    DropdownState {
+        id: dropdown
+        rowActions: function(idx) { return root.rowActions(idx) }
+        triggerAction: function(idx, actIdx) { root.doRowAction(idx, actIdx) }
+    }
+
+    // Aliases preserved so existing delegate bindings to
+    // `root.expandedRowIdx` / `root.selRowAction` and the close/toggle/
+    // trigger helpers keep working.
+    property int expandedRowIdx: dropdown.expandedRowIdx
+    property int selRowAction: dropdown.selRowAction
+    function closeRowDropdown() { dropdown.close() }
+    function toggleRowDropdown(idx) { dropdown.toggle(idx) }
+    function triggerRowAction(idx, actIdx) { dropdown.trigger(idx, actIdx) }
+
+    // Action list for the row at idx in the current section.
+    // Single-action rows carry one item (the run verb); cycle-style
+    // rows (gifFpsIdx / gifWidthIdx) list every option so the dropdown
+    // replaces the click-to-cycle UX with click-to-pick; the audio-row
+    // offers Browse / Clear.
+    function rowActions(idx) {
         switch (root.selSection) {
         case root.secFile:
-            if (idx === 0) videoPicker.open()
-            break
-        case root.secConvert:  root.runConvert(idx); break
-        case root.secExtract:  root.runExtract(idx); break
+            return [{ name: "Browse for video file…", action: "browse" }]
+        case root.secConvert:
+            if (!root.hasInput) return []
+            return [{ name: "Convert to " + root.convertOps[idx].ext, action: "run-convert" }]
+        case root.secExtract:
+            if (!root.hasInput) return []
+            var exOp = root.extractOps[idx]
+            return [{ name: "Extract ." + (exOp.copy ? root.audioCopyExt() : exOp.ext),
+                      action: "run-extract" }]
         case root.secTrim:
-            if (idx === 0) root.editing = "start"
-            else if (idx === 1) root.editing = "end"
-            else root.runTrim()
-            break
-        case root.secResize:   root.runResize(idx); break
-        case root.secCompress: root.runCompress(idx); break
+            if (!root.hasInput) return []
+            if (idx === 0) return [{ name: "Edit start time", action: "edit-start" }]
+            if (idx === 1) return [{ name: "Edit end time",   action: "edit-end" }]
+            return [{ name: "Run trim", action: "run-trim" }]
+        case root.secResize:
+            if (!root.hasInput) return []
+            if (idx < root.resizeHeights.length)
+                return [{ name: "Resize to " + root.resizeHeights[idx] + "p", action: "run-resize" }]
+            return [{ name: "Edit custom size", action: "edit-resize" }]
+        case root.secCompress:
+            if (!root.hasInput) return []
+            return [{ name: "Compress (CRF " + root.compressOps[idx].crf + ")", action: "run-compress" }]
         case root.secGif:
-            if (idx === 0) root.gifFpsIdx = (root.gifFpsIdx + 1) % root.gifFpsOpts.length
-            else if (idx === 1) root.gifWidthIdx = (root.gifWidthIdx + 1) % root.gifWidthOpts.length
-            else root.runGif()
-            break
+            if (!root.hasInput) return []
+            if (idx === 0) {
+                var fpsOpts = []
+                for (var i = 0; i < root.gifFpsOpts.length; i++)
+                    fpsOpts.push({ name: root.gifFpsOpts[i] + " fps", action: "set-fps", value: i })
+                return fpsOpts
+            }
+            if (idx === 1) {
+                var wOpts = []
+                for (var j = 0; j < root.gifWidthOpts.length; j++) {
+                    var w = root.gifWidthOpts[j]
+                    wOpts.push({ name: w === "source" ? "source width" : w + " px", action: "set-width", value: j })
+                }
+                return wOpts
+            }
+            return [{ name: "Create GIF", action: "run-gif" }]
         case root.secMerge:
-            if (idx === 0) audioPicker.open()
-            else root.runMerge(idx === 2)
-            break
+            if (!root.hasInput) return []
+            if (idx === 0) return [{ name: "Browse for audio…", action: "browse-audio" },
+                                   { name: "Clear audio track", action: "clear-audio" }]
+            if (idx === 1) return [{ name: "Merge → MKV", action: "merge-mkv" }]
+            return [{ name: "Merge → MP4", action: "merge-mp4" }]
         case root.secJob:
-            if (idx === 0) jobRunner.cancel()
-            break
+            if (idx === 0) return [{ name: "Cancel running job", action: "cancel-job" }]
+            return []
+        }
+        return []
+    }
+
+    function doRowAction(idx, actIdx) {
+        var acts = root.rowActions(idx)
+        var act = acts[actIdx]
+        if (!act) return
+        switch (act.action) {
+        case "browse":       videoPicker.open(); break
+        case "run-convert":  root.runConvert(idx); break
+        case "run-extract":  root.runExtract(idx); break
+        case "edit-start":   root.editing = "start"; break
+        case "edit-end":     root.editing = "end"; break
+        case "run-trim":     root.runTrim(); break
+        case "run-resize":   root.runResize(idx); break
+        case "edit-resize":  root.editing = "resize"; break
+        case "run-compress": root.runCompress(idx); break
+        case "set-fps":      root.gifFpsIdx = act.value; break
+        case "set-width":    root.gifWidthIdx = act.value; break
+        case "run-gif":      root.runGif(); break
+        case "browse-audio": audioPicker.open(); break
+        case "clear-audio":  root.audioPath = ""; break
+        case "merge-mkv":    root.runMerge(false); break
+        case "merge-mp4":    root.runMerge(true); break
+        case "cancel-job":   jobRunner.cancel(); break
+        }
+    }
+
+    onDeviceActivated: function(idx) {
+        // Section rows are dropdown-driven; onKeyPressed intercepts Enter
+        // to open the dropdown. Kept as a no-op so PanelNav's contract
+        // is satisfied for keyboard Enter.
+    }
+
+    // Escape cancels an inline edit before Panel's default handler
+    // exits the section or closes the panel; also drives the dropdown
+    // nav (Tab/Enter opens, J/K walks actions, Enter triggers).
+    onKeyPressed: function(event) {
+        if (root.editing !== "" && event.key === Qt.Key_Escape) {
+            root.endEdit()
+            event.accepted = true
+            return
+        }
+        if (root.inSection) {
+            // DropdownState.handleKey covers all sections in this panel
+            // (File/Convert/Extract/Trim/Resize/Compress/GIF/Merge/Job):
+            // open on Enter/Tab, navigate with J/K, trigger on Enter/
+            // Tab while open, close on Backtab/Escape, Shift+Tab
+            // climb-out preserved.
+            if (dropdown.handleKey(event, root.selDevice)) return
+        }
+    }
+
+    onVisibleChanged: if (!visible) { root.editing = ""; root.closeRowDropdown() }
+    onSelSectionChanged: { root.editing = ""; root.closeRowDropdown() }
+
+    // Variable-height scroll: open dropdowns add to row height.
+    onSelRowActionChanged: Qt.callLater(root.scrollToSelection)
+    onExpandedRowIdxChanged: Qt.callLater(root.scrollToSelection)
+
+    function scrollToSelection() {
+        if (!root.inSection) return
+        // Drop into the base Panel.qml fixed-stride math; dropdown
+        // expansion adds a small scroll tail that the regular keep-
+        // selection-visible handler absorbs. Rows are uniform rowHeight
+        // + colSpacing strands (no EmptyLabels grow the model index),
+        // so the straight math stays correct on the row body itself.
+        var y = root.headerHeight + root.colSpacing
+              + root.selDevice * (root.rowHeight + root.colSpacing)
+        root.scrollToVisible(y, root.rowHeight)
+        if (root.expandedRowIdx === root.selDevice && root.selRowAction >= 0) {
+            var actY = y + root.rowHeight
+                      + root.selRowAction * Theme.searchRowHeight
+            root.scrollToVisible(actY, Theme.searchRowHeight)
         }
     }
 
@@ -417,24 +546,17 @@ Panel {
         else root.trimEndSec = s
     }
 
-    // Escape cancels an inline edit before Panel's default handler
-    // exits the section or closes the panel.
-    onKeyPressed: function(event) {
-        if (root.editing !== "" && event.key === Qt.Key_Escape) {
-            root.endEdit()
-            event.accepted = true
-        }
-    }
-
     // ================= Shared row components =================
 
-    component OpRow: PanelRow {
+    component OpRow: DropdownRow {
         id: opRow
         property string name: ""
         property string desc: ""
         width: parent.width
-        height: root.rowHeight
-        panel: root
+        rowHeight: root.rowHeight
+
+        // Default slot lands in DropdownRow's headerItem; ThemeText
+        // anchors are relative to that Item (height = rowHeight).
 
         ThemeText {
             id: opName
@@ -454,7 +576,7 @@ Panel {
         }
     }
 
-    component EditRow: PanelRow {
+    component EditRow: DropdownRow {
         id: editRow
         property string name: ""
         property string value: ""
@@ -463,9 +585,7 @@ Panel {
 
         readonly property bool editingThis: root.editing === editKey
         width: parent.width
-        height: root.rowHeight
-        panel: root
-        onClicked: root.editing = editRow.editKey
+        rowHeight: root.rowHeight
 
         ThemeText {
             text: editRow.name
@@ -510,6 +630,7 @@ Panel {
     // ================= File section =================
 
     Column {
+        id: fileColumn
         width: parent.width
         spacing: root.colSpacing
         visible: root.selSection === root.secFile
@@ -535,13 +656,25 @@ Panel {
             }
         }
 
-        PanelRow {
+        DropdownRow {
             width: parent.width
-            height: root.rowHeight
-            selected: root.inSection && 0 === root.selDevice
-            panel: root
-            itemIndex: 0
-            onClicked: videoPicker.open()
+            rowHeight: root.rowHeight
+            isSelected: root.inSection && 0 === root.selDevice
+            isExpanded: root.expandedRowIdx === 0
+            selActionIndex: root.expandedRowIdx === 0 ? root.selRowAction : -1
+            actions: root.rowActions(0)
+
+            onToggled: {
+                root.inSection = true
+                root.selDevice = 0
+                root.toggleRowDropdown(0)
+            }
+            onActionTriggered: (idx) => {
+                root.inSection = true
+                root.selDevice = 0
+                root.selRowAction = idx
+                root.triggerRowAction(0, idx)
+            }
 
             ThemeText {
                 text: root.hasInput ? "Browse for another file…" : "Browse for video file…"
@@ -553,6 +686,7 @@ Panel {
     // ================= Convert =================
 
     Column {
+        id: convertColumn
         width: parent.width
         spacing: root.colSpacing
         visible: root.selSection === root.secConvert
@@ -563,9 +697,21 @@ Panel {
             model: root.hasInput ? root.convertOps : []
             delegate: OpRow {
                 name: modelData.name; desc: modelData.desc
-                selected: root.inSection && index === root.selDevice
-                itemIndex: index
-                onClicked: root.runConvert(index)
+                isSelected: root.inSection && index === root.selDevice
+                isExpanded: root.expandedRowIdx === index
+                selActionIndex: root.expandedRowIdx === index ? root.selRowAction : -1
+                actions: root.rowActions(index)
+                onToggled: {
+                    root.inSection = true
+                    root.selDevice = index
+                    root.toggleRowDropdown(index)
+                }
+                onActionTriggered: (idx) => {
+                    root.inSection = true
+                    root.selDevice = index
+                    root.selRowAction = idx
+                    root.triggerRowAction(index, idx)
+                }
             }
         }
     }
@@ -573,6 +719,7 @@ Panel {
     // ================= Extract Audio =================
 
     Column {
+        id: extractColumn
         width: parent.width
         spacing: root.colSpacing
         visible: root.selSection === root.secExtract
@@ -589,9 +736,21 @@ Panel {
             delegate: OpRow {
                 name: modelData.name
                 desc: modelData.copy ? "stream copy → ." + root.audioCopyExt() : modelData.desc
-                selected: root.inSection && index === root.selDevice
-                itemIndex: index
-                onClicked: root.runExtract(index)
+                isSelected: root.inSection && index === root.selDevice
+                isExpanded: root.expandedRowIdx === index
+                selActionIndex: root.expandedRowIdx === index ? root.selRowAction : -1
+                actions: root.rowActions(index)
+                onToggled: {
+                    root.inSection = true
+                    root.selDevice = index
+                    root.toggleRowDropdown(index)
+                }
+                onActionTriggered: (idx) => {
+                    root.inSection = true
+                    root.selDevice = index
+                    root.selRowAction = idx
+                    root.triggerRowAction(index, idx)
+                }
             }
         }
     }
@@ -599,6 +758,7 @@ Panel {
     // ================= Trim =================
 
     Column {
+        id: trimColumn
         width: parent.width
         spacing: root.colSpacing
         visible: root.selSection === root.secTrim
@@ -608,14 +768,42 @@ Panel {
         EditRow {
             visible: root.hasInput
             name: "Start"; value: root.fmtTime(root.trimStartSec); editKey: "start"
-            selected: root.inSection && 0 === root.selDevice; itemIndex: 0
+            isSelected: root.inSection && 0 === root.selDevice
+            isExpanded: root.expandedRowIdx === 0
+            selActionIndex: root.expandedRowIdx === 0 ? root.selRowAction : -1
+            actions: root.rowActions(0)
+            onToggled: {
+                root.inSection = true
+                root.selDevice = 0
+                root.toggleRowDropdown(0)
+            }
+            onActionTriggered: (idx) => {
+                root.inSection = true
+                root.selDevice = 0
+                root.selRowAction = idx
+                root.triggerRowAction(0, idx)
+            }
             onCommitted: text => root.commitTrim("start", text)
         }
 
         EditRow {
             visible: root.hasInput
             name: "End"; value: root.fmtTime(root.trimEndSec); editKey: "end"
-            selected: root.inSection && 1 === root.selDevice; itemIndex: 1
+            isSelected: root.inSection && 1 === root.selDevice
+            isExpanded: root.expandedRowIdx === 1
+            selActionIndex: root.expandedRowIdx === 1 ? root.selRowAction : -1
+            actions: root.rowActions(1)
+            onToggled: {
+                root.inSection = true
+                root.selDevice = 1
+                root.toggleRowDropdown(1)
+            }
+            onActionTriggered: (idx) => {
+                root.inSection = true
+                root.selDevice = 1
+                root.selRowAction = idx
+                root.triggerRowAction(1, idx)
+            }
             onCommitted: text => root.commitTrim("end", text)
         }
 
@@ -623,14 +811,28 @@ Panel {
             visible: root.hasInput
             name: "Cut " + root.fmtTime(root.trimStartSec) + " – " + root.fmtTime(root.trimEndSec)
             desc: "stream copy — instant, cuts on keyframes"
-            selected: root.inSection && 2 === root.selDevice; itemIndex: 2
-            onClicked: root.runTrim()
+            isSelected: root.inSection && 2 === root.selDevice
+            isExpanded: root.expandedRowIdx === 2
+            selActionIndex: root.expandedRowIdx === 2 ? root.selRowAction : -1
+            actions: root.rowActions(2)
+            onToggled: {
+                root.inSection = true
+                root.selDevice = 2
+                root.toggleRowDropdown(2)
+            }
+            onActionTriggered: (idx) => {
+                root.inSection = true
+                root.selDevice = 2
+                root.selRowAction = idx
+                root.triggerRowAction(2, idx)
+            }
         }
     }
 
     // ================= Resize =================
 
     Column {
+        id: resizeColumn
         width: parent.width
         spacing: root.colSpacing
         visible: root.selSection === root.secResize
@@ -641,8 +843,21 @@ Panel {
             model: root.hasInput ? root.resizeHeights : []
             delegate: OpRow {
                 name: modelData + "p"; desc: "H.264/AAC mp4, keeps aspect"
-                selected: root.inSection && index === root.selDevice; itemIndex: index
-                onClicked: root.runResize(index)
+                isSelected: root.inSection && index === root.selDevice
+                isExpanded: root.expandedRowIdx === index
+                selActionIndex: root.expandedRowIdx === index ? root.selRowAction : -1
+                actions: root.rowActions(index)
+                onToggled: {
+                    root.inSection = true
+                    root.selDevice = index
+                    root.toggleRowDropdown(index)
+                }
+                onActionTriggered: (idx) => {
+                    root.inSection = true
+                    root.selDevice = index
+                    root.selRowAction = idx
+                    root.triggerRowAction(index, idx)
+                }
             }
         }
 
@@ -650,8 +865,21 @@ Panel {
             visible: root.hasInput
             name: "Custom…"; value: root.editing === "resize" ? "" : "height or WxH"
             editKey: "resize"
-            selected: root.inSection && root.resizeHeights.length === root.selDevice
-            itemIndex: root.resizeHeights.length
+            isSelected: root.inSection && root.resizeHeights.length === root.selDevice
+            isExpanded: root.expandedRowIdx === root.resizeHeights.length
+            selActionIndex: root.expandedRowIdx === root.resizeHeights.length ? root.selRowAction : -1
+            actions: root.rowActions(root.resizeHeights.length)
+            onToggled: {
+                root.inSection = true
+                root.selDevice = root.resizeHeights.length
+                root.toggleRowDropdown(root.resizeHeights.length)
+            }
+            onActionTriggered: (idx) => {
+                root.inSection = true
+                root.selDevice = root.resizeHeights.length
+                root.selRowAction = idx
+                root.triggerRowAction(root.resizeHeights.length, idx)
+            }
             onCommitted: text => root.commitResize(text)
         }
     }
@@ -659,6 +887,7 @@ Panel {
     // ================= Compress =================
 
     Column {
+        id: compressColumn
         width: parent.width
         spacing: root.colSpacing
         visible: root.selSection === root.secCompress
@@ -669,8 +898,21 @@ Panel {
             model: root.hasInput ? root.compressOps : []
             delegate: OpRow {
                 name: modelData.name; desc: modelData.desc
-                selected: root.inSection && index === root.selDevice; itemIndex: index
-                onClicked: root.runCompress(index)
+                isSelected: root.inSection && index === root.selDevice
+                isExpanded: root.expandedRowIdx === index
+                selActionIndex: root.expandedRowIdx === index ? root.selRowAction : -1
+                actions: root.rowActions(index)
+                onToggled: {
+                    root.inSection = true
+                    root.selDevice = index
+                    root.toggleRowDropdown(index)
+                }
+                onActionTriggered: (idx) => {
+                    root.inSection = true
+                    root.selDevice = index
+                    root.selRowAction = idx
+                    root.triggerRowAction(index, idx)
+                }
             }
         }
     }
@@ -678,6 +920,7 @@ Panel {
     // ================= GIF =================
 
     Column {
+        id: gifColumn
         width: parent.width
         spacing: root.colSpacing
         visible: root.selSection === root.secGif
@@ -687,32 +930,72 @@ Panel {
         OpRow {
             visible: root.hasInput
             name: "Frame rate: " + root.gifFpsOpts[root.gifFpsIdx] + " fps"
-            desc: "Enter cycles"
-            selected: root.inSection && 0 === root.selDevice; itemIndex: 0
-            onClicked: root.gifFpsIdx = (root.gifFpsIdx + 1) % root.gifFpsOpts.length
+            desc: "Click to pick"
+            isSelected: root.inSection && 0 === root.selDevice
+            isExpanded: root.expandedRowIdx === 0
+            selActionIndex: root.expandedRowIdx === 0 ? root.selRowAction : -1
+            actions: root.rowActions(0)
+            onToggled: {
+                root.inSection = true
+                root.selDevice = 0
+                root.toggleRowDropdown(0)
+            }
+            onActionTriggered: (idx) => {
+                root.inSection = true
+                root.selDevice = 0
+                root.selRowAction = idx
+                root.triggerRowAction(0, idx)
+            }
         }
 
         OpRow {
             visible: root.hasInput
             name: "Width: " + root.gifWidthOpts[root.gifWidthIdx]
                   + (root.gifWidthOpts[root.gifWidthIdx] === "source" ? "" : " px")
-            desc: "Enter cycles"
-            selected: root.inSection && 1 === root.selDevice; itemIndex: 1
-            onClicked: root.gifWidthIdx = (root.gifWidthIdx + 1) % root.gifWidthOpts.length
+            desc: "Click to pick"
+            isSelected: root.inSection && 1 === root.selDevice
+            isExpanded: root.expandedRowIdx === 1
+            selActionIndex: root.expandedRowIdx === 1 ? root.selRowAction : -1
+            actions: root.rowActions(1)
+            onToggled: {
+                root.inSection = true
+                root.selDevice = 1
+                root.toggleRowDropdown(1)
+            }
+            onActionTriggered: (idx) => {
+                root.inSection = true
+                root.selDevice = 1
+                root.selRowAction = idx
+                root.triggerRowAction(1, idx)
+            }
         }
 
         OpRow {
             visible: root.hasInput
             name: "Create GIF"
             desc: "palettegen two-pass — trim first for a short clip"
-            selected: root.inSection && 2 === root.selDevice; itemIndex: 2
-            onClicked: root.runGif()
+            isSelected: root.inSection && 2 === root.selDevice
+            isExpanded: root.expandedRowIdx === 2
+            selActionIndex: root.expandedRowIdx === 2 ? root.selRowAction : -1
+            actions: root.rowActions(2)
+            onToggled: {
+                root.inSection = true
+                root.selDevice = 2
+                root.toggleRowDropdown(2)
+            }
+            onActionTriggered: (idx) => {
+                root.inSection = true
+                root.selDevice = 2
+                root.selRowAction = idx
+                root.triggerRowAction(2, idx)
+            }
         }
     }
 
     // ================= Merge =================
 
     Column {
+        id: mergeColumn
         width: parent.width
         spacing: root.colSpacing
         visible: root.selSection === root.secMerge
@@ -727,31 +1010,71 @@ Panel {
         OpRow {
             visible: root.hasInput
             name: "Audio: " + (root.audioPath !== "" ? root.baseName(root.audioPath) : "none")
-            desc: "Enter to browse"
-            selected: root.inSection && 0 === root.selDevice; itemIndex: 0
-            onClicked: audioPicker.open()
+            desc: "Click for options"
+            isSelected: root.inSection && 0 === root.selDevice
+            isExpanded: root.expandedRowIdx === 0
+            selActionIndex: root.expandedRowIdx === 0 ? root.selRowAction : -1
+            actions: root.rowActions(0)
+            onToggled: {
+                root.inSection = true
+                root.selDevice = 0
+                root.toggleRowDropdown(0)
+            }
+            onActionTriggered: (idx) => {
+                root.inSection = true
+                root.selDevice = 0
+                root.selRowAction = idx
+                root.triggerRowAction(0, idx)
+            }
         }
 
         OpRow {
             visible: root.hasInput
             name: "Merge → MKV"
             desc: "copy both streams — instant, any codec"
-            selected: root.inSection && 1 === root.selDevice; itemIndex: 1
-            onClicked: root.runMerge(false)
+            isSelected: root.inSection && 1 === root.selDevice
+            isExpanded: root.expandedRowIdx === 1
+            selActionIndex: root.expandedRowIdx === 1 ? root.selRowAction : -1
+            actions: root.rowActions(1)
+            onToggled: {
+                root.inSection = true
+                root.selDevice = 1
+                root.toggleRowDropdown(1)
+            }
+            onActionTriggered: (idx) => {
+                root.inSection = true
+                root.selDevice = 1
+                root.selRowAction = idx
+                root.triggerRowAction(1, idx)
+            }
         }
 
         OpRow {
             visible: root.hasInput
             name: "Merge → MP4"
             desc: "video copy, audio → AAC"
-            selected: root.inSection && 2 === root.selDevice; itemIndex: 2
-            onClicked: root.runMerge(true)
+            isSelected: root.inSection && 2 === root.selDevice
+            isExpanded: root.expandedRowIdx === 2
+            selActionIndex: root.expandedRowIdx === 2 ? root.selRowAction : -1
+            actions: root.rowActions(2)
+            onToggled: {
+                root.inSection = true
+                root.selDevice = 2
+                root.toggleRowDropdown(2)
+            }
+            onActionTriggered: (idx) => {
+                root.inSection = true
+                root.selDevice = 2
+                root.selRowAction = idx
+                root.triggerRowAction(2, idx)
+            }
         }
     }
 
     // ================= Job =================
 
     Column {
+        id: jobColumn
         width: parent.width
         spacing: root.colSpacing
         visible: root.selSection === root.secJob
@@ -794,7 +1117,7 @@ Panel {
         Rectangle {
             visible: jobRunner.state === "running" || jobRunner.state === "done"
             width: parent.width - 2 * Theme.margin; x: Theme.margin
-            height: Theme.osdBarHeight
+            height: Theme.meterHeight
             color: Qt.alpha(Colors.foreground, Theme.alphaInactive)
 
             Rectangle {
@@ -814,12 +1137,25 @@ Panel {
             size: "small"
         }
 
-        PanelRow {
+        DropdownRow {
             visible: jobRunner.running
-            width: parent.width; height: root.rowHeight
-            selected: root.inSection && 0 === root.selDevice
-            panel: root; itemIndex: 0
-            onClicked: jobRunner.cancel()
+            width: parent.width
+            rowHeight: root.rowHeight
+            isSelected: root.inSection && 0 === root.selDevice
+            isExpanded: root.expandedRowIdx === 0
+            selActionIndex: root.expandedRowIdx === 0 ? root.selRowAction : -1
+            actions: root.rowActions(0)
+            onToggled: {
+                root.inSection = true
+                root.selDevice = 0
+                root.toggleRowDropdown(0)
+            }
+            onActionTriggered: (idx) => {
+                root.inSection = true
+                root.selDevice = 0
+                root.selRowAction = idx
+                root.triggerRowAction(0, idx)
+            }
 
             ThemeText {
                 text: "Cancel job"; color: Colors.critical

@@ -76,14 +76,14 @@ SearchPanel {
         ThemeText {
             anchors.verticalCenter: parent.verticalCenter
             text: modelData?.name ?? ""
-            width: 240
+            width: Theme.keybindKeyColumnWidth
             elide: Text.ElideRight
         }
         ThemeText {
             anchors.verticalCenter: parent.verticalCenter
             text: modelData?.action ?? ""
             color: Qt.alpha(Colors.foreground, Theme.alphaDim)
-            width: Theme.panelWidth - 240 - 8 * Theme.margin
+            width: Theme.panelWidth - Theme.keybindKeyColumnWidth - 8 * Theme.margin
             elide: Text.ElideRight
         }
     }

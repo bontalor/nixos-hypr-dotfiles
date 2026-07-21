@@ -22,34 +22,58 @@ Panel {
     property var powerProfiles: BatteryModel.profiles
     property bool profileDaemonAvailable: BatteryModel.profileIndex >= 0
 
-    // --- Per-row dropdown state (Battery section) ---
-    // Battery devices get a dropdown so the panel stops immediately
-    // re-selecting on Enter; "Track" swaps which device the widget
-    // follows. Power Profiles keeps its direct-click activation (the
-    // whole row IS the action — there's nothing else to do with a
-    // profile besides switching to it), matching the rest of the
-    // shell's convention that one-action rows stay direct.
-    property int expandedRowIdx: -1
-    property int selRowAction: 0
-
-    function closeRowDropdown() { root.expandedRowIdx = -1; root.selRowAction = 0 }
-    function toggleRowDropdown(idx) {
-        if (root.expandedRowIdx === idx) root.closeRowDropdown()
-        else { root.expandedRowIdx = idx; root.selRowAction = 0 }
+    // --- Per-row dropdown state (Battery + Power Profiles sections) ---
+    // Every clickable row in this panel opens a dropdown with its
+    // available actions: Battery rows show "Track this device", Power
+    // Profile rows show "Activate". No row direct-activates on click
+    // — every option goes through the same header-click → action-list
+    // flow. State + close/toggle/trigger helpers + keyboard nav all
+    // live on the shared DropdownState; the panel supplies the
+    // rowActions(idx) hook (per-section action list) and the
+    // triggerAction(idx, actIdx) hook (per-section perform).
+    DropdownState {
+        id: dropdown
+        rowActions: function(idx) { return root.currentRowActions(idx) }
+        triggerAction: function(idx, actIdx) {
+            var acts = root.currentRowActions(idx)
+            var act = acts[actIdx]
+            if (!act) return
+            if (act.action === "track") {
+                var dev = BatteryModel.batteryDevices[idx]
+                if (dev) BatteryModel.selectDevice(dev.nativePath)
+            } else if (act.action === "activate") {
+                var entry = root.powerProfiles[idx]
+                if (entry) BatteryModel.setProfile(entry.enumVal)
+            }
+        }
     }
+
+    // Aliases keep the existing `root.expandedRowIdx` / `root.selRowAction`
+    // delegate bindings working without further wiring.
+    property int expandedRowIdx: dropdown.expandedRowIdx
+    property int selRowAction: dropdown.selRowAction
+    function closeRowDropdown() { dropdown.close() }
+    function toggleRowDropdown(idx) { dropdown.toggle(idx) }
+    function triggerRowAction(idx, actIdx) { dropdown.trigger(idx, actIdx) }
+
     function batteryActions(dev) {
         if (!dev) return []
         var isActive = BatteryModel.activeDevice === dev
         return [{ name: isActive ? "Tracking (active)" : "Track this device",
                   action: "track" }]
     }
-    function triggerRowAction(idx, actIdx) {
-        var dev = BatteryModel.batteryDevices[idx]
-        var acts = root.batteryActions(dev)
-        var act = acts[actIdx]
-        if (act && act.action === "track" && dev)
-            BatteryModel.selectDevice(dev.nativePath)
-        root.closeRowDropdown()
+    function profileActions(entry) {
+        if (!entry) return []
+        var isActive = BatteryModel.profileIndex === entry.enumVal
+        return [{ name: isActive ? "Re-apply" : "Activate",
+                  action: "activate" }]
+    }
+    function currentRowActions(idx) {
+        switch (root.selSection) {
+        case 0: return root.batteryActions(BatteryModel.batteryDevices[idx])
+        case 1: return root.profileActions(root.powerProfiles[idx])
+        default: return []
+        }
     }
 
     currentModelLength: function() {
@@ -61,55 +85,14 @@ Panel {
     }
 
     onDeviceActivated: function(idx) {
-        // Battery section is dropdown-driven (see onKeyPressed); Power
-        // Profiles keeps direct activation — switching is the only
-        // thing a profile row does.
-        if (root.selSection === 1) {
-            var entry = root.powerProfiles[idx]
-            if (entry && BatteryModel.profileIndex !== entry.enumVal)
-                BatteryModel.setProfile(entry.enumVal)
-        }
+        // Dropdown-driven; onKeyPressed delegates to DropdownState which
+        // opens / closes / triggers as appropriate. Kept as a no-op to
+        // satisfy PanelNav's contract.
     }
 
     onKeyPressed: function(event) {
-        if (root.inSection && root.selSection === 0) {
-            var open = root.expandedRowIdx === root.selDevice
-            switch (event.key) {
-            case Qt.Key_Return:
-            case Qt.Key_Enter:
-            case Qt.Key_Tab:
-                if (event.modifiers & Qt.ShiftModifier) {
-                    if (open) { root.closeRowDropdown(); event.accepted = true; return }
-                    return  // PanelNav climbs out
-                }
-                if (open) root.triggerRowAction(root.selDevice, root.selRowAction)
-                else root.toggleRowDropdown(root.selDevice)
-                event.accepted = true; return
-            case Qt.Key_Backtab:
-                if (open) { root.closeRowDropdown(); event.accepted = true; return }
-                return
-            case Qt.Key_Escape:
-                if (open) { root.closeRowDropdown(); event.accepted = true; return }
-                return
-            case Qt.Key_J:
-            case Qt.Key_Down:
-                if (open) {
-                    root.selRowAction = Scroll.step(
-                        root.selRowAction, 1,
-                        root.batteryActions(BatteryModel.batteryDevices[root.selDevice]).length)
-                    event.accepted = true; return
-                }
-                return
-            case Qt.Key_K:
-            case Qt.Key_Up:
-                if (open) {
-                    root.selRowAction = Scroll.step(
-                        root.selRowAction, -1,
-                        root.batteryActions(BatteryModel.batteryDevices[root.selDevice]).length)
-                    event.accepted = true; return
-                }
-                return
-            }
+        if (root.inSection && (root.selSection === 0 || root.selSection === 1)) {
+            if (dropdown.handleKey(event, root.selDevice)) return
         }
     }
 
@@ -122,20 +105,16 @@ Panel {
 
     function scrollToSelection() {
         if (!root.inSection) return
-        // Power Profiles: fixed-stride rows — use the base math.
-        if (root.selSection !== 0) {
-            root.scrollToVisible(
-                root.headerHeight + root.colSpacing
-                + root.selDevice * (root.rowHeight + root.colSpacing),
-                root.rowHeight)
-            return
-        }
-        // Battery: read real delegate height (dropdown adds height).
-        var item = batRepeater.itemAt(root.selDevice)
+        // Sections 0 (Battery) and 1 (Power Profiles) both use
+        // variable-height DropdownRow delegates — read the real geometry
+        // from the Repeater so open dropdowns scroll correctly.
+        var repeater = root.selSection === 0 ? batRepeater : profileRepeater
+        var columnY = root.selSection === 0 ? batColumn.y : profileColumn.y
+        var item = repeater.itemAt(root.selDevice)
         if (!item) return
-        root.scrollToVisible(batColumn.y + item.y, item.height)
+        root.scrollToVisible(columnY + item.y, item.height)
         if (root.expandedRowIdx === root.selDevice && root.selRowAction >= 0) {
-            var actY = batColumn.y + item.y + root.rowHeight
+            var actY = columnY + item.y + root.rowHeight
                       + root.selRowAction * Theme.searchRowHeight
             root.scrollToVisible(actY, Theme.searchRowHeight)
         }
@@ -172,11 +151,13 @@ Panel {
                 actions: root.batteryActions(modelData)
 
                 onToggled: {
-                    if (!root.inSection) { root.inSection = true; root.selDevice = index }
+                    root.inSection = true
+                    root.selDevice = index
                     root.toggleRowDropdown(index)
                 }
                 onActionTriggered: (idx) => {
-                    if (!root.inSection) { root.inSection = true; root.selDevice = index }
+                    root.inSection = true
+                    root.selDevice = index
                     root.selRowAction = idx
                     root.triggerRowAction(index, idx)
                 }
@@ -217,6 +198,7 @@ Panel {
 
     // ---- Section 1: Power Profiles ----
     Column {
+        id: profileColumn
         width: parent.width
         spacing: root.colSpacing
         visible: root.selSection === 1
@@ -227,26 +209,39 @@ Panel {
         }
 
         Repeater {
+            id: profileRepeater
             // `visible` on a Repeater doesn't hide its delegates (they're
             // parented to the Column) — gate the model instead.
             model: root.profileDaemonAvailable ? root.powerProfiles : []
 
-            delegate: PanelRow {
+            delegate: DropdownRow {
                 width: parent.width
-                height: root.rowHeight
+                rowHeight: root.rowHeight
                 required property var modelData
                 required property int index
 
                 property bool isActive: BatteryModel.profileIndex === modelData.enumVal
 
-                selected: root.inSection && index === root.selDevice
-                panel: root
-                itemIndex: index
-                onClicked: if (!isActive) BatteryModel.setProfile(modelData.enumVal)
+                isSelected: root.inSection && index === root.selDevice
+                isExpanded: root.expandedRowIdx === index
+                selActionIndex: root.expandedRowIdx === index ? root.selRowAction : -1
+                actions: root.profileActions(modelData)
+
+                onToggled: {
+                    root.inSection = true
+                    root.selDevice = index
+                    root.toggleRowDropdown(index)
+                }
+                onActionTriggered: (idx) => {
+                    root.inSection = true
+                    root.selDevice = index
+                    root.selRowAction = idx
+                    root.triggerRowAction(index, idx)
+                }
 
                 Row {
                     anchors { left: parent.left; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
-                    spacing: 8
+                    spacing: Theme.margin
 
                     ThemeText {
                         text: modelData.icon

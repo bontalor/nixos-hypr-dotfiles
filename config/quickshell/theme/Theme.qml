@@ -10,11 +10,13 @@ import Quickshell
 // only constants used across domains stay here.
 
 Singleton {
-    // --- Fonts ---
+// --- Fonts ---
     property string fontFamily: "JetBrainsMono Nerd Font"
     property int fontPixelSize: 16
     property int fontPixelSizeLarge: 22
     property int fontPixelSizeXLarge: 30
+    property int fontPixelSizeHeader: 24       // mid-emphasis (date line in DateTimePanel)
+    property int fontPixelSizeDisplay: 32      // large display (lockscreen clock, weather temps)
     property int fontPixelSizeSmall: 12
 
     // --- Bar geometry ---
@@ -68,6 +70,44 @@ Singleton {
     // Volume step per key/scroll tick (bar widget, VolumePanel, OSD).
     property real volumeStep: 0.05
 
-    property int osdBarHeight: 10       // value bar thickness in OsdPopup
+    // Small meter thickness / segmented-dot size. Used by:
+    //   - OSD popup value bar (osd/OsdPopup.qml)
+    //   - FFmpeg progress bar (ffmpeg/FfmpegPanel.qml)
+    //   - Volume bars + peak dots (volume/AudioDeviceRow.qml)
+    //   - Wi-Fi signal dots (network/NetworkPanel.qml)
+    //   - Media seek bar (media/MediaPanel.qml)
+    // Keeps the segmented-meter look uniform across the shell.
+    property int meterHeight: 10
     property int marqueeSpeed: 25       // ms per pixel — lower is faster
+
+    // --- Per-domain display sizes (hoisted for centralized tuning) ---
+    //
+    // These belong to one domain each (not "shared across domains"),
+    // but live here so the visual rhythm of the shell stays tunable
+    // from a single file rather than scattered as magic numbers.
+    //
+    // Media now-playing UI.
+    property int albumArtSize: 220          // square album art in MediaPanel
+    // Square icon-button size. Used across domains: media transport
+    // (prev/play/next) and lockscreen action buttons (Suspend/Reboot/…).
+    property int actionButtonSize: 45
+
+    // Wallpaper picker grid (cell already includes Theme.margin padding).
+    property int wallpaperCellWidth: 205
+    property int wallpaperCellHeight: 140
+
+    // Keybind cheatsheet — the key-combo column in each row.
+    property int keybindKeyColumnWidth: 240
+
+    // Lockscreen layout. The lockscreen runs as its own Quickshell
+    // instance but shares this theme file through a relative symlink,
+    // so these constants are available there too.
+    property int lockContentWidth: 420          // inner column width
+    property int lockClockHeight: 60             // clock row height (room around the display font)
+    property int lockStatusHeight: 20           // small status rows under the clock
+    property int lockActionSpacing: 45          // gap between action buttons
+    property int lockActionColumnWidth: 60      // each action's column (button + label)
+    property int lockFpButtonWidth: 30           // fingerprint toggle next to password
+    property int lockFpReserve: 40              // password box reserves this when fp enabled
+    property int lockInputLetterSpacing: 10     // password field letter spacing
 }

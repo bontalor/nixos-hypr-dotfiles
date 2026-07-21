@@ -1,0 +1,4 @@
+singleton NetworkModel NetworkModel.qml
+singleton BluetoothModel BluetoothModel.qml
+singleton BatteryModel BatteryModel.qml
+singleton PowerActions PowerActions.qml

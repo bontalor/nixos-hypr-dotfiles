@@ -1,0 +1,3 @@
+singleton NotifDaemon NotifDaemon.qml
+NotifPopup NotifPopup.qml
+NotifHistoryPanel NotifHistoryPanel.qml

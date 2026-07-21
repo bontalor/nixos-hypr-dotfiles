@@ -116,7 +116,7 @@ Item {
                 right: pctText.left; rightMargin: Theme.margin
                 verticalCenter: parent.verticalCenter
             }
-            height: 8
+            height: Theme.meterHeight
             color: Qt.alpha(Colors.surface, 1)
 
             Rectangle {
@@ -143,7 +143,7 @@ Item {
                 right: pctText.left; rightMargin: Theme.margin
                 top: volBar.bottom; topMargin: 2
             }
-            height: 10
+            height: Theme.meterHeight
             spacing: Theme.margin
             clip: true
 
@@ -152,8 +152,8 @@ Item {
                 model: Math.max(1, Math.floor((peakRow.width + Theme.margin) / 20))
 
                 delegate: Rectangle {
-                    width: 10
-                    height: 10
+                    width: Theme.meterHeight
+                    height: Theme.meterHeight
                     color: index < Math.round(devRow.displayedPeak * peakRepeater.count)
                            ? Colors.foreground : Qt.alpha(Colors.foreground, Theme.alphaInactive)
                 }

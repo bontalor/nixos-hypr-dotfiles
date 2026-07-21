@@ -55,7 +55,7 @@ PanelWindow {
                         left: parent.left; right: parent.right; top: parent.top
                         leftMargin: Theme.margin; rightMargin: Theme.margin; topMargin: Theme.margin
                     }
-                    spacing: 6
+                    spacing: Theme.margin
 
                     // App icon — resolved through the desktop entry /
                     // icon theme via IconImage (same widget the history
@@ -66,21 +66,21 @@ PanelWindow {
                         id: popupIcon
                         source: card.appIcon
                         visible: card.appIcon !== "" && status !== Image.Error
-                        width: 16; height: 16
+                        width: Theme.iconSize; height: Theme.iconSize
                     }
                     Image {
                         id: popupImg
                         source: card.image
                         visible: card.image !== "" && popupIcon.status !== Image.Ready && status !== Image.Error
-                        width: 16; height: 16
+                        width: Theme.iconSize; height: Theme.iconSize
                         fillMode: Image.PreserveAspectCrop
                         smooth: true
                         asynchronous: true
                     }
 
                     Column {
-                        width: parent.width - ((popupIcon.visible || popupImg.visible) ? 22 : 0)
-                        spacing: 4
+                        width: parent.width - ((popupIcon.visible || popupImg.visible) ? Theme.iconSize + Theme.margin : 0)
+                        spacing: Theme.margin
 
                         ThemeText {
                             width: parent.width

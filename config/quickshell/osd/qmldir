@@ -1,0 +1,2 @@
+singleton OsdModel OsdModel.qml
+OsdPopup OsdPopup.qml

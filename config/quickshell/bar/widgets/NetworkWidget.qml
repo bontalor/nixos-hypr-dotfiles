@@ -24,7 +24,7 @@ WidgetButton {
 
         Row {
             visible: NetworkModel.wifiConnected
-            spacing: 4
+            spacing: Theme.margin
             anchors.verticalCenter: parent.verticalCenter
 
             Repeater {

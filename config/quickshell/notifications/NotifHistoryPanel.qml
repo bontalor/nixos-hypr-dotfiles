@@ -166,7 +166,7 @@ Panel {
                 Row {
                     id: entryRow
                     anchors { left: parent.left; leftMargin: Theme.margin; right: parent.right; rightMargin: Theme.margin; verticalCenter: parent.verticalCenter }
-                    spacing: 6
+                    spacing: Theme.margin
 
                     // Sender app icon (preferred) or the notification's
                     // embedded image preview (album cover, screenshot).
@@ -176,14 +176,14 @@ Panel {
                         id: entryIcon
                         source: entry.appIcon
                         visible: entry.appIcon !== "" && status !== Image.Error
-                        width: 16; height: 16
+                        width: Theme.iconSize; height: Theme.iconSize
                         anchors.top: parent.top; anchors.topMargin: 2
                     }
                     Image {
                         id: entryImage
                         source: entry.image
                         visible: entry.image !== "" && entryIcon.status !== Image.Ready && status !== Image.Error
-                        width: 16; height: 16
+                        width: Theme.iconSize; height: Theme.iconSize
                         fillMode: Image.PreserveAspectCrop
                         smooth: true
                         asynchronous: true
@@ -191,8 +191,8 @@ Panel {
                     }
 
                     Column {
-                        width: entryRow.width - (entry.hasIcon ? 22 : 0)
-                        spacing: 4
+                        width: entryRow.width - (entry.hasIcon ? Theme.iconSize + Theme.margin : 0)
+                        spacing: Theme.margin
 
                         ThemeText {
                             id: summaryText

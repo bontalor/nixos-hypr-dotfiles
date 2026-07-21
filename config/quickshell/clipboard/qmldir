@@ -1,0 +1,2 @@
+singleton ClipboardModel ClipboardModel.qml
+ClipboardPanel ClipboardPanel.qml

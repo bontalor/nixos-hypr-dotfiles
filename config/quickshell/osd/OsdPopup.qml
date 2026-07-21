@@ -67,7 +67,7 @@ PanelWindow {
                     right: parent.right
                     verticalCenter: parent.verticalCenter
                 }
-                height: Theme.osdBarHeight
+                height: Theme.meterHeight
                 color: Qt.alpha(Colors.foreground, Theme.alphaInactive)
 
                 Rectangle {

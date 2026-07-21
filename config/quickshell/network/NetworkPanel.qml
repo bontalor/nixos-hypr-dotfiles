@@ -33,23 +33,33 @@ Panel {
     // below to read the real (variable-height) delegate geometry when a
     // Wi-Fi or Ethernet row's dropdown is open.
 
-    // --- Per-row action dropdown state (Wi-Fi + Ethernet sections) ---
+    // --- Per-row action dropdown state (Wi-Fi + Ethernet + Configuration +
+    // NetworkManager sections) ---
     // Bluetooth keeps the panel-level ConfigExpandItem machinery
     // (expandSection = secBluetooth) since that section's whole UX is
-    // dropdown-driven; for Wi-Fi/Ethernet we add an in-row dropdown on
-    // top of the existing single-action rows without consuming PanelNav's
-    // expandSection slot (one per panel).
-    property int expandedRowIdx: -1
-    property int selRowAction: 0
+    // dropdown-driven; the other four sections share DropdownState
+    // (state + close/toggle/trigger + keyboard nav) and only supply
+    // per-section rowActions(idx) + triggerAction(idx, actIdx).
+    DropdownState {
+        id: dropdown
+        rowActions: function(idx) { return root.currentRowActions(idx) }
+        triggerAction: function(idx, actIdx) {
+            if (root.selSection === root.secWifi) root.doWifiAction(idx, actIdx)
+            else if (root.selSection === root.secEthernet) root.doEthAction(idx, actIdx)
+            else if (root.selSection === root.secConfig) root.doConfigToggleAction(idx, actIdx)
+            else if (root.selSection === root.secNm) root.doNmAction(idx, actIdx)
+        }
+    }
 
-    function closeRowDropdown() {
-        root.expandedRowIdx = -1
-        root.selRowAction = 0
-    }
-    function toggleRowDropdown(idx) {
-        if (root.expandedRowIdx === idx) root.closeRowDropdown()
-        else { root.expandedRowIdx = idx; root.selRowAction = 0 }
-    }
+    // Aliases preserved so existing delegate bindings to
+    // `root.expandedRowIdx` / `root.selRowAction` and the close/toggle/
+    // trigger helper functions keep working.
+    property int expandedRowIdx: dropdown.expandedRowIdx
+    property int selRowAction: dropdown.selRowAction
+    function closeRowDropdown() { dropdown.close() }
+    function toggleRowDropdown(idx) { dropdown.toggle(idx) }
+    function triggerRowAction(idx, actIdx) { dropdown.trigger(idx, actIdx) }
+
     function ethActions(dev, idx) {
         if (!dev) return []
         // Only one of Connect/Disconnect makes sense per current state.
@@ -73,9 +83,47 @@ Panel {
             return root.wifiActions(root.wifiNetworks[idx] || null)
         case root.secEthernet:
             return root.ethActions(root.wiredDevices[idx] || null, idx)
+        case root.secConfig:
+            return root.configToggleActions(idx)
+        case root.secNm:
+            return root.nmActions(idx)
         default:
             return []
         }
+    }
+    // Single-action dropdowns for the Configuration toggles and the
+    // NetworkManager "Open nmtui" row — the row header reads the live
+    // state ("Wi-Fi: On" / "Bluetooth: Off"); the dropdown's lone action
+    // toggles or opens.
+    function configToggleActions(idx) {
+        switch (idx) {
+        case 0:
+            return [{ name: root.wifiEnabled ? "Disable Wi-Fi" : "Enable Wi-Fi",
+                      action: "toggle-wifi" }]
+        case 1:
+            return [{ name: root.btAdapter ? (root.btOn ? "Disable Bluetooth" : "Enable Bluetooth")
+                                           : "Bluetooth: no adapter",
+                      action: "toggle-bt" }]
+        default:
+            return []
+        }
+    }
+    function nmActions(idx) {
+        if (idx === 0) return [{ name: "Open nmtui", action: "nmtui" }]
+        return []
+    }
+    function doConfigToggleAction(idx, actIdx) {
+        var acts = root.configToggleActions(idx)
+        var act = acts[actIdx]
+        if (!act) return
+        if (act.action === "toggle-wifi") root.setWifiEnabled(!root.wifiEnabled)
+        else if (act.action === "toggle-bt") BluetoothModel.setOn(!root.btOn)
+    }
+    function doNmAction(idx, actIdx) {
+        var acts = root.nmActions(idx)
+        var act = acts[actIdx]
+        if (!act) return
+        if (act.action === "nmtui") root.launchNmtui()
     }
     function doEthAction(idx, actIdx) {
         var list = root.wiredDevices
@@ -121,11 +169,6 @@ Panel {
                 nmcliProc.running = true
             }
         }
-    }
-    function triggerRowAction(idx, actIdx) {
-        if (root.selSection === root.secWifi) root.doWifiAction(idx, actIdx)
-        else if (root.selSection === root.secEthernet) root.doEthAction(idx, actIdx)
-        root.closeRowDropdown()
     }
 
     // Reset the password row + dropdown on hide or section change. The
@@ -219,18 +262,10 @@ Panel {
     }
 
     onDeviceActivated: function(idx) {
-        // Wi-Fi + Ethernet are now driven by per-row dropdowns (see
-        // onKeyPressed). Enter still falls through here as a no-op so
-        // PanelNav's contract is satisfied for the other sections.
-        switch (root.selSection) {
-        case root.secConfig:
-            if (idx === 0) setWifiEnabled(!root.wifiEnabled)
-            else if (idx === 1) BluetoothModel.setOn(!root.btOn)
-            break
-        case root.secNm:
-            if (idx === 0) launchNmtui()
-            break
-        }
+        // Every clickable section (Wi-Fi, Ethernet, Configuration, NM)
+        // is dropdown-driven; onKeyPressed intercepts Enter/Tab to open
+        // the action list, so this is a no-op kept only to satisfy
+        // PanelNav's contract.
     }
 
     // Escape backs out of the password row before Panel's default
@@ -248,44 +283,11 @@ Panel {
         }
 
         if (root.inSection
-            && (root.selSection === root.secWifi || root.selSection === root.secEthernet)) {
-            var open = root.expandedRowIdx === root.selDevice
-            switch (event.key) {
-            case Qt.Key_Return:
-            case Qt.Key_Enter:
-            case Qt.Key_Tab:
-                if (event.modifiers & Qt.ShiftModifier) {
-                    if (open) { root.closeRowDropdown(); event.accepted = true; return }
-                    return  // fall through to PanelNav (Shift+Tab climbs out)
-                }
-                if (open) root.triggerRowAction(root.selDevice, root.selRowAction)
-                else root.toggleRowDropdown(root.selDevice)
-                event.accepted = true; return
-            case Qt.Key_Backtab:
-                if (open) { root.closeRowDropdown(); event.accepted = true; return }
-                return
-            case Qt.Key_Escape:
-                if (open) { root.closeRowDropdown(); event.accepted = true; return }
-                return  // PanelNav unwinds the section
-            case Qt.Key_J:
-            case Qt.Key_Down:
-                if (open) {
-                    root.selRowAction = Scroll.step(
-                        root.selRowAction, 1,
-                        root.currentRowActions(root.selDevice).length)
-                    event.accepted = true; return
-                }
-                return
-            case Qt.Key_K:
-            case Qt.Key_Up:
-                if (open) {
-                    root.selRowAction = Scroll.step(
-                        root.selRowAction, -1,
-                        root.currentRowActions(root.selDevice).length)
-                    event.accepted = true; return
-                }
-                return
-            }
+            && (root.selSection === root.secWifi
+                || root.selSection === root.secEthernet
+                || root.selSection === root.secConfig
+                || root.selSection === root.secNm)) {
+                if (dropdown.handleKey(event, root.selDevice)) return
         }
     }
 
@@ -326,21 +328,51 @@ Panel {
     function scrollToSelection() {
         if (!root.inSection) return
 
-        // Wi-Fi / Ethernet: read the real delegate height (variable
-        // because of the inline dropdown) rather than the base's
-        // fixed-stride rowHeight math.
+        // Wi-Fi / Ethernet / Configuration / NetworkManager: read the real
+        // delegate height (variable because of the inline dropdown)
+        // rather than the base's fixed-stride rowHeight math.
+        // Configuration has no Repeater (two statically-declared
+        // DropdownRows), so its lookup mirrors the section's column base
+        // and the clicked dropdown row index via child indexes.
         if (root.selSection === root.secWifi
-            || root.selSection === root.secEthernet) {
-            var rep = root.selSection === root.secWifi ? wifiRepeater : ethRepeater
-            var col = root.selSection === root.secWifi ? wifiColumn : ethColumn
-            if (root.selDevice >= rep.count) return
-            var item = rep.itemAt(root.selDevice)
-            if (item) {
-                root.scrollToVisible(col.y + item.y, item.height)
-                if (root.expandedRowIdx === root.selDevice && root.selRowAction >= 0) {
-                    var actY = col.y + item.y + root.rowHeight
-                              + root.selRowAction * Theme.searchRowHeight
-                    root.scrollToVisible(actY, Theme.searchRowHeight)
+            || root.selSection === root.secEthernet
+            || root.selSection === root.secConfig
+            || root.selSection === root.secNm) {
+            var rep, col
+            if (root.selSection === root.secWifi) { rep = wifiRepeater; col = wifiColumn }
+            else if (root.selSection === root.secEthernet) { rep = ethRepeater; col = ethColumn }
+            else if (root.selSection === root.secConfig) { rep = null; col = configColumn }
+            else { rep = null; col = nmColumn }
+            if (rep) {
+                if (root.selDevice >= rep.count) return
+                var item = rep.itemAt(root.selDevice)
+                if (item) {
+                    root.scrollToVisible(col.y + item.y, item.height)
+                    if (root.expandedRowIdx === root.selDevice && root.selRowAction >= 0) {
+                        var actY = col.y + item.y + root.rowHeight
+                                  + root.selRowAction * Theme.searchRowHeight
+                        root.scrollToVisible(actY, Theme.searchRowHeight)
+                    }
+                }
+            } else {
+                // Static-declared DropdownRows — locate by section-relative
+                // child index: configColumn children include SectionSubHeader
+                // rows we must skip; nmColumn has just the single row.
+                var childIdx = root.selDevice
+                if (root.selSection === root.secConfig) {
+                    // Children order: [SectionSubHeader, DropdownRow(0),
+                    // SectionSubHeader, Item(eth status), SectionSubHeader,
+                    // DropdownRow(1)] — selDevice 0 -> child 1, selDevice 1 -> child 5.
+                    childIdx = root.selDevice === 0 ? 1 : 5
+                }
+                var target = col.children[childIdx]
+                if (target) {
+                    root.scrollToVisible(col.y + target.y, target.height)
+                    if (root.expandedRowIdx === root.selDevice && root.selRowAction >= 0) {
+                        var actY2 = col.y + target.y + root.rowHeight
+                                   + root.selRowAction * Theme.searchRowHeight
+                        root.scrollToVisible(actY2, Theme.searchRowHeight)
+                    }
                 }
             }
             return
@@ -451,11 +483,13 @@ Panel {
                 actions: root.wifiActions(modelData)
 
                 onToggled: {
-                    if (!root.inSection) { root.inSection = true; root.selDevice = index }
+                    root.inSection = true
+                    root.selDevice = index
                     root.toggleRowDropdown(index)
                 }
                 onActionTriggered: (idx) => {
-                    if (!root.inSection) { root.inSection = true; root.selDevice = index }
+                    root.inSection = true
+                    root.selDevice = index
                     root.selRowAction = idx
                     root.triggerRowAction(index, idx)
                 }
@@ -470,14 +504,14 @@ Panel {
 
                 Row {
                     anchors { left: wifiLabel.right; leftMargin: Theme.margin; verticalCenter: parent.verticalCenter }
-                    height: 10
+                    height: Theme.meterHeight
                     spacing: Theme.margin
 
                     Repeater {
                         model: 4
                         delegate: Rectangle {
-                            width: 10
-                            height: 10
+                            width: Theme.meterHeight
+                            height: Theme.meterHeight
                             color: index < Math.round(wifiItem.wifiSignal / 25)
                                    ? Colors.foreground : Qt.alpha(Colors.foreground, Theme.alphaInactive)
                         }
@@ -525,11 +559,13 @@ Panel {
                 actions: root.ethActions(modelData, index)
 
                 onToggled: {
-                    if (!root.inSection) { root.inSection = true; root.selDevice = index }
+                    root.inSection = true
+                    root.selDevice = index
                     root.toggleRowDropdown(index)
                 }
                 onActionTriggered: (idx) => {
-                    if (!root.inSection) { root.inSection = true; root.selDevice = index }
+                    root.inSection = true
+                    root.selDevice = index
                     root.selRowAction = idx
                     root.triggerRowAction(index, idx)
                 }
@@ -643,19 +679,32 @@ Panel {
 
     // ---- Configuration ----
     Column {
+        id: configColumn
         width: parent.width
         spacing: root.colSpacing
         visible: root.selSection === root.secConfig
 
         SectionSubHeader { text: "Wi-Fi" }
 
-        PanelRow {
+        DropdownRow {
             width: parent.width
-            height: root.rowHeight
-            selected: root.inSection && 0 === root.selDevice
-            panel: root
-            itemIndex: 0
-            onClicked: root.setWifiEnabled(!root.wifiEnabled)
+            rowHeight: root.rowHeight
+            isSelected: root.inSection && 0 === root.selDevice
+            isExpanded: root.expandedRowIdx === 0
+            selActionIndex: root.expandedRowIdx === 0 ? root.selRowAction : -1
+            actions: root.configToggleActions(0)
+
+            onToggled: {
+                root.inSection = true
+                root.selDevice = 0
+                root.toggleRowDropdown(0)
+            }
+            onActionTriggered: (idx) => {
+                root.inSection = true
+                root.selDevice = 0
+                root.selRowAction = idx
+                root.triggerRowAction(0, idx)
+            }
 
             ThemeText {
                 text: "Wi-Fi: " + (root.wifiEnabled ? "On" : "Off")
@@ -680,13 +729,25 @@ Panel {
 
         SectionSubHeader { text: "Bluetooth" }
 
-        PanelRow {
+        DropdownRow {
             width: parent.width
-            height: root.rowHeight
-            selected: root.inSection && 1 === root.selDevice
-            panel: root
-            itemIndex: 1
-            onClicked: BluetoothModel.setOn(!root.btOn)
+            rowHeight: root.rowHeight
+            isSelected: root.inSection && 1 === root.selDevice
+            isExpanded: root.expandedRowIdx === 1
+            selActionIndex: root.expandedRowIdx === 1 ? root.selRowAction : -1
+            actions: root.configToggleActions(1)
+
+            onToggled: {
+                root.inSection = true
+                root.selDevice = 1
+                root.toggleRowDropdown(1)
+            }
+            onActionTriggered: (idx) => {
+                root.inSection = true
+                root.selDevice = 1
+                root.selRowAction = idx
+                root.triggerRowAction(1, idx)
+            }
 
             ThemeText {
                 text: root.btAdapter
@@ -699,17 +760,30 @@ Panel {
 
     // ---- NetworkManager ----
     Column {
+        id: nmColumn
         width: parent.width
         spacing: root.colSpacing
         visible: root.selSection === root.secNm
 
-        PanelRow {
+        DropdownRow {
             width: parent.width
-            height: root.rowHeight
-            selected: root.inSection && 0 === root.selDevice
-            panel: root
-            itemIndex: 0
-            onClicked: root.launchNmtui()
+            rowHeight: root.rowHeight
+            isSelected: root.inSection && 0 === root.selDevice
+            isExpanded: root.expandedRowIdx === 0
+            selActionIndex: root.expandedRowIdx === 0 ? root.selRowAction : -1
+            actions: root.nmActions(0)
+
+            onToggled: {
+                root.inSection = true
+                root.selDevice = 0
+                root.toggleRowDropdown(0)
+            }
+            onActionTriggered: (idx) => {
+                root.inSection = true
+                root.selDevice = 0
+                root.selRowAction = idx
+                root.triggerRowAction(0, idx)
+            }
 
             ThemeText {
                 text: "nmtui"

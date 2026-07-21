@@ -74,7 +74,7 @@ Singleton {
         // request. We listen on backingWindowVisibleChanged, fire
         // once, and detach.
         var toHide = []
-        Object.keys(panels).forEach(function(key) {
+        Object.keys(panels).forEach(key => {
             if (key !== name && panels[key].visible) toHide.push(panels[key])
         })
 
@@ -93,10 +93,10 @@ Singleton {
 
         // Otherwise wait for the compositor to map the new surface
         // before unmapping the old one.
-        function onBackingVisible() {
+        const onBackingVisible = () => {
             if (target.backingWindowVisible) {
                 target.backingWindowVisibleChanged.disconnect(onBackingVisible)
-                for (var j = 0; j < toHide.length; j++) toHide[j].visible = false
+                for (let j = 0; j < toHide.length; j++) toHide[j].visible = false
             }
         }
         target.backingWindowVisibleChanged.connect(onBackingVisible)
@@ -121,7 +121,7 @@ Singleton {
             if (target && slot) {
                 try { target.backingWindowVisibleChanged.disconnect(slot) } catch (e) {}
             }
-            for (var i = 0; i < toHide.length; i++) toHide[i].visible = false
+            for (let i = 0; i < toHide.length; i++) toHide[i].visible = false
             toHide = []
             target = null
             slot = null

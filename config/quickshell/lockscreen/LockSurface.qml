@@ -32,8 +32,6 @@ Rectangle {
         source: wallpaperPath ? "file://" + wallpaperPath : ""
         fillMode: Image.PreserveAspectCrop
         asynchronous: false   // decode synchronously so first frame shows wallpaper
-        sourceSize.width: 1920
-        sourceSize.height: 1080
     }
     Process {
         id: btnProcess
@@ -55,11 +53,11 @@ Rectangle {
         color: Qt.alpha(Colors.background, Theme.alphaWindow)
         Column {
             anchors.centerIn: parent
-            width: 420
+            width: Theme.lockContentWidth
             spacing: Theme.margin
             Item {
                 width: parent.width
-                height: 60
+                height: Theme.lockClockHeight
                 SystemClock {
                     id: clock
                     precision: SystemClock.Seconds
@@ -67,7 +65,7 @@ Rectangle {
                 Text {
                     anchors.centerIn: parent
                     color: Colors.foreground
-                    font.pixelSize: 32
+                    font.pixelSize: Theme.fontPixelSizeDisplay
                     font.family: Theme.fontFamily
                     font.bold: true
                     text: Qt.formatDateTime(clock.date, PrefStore.timeFormat === "24h" ? "HH:mm:ss" : "h:mm:ss AP")
@@ -75,7 +73,7 @@ Rectangle {
             }
             Item {
                 width: parent.width
-                height: 20
+                height: Theme.lockStatusHeight
                 ThemeText {
                     anchors.centerIn: parent
                     text: root.formattedDate
@@ -86,7 +84,7 @@ Rectangle {
                 height: Theme.headerHeight
                 spacing: context.fingerprintEnabled ? Theme.margin : 0
                 Rectangle {
-                    width: parent.width - (context.fingerprintEnabled ? 40 : 0)
+                    width: parent.width - (context.fingerprintEnabled ? Theme.lockFpReserve : 0)
                     height: Theme.headerHeight
                     color: Qt.alpha(Colors.background, Theme.alphaBackground)
                     clip: true
@@ -101,7 +99,7 @@ Rectangle {
                         }
                         color: Colors.foreground
                         font.pixelSize: Theme.fontPixelSize
-                        font.letterSpacing: 10
+                        font.letterSpacing: Theme.lockInputLetterSpacing
                         font.family: Theme.fontFamily
                         focus: true
                         echoMode: TextInput.Password
@@ -132,7 +130,7 @@ Rectangle {
                     }
                 }
                 Rectangle {
-                    width: context.fingerprintEnabled ? 30 : 0
+                    width: context.fingerprintEnabled ? Theme.lockFpButtonWidth : 0
                     height: Theme.headerHeight
                     visible: context.fingerprintEnabled
                     color: context.fingerprintFailed
@@ -147,15 +145,15 @@ Rectangle {
             }
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
-                spacing: 45
+                spacing: Theme.lockActionSpacing
                 Repeater {
                     model: root.lockActions
                     delegate: Column {
-                        spacing: 4
-                        width: 60
+                        spacing: Theme.margin
+                        width: Theme.lockActionColumnWidth
                         Rectangle {
-                            width: 45
-                            height: 45
+                            width: Theme.actionButtonSize
+                            height: Theme.actionButtonSize
                             anchors.horizontalCenter: parent.horizontalCenter
                             color: btnMouse.containsMouse ? Qt.alpha(Colors.accent, Theme.alphaSectionHeader + Theme.alphaHover) : Qt.alpha(Colors.accent, Theme.alphaSectionHeader)
                             ThemeText {
@@ -184,7 +182,7 @@ Rectangle {
             }
             Item {
                 width: parent.width
-                height: 20
+                height: Theme.lockStatusHeight
                 ThemeText {
                     anchors.horizontalCenter: parent.horizontalCenter
                     visible: context.fingerprintScanning

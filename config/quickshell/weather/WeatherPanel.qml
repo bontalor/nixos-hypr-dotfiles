@@ -128,7 +128,7 @@ Panel {
 
             ThemeText {
                 text: WeatherModel.currentSummary
-                font.pixelSize: 32
+                font.pixelSize: Theme.fontPixelSizeDisplay
                 font.bold: true
             }
 
@@ -254,7 +254,7 @@ Panel {
 
             ThemeText {
                 text: WeatherModel.moonIcon + " " + WeatherModel.moonPhase
-                font.pixelSize: 32
+                font.pixelSize: Theme.fontPixelSizeDisplay
                 font.bold: true
             }
 

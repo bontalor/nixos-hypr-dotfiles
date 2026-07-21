@@ -1,0 +1,3 @@
+singleton WeatherModel WeatherModel.qml
+singleton WeatherCodes WeatherCodes.qml
+WeatherPanel WeatherPanel.qml

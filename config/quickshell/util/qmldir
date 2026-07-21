@@ -1,0 +1,9 @@
+singleton Paths Paths.qml
+singleton PrefStore PrefStore.qml
+singleton Scroll Scroll.qml
+singleton FormatUtil FormatUtil.qml
+singleton SubstringRankSort SubstringRankSort.qml
+singleton MprisSelector MprisSelector.qml
+singleton CalendarUtil CalendarUtil.qml
+singleton MoonUtil MoonUtil.qml
+CheckedProcess CheckedProcess.qml

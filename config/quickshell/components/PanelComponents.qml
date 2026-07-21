@@ -15,21 +15,13 @@ import "../weather"
 import QtQuick
 
 Item {
-    readonly property Component picker: cPicker
-    readonly property Component launcher: cLauncher
-    readonly property Component powerMenu: cPowerMenu
-    readonly property Component volume: cVolume
-    readonly property Component network: cNetwork
-    readonly property Component battery: cBattery
-    readonly property Component dateTime: cDateTime
-    readonly property Component weather: cWeather
-    readonly property Component media: cMedia
-    readonly property Component emoji: cEmoji
-    readonly property Component notifications: cNotifications
-    readonly property Component settings: cSettings
-    readonly property Component clipboard: cClipboard
-    readonly property Component keybinds: cKeybinds
-    readonly property Component ffmpeg: cFfmpeg
+    // Per-key access for the dev harness (dev.qml):
+    //     PanelComponents { id: shared }
+    //     Loader { sourceComponent: shared.get("weather") ?? shared.get("launcher") }
+    //
+    // Production wiring lives in shell.qml, which instantiates each
+    // panel directly (`NetworkPanel { panelKey: Panels.network }`),
+    // so this map exists only to locate a Component by key.
 
     function get(key) {
         switch (key) {

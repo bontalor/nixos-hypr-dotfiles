@@ -172,8 +172,8 @@ FloatingWindow {
                 // margins would double them at the edges.
                 anchors { leftMargin: Theme.margin; rightMargin: 0; topMargin: Theme.margin; bottomMargin: 0 }
                 model: root.wallpaperList
-                cellWidth: 205
-                cellHeight: 140
+                cellWidth: Theme.wallpaperCellWidth
+                cellHeight: Theme.wallpaperCellHeight
                 clip: true
                 // Interactive so the mouse wheel / touchpad scrolls the
                 // grid; keyboard selection still repositions the view
@@ -187,14 +187,14 @@ FloatingWindow {
                 // avoid retaining hundreds of decoded bitmaps when the
                 // user has a large walls directory.
                 delegate: Item {
-                    width: grid.cellWidth - 10
-                    height: grid.cellHeight - 10
+                    width: grid.cellWidth - Theme.margin
+                    height: grid.cellHeight - Theme.margin
 
                     Image {
                         anchors.fill: parent
                         source: modelData.path
-                        sourceSize.width: 195
-                        sourceSize.height: 130
+                        sourceSize.width: Theme.wallpaperCellWidth - Theme.margin
+                        sourceSize.height: Theme.wallpaperCellHeight - Theme.margin
                         fillMode: Image.PreserveAspectCrop
                         asynchronous: true
                         cache: false

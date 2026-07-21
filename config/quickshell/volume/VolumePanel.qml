@@ -34,27 +34,24 @@ Panel {
 
     // --- Per-row action dropdown state (sections 0-3) ---
     // Only one row's dropdown is open at a time so the list stays
-    // scannable. -1 = none. selDeviceAction indexes deviceActions()
-    // while a dropdown is open.
-    property int expandedDeviceIdx: -1
-    property int selDeviceAction: 0
-
-    function closeDropdown() {
-        root.expandedDeviceIdx = -1
-        root.selDeviceAction = 0
+    // scannable. State + close/toggle/trigger + keyboard nav all live
+    // on the shared DropdownState; the panel supplies deviceActions(idx)
+    // (per-row action list) and doDeviceAction(idx, actIdx) (performs
+    // the action — DropdownState closes the dropdown after).
+    DropdownState {
+        id: dropdown
+        rowActions: function(idx) { return root.deviceActions(idx) }
+        triggerAction: function(idx, actIdx) { root.doDeviceAction(idx, actIdx) }
     }
 
-    function openDropdown(idx) {
-        root.expandedDeviceIdx = idx
-        // Land on Mute for devices, Set Default already lands on the
-        // second slot; default to 0 (Mute/Unmute) which is always present.
-        root.selDeviceAction = 0
-    }
-
-    function toggleDropdown(idx) {
-        if (root.expandedDeviceIdx === idx) root.closeDropdown()
-        else root.openDropdown(idx)
-    }
+    // Aliases preserved so existing delegate bindings to
+    // `root.expandedDeviceIdx` / `root.selDeviceAction` and the
+    // close/toggle/trigger helper functions keep working.
+    property int expandedDeviceIdx: dropdown.expandedRowIdx
+    property int selDeviceAction: dropdown.selRowAction
+    function closeDropdown() { dropdown.close() }
+    function toggleDropdown(idx) { dropdown.toggle(idx) }
+    function triggerAction(idx, actIdx) { dropdown.trigger(idx, actIdx) }
 
     function deviceActions(idx) {
         var list = root.currentModel()
@@ -73,19 +70,21 @@ Panel {
         return acts
     }
 
-    function triggerAction(actIdx) {
+    // Performs the action identified by actIdx for row `deviceIdx` —
+    // invoked by DropdownState.trigger after the dispatch; the shared
+    // state closes the dropdown after this returns.
+    function doDeviceAction(deviceIdx, actIdx) {
         var list = root.currentModel()
-        if (root.selDevice >= list.length) { root.closeDropdown(); return }
-        var node = list[root.selDevice]
-        var acts = root.deviceActions(root.selDevice)
+        if (deviceIdx >= list.length) return
+        var node = list[deviceIdx]
+        var acts = root.deviceActions(deviceIdx)
         var act = acts[actIdx]
-        if (!act) { root.closeDropdown(); return }
-        if (act.action === "mute") root.toggleDeviceMute(root.selDevice)
+        if (!act) return
+        if (act.action === "mute") root.toggleDeviceMute(deviceIdx)
         else if (act.action === "default") {
             if (root.selSection === root.secSinks) Pipewire.preferredDefaultAudioSink = node
             else if (root.selSection === root.secSources) Pipewire.preferredDefaultAudioSource = node
         }
-        root.closeDropdown()
     }
 
     // Panel's expandable-config mode drives all keyboard navigation for
@@ -283,52 +282,12 @@ Panel {
             }
         }
 
-        // Section-0..3 dropdown nav. Pre-empts PanelNav's Tab/Enter
-        // (which would descend into the section or fire deviceActivated)
-        // so Enter opens the dropdown instead of immediately setting
-        // the default — matches the rest of the shell's dropdown UX.
+        // Section-0..3 dropdown nav. Pre-empts PanelNav's Tab/Enter (which
+        // would descend into the section or fire deviceActivated) so Enter
+        // opens the dropdown instead of immediately setting the default
+        // — matches the rest of the shell's dropdown UX.
         if (root.inSection && root.selSection < root.secConfig) {
-            var open = root.expandedDeviceIdx === root.selDevice
-            switch (event.key) {
-            case Qt.Key_Return:
-            case Qt.Key_Enter:
-            case Qt.Key_Tab:
-                if (event.modifiers & Qt.ShiftModifier) {
-                    if (open) { root.closeDropdown(); event.accepted = true }
-                    // fall through to PanelNav (Shift+Tab climb-out)
-                } else if (open) {
-                    root.triggerAction(root.selDeviceAction)
-                    event.accepted = true
-                } else {
-                    root.openDropdown(root.selDevice)
-                    event.accepted = true
-                }
-                return
-            case Qt.Key_Backtab:
-                if (open) { root.closeDropdown(); event.accepted = true; return }
-                return  // fall through to PanelNav for climb-out
-            case Qt.Key_Escape:
-                if (open) { root.closeDropdown(); event.accepted = true; return }
-                return  // let PanelNav unwind the section
-            case Qt.Key_J:
-            case Qt.Key_Down:
-                if (open) {
-                    root.selDeviceAction = Scroll.step(
-                        root.selDeviceAction, 1,
-                        root.deviceActions(root.selDevice).length)
-                    event.accepted = true; return
-                }
-                return  // PanelNav's section-row down
-            case Qt.Key_K:
-            case Qt.Key_Up:
-                if (open) {
-                    root.selDeviceAction = Scroll.step(
-                        root.selDeviceAction, -1,
-                        root.deviceActions(root.selDevice).length)
-                    event.accepted = true; return
-                }
-                return  // PanelNav's section-row up
-            }
+            if (dropdown.handleKey(event, root.selDevice)) return
         }
     }
 
@@ -408,14 +367,16 @@ Panel {
                 dropdownOpen: root.expandedDeviceIdx === index
                 selActionIndex: root.expandedDeviceIdx === index ? root.selDeviceAction : -1
                 onDropdownToggled: {
-                    if (!root.inSection) { root.inSection = true; root.selDevice = index }
+                    root.inSection = true
+                    root.selDevice = index
                     root.toggleDropdown(index)
                 }
                 onChangeVolume: (idx, fraction) => root.changeDeviceVolume(idx, fraction)
                 onActionTriggered: (idx) => {
-                    if (!root.inSection) { root.inSection = true; root.selDevice = index }
+                    root.inSection = true
+                    root.selDevice = index
                     root.selDeviceAction = idx
-                    root.triggerAction(idx)
+                    root.triggerAction(index, idx)
                 }
             }
         }

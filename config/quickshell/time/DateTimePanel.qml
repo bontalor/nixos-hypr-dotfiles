@@ -226,7 +226,7 @@ Panel {
 
                 ThemeText {
                     text: Qt.formatDateTime(root.now, PrefStore.timeFormat === "24h" ? "HH:mm:ss" : "h:mm:ss AP")
-                    font.pixelSize: 24
+                    font.pixelSize: Theme.fontPixelSizeHeader
                     font.bold: true
                 }
 

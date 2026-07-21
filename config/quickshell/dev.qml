@@ -21,7 +21,7 @@ ShellRoot {
     PanelComponents { id: shared }
 
     Loader {
-        sourceComponent: shared.get(root.which) ?? shared.launcher
+        sourceComponent: shared.get(root.which) ?? shared.get("launcher")
         onItemChanged: if (item) item.visible = true
     }
 

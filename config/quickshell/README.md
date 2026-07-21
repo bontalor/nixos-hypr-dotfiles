@@ -1,12 +1,16 @@
 # Quickshell config
 
-A [Quickshell](https://quickshell.org/) desktop shell for Hyprland on NixOS,
-run as a systemd user service. Bar, 15 toggleable panels, notification
-daemon, OSD, clipboard history, and a session lockscreen — ~8k lines of QML.
+A [Quickshell](https://quickshell.org/) desktop shell for Hyprland, run as a
+systemd user service. Bar, 15 toggleable panels, notification daemon, OSD,
+clipboard history, and a session lockscreen — ~8k lines of QML.
 
 Design goals: minimal, simple, readable, modular, and Quickshell-native
 components wherever 0.3.0 provides one. Every remaining subprocess is a
 documented gap in the native API (see "Runtime dependencies" below).
+
+Tested on Hyprland. Should run anywhere Quickshell 0.3.0, Qt 6.11, and the
+runtime deps below are available — bring your own init system, distro, and
+package manager.
 
 ## Layout
 
@@ -29,18 +33,33 @@ bar/              Bar window + bar/widgets/* chips
                     weather/, clipboard/, notifications/, osd/, power/, …
 lockscreen/       Separate Quickshell instance (see below)
 components/DropdownRow.qml
-                  Canonical per-row dropdown scaffold (Wi-Fi/Ethernet/
-                  Battery device rows); the Bluetooth section still uses
-                  the panel-level ConfigExpandItem/expandSection path,
-                  VolumePanel extends it inline via AudioDeviceRow.
+                  Canonical per-row dropdown scaffold; every clickable row
+                    in every panel (Wi-Fi/Ethernet/Battery devices + Power
+                    Profiles/Volume streams + devices/NetworkManager toggles/
+                    FFmpeg operations/Job cancel) opens a small action list
+                    below the header on click. State + close/toggle/trigger
+                    + keyboard nav live on the shared DropdownState QtObject;
+                    each panel supplies only rowActions(idx) (per-section
+                    action list) + triggerAction(idx, actIdx) (performs the
+                    selected action). Bluetooth stays on the panel-level
+                    ConfigExpandItem/expandSection path; VolumePanel extends
+                    the in-row DropdownRow via AudioDeviceRow.
 ```
 
 Conventions:
 
 - **Panels self-register.** A panel is one declaration in `shell.qml`
-  (`NetworkPanel { panelKey: Panels.network }`); the scaffold registers it
-  with the `Panels` singleton, which also feeds the launcher's synthetic
-  entries. No registration list to keep in sync.
+    (`NetworkPanel { panelKey: Panels.network }`); the scaffold registers
+    it with the `Panels` singleton, which also feeds the launcher's
+    synthetic entries. No registration list to keep in sync.
+- **Every clickable panel row opens a dropdown.** Header click reveals a
+    small action list below the row; click an action to perform it. The
+    State + close/toggle/trigger + keyboard nav logic is shared on the
+    `DropdownState` QtObject (`components/DropdownState.qml`); each panel
+    supplies only the per-section `rowActions(idx)` and
+    `triggerAction(idx, actIdx)` hooks. ConfigExpandItem sections
+    (Volume / Settings / Bluetooth) keep their panel-level expandable path
+    — the same pattern, just owned by PanelNav.
 - **State lives in singletons, UI in windows.** Singletons consume native
   Quickshell services (Networking, Bluetooth, UPower, PowerProfiles,
   Pipewire, Mpris, Notifications, Pam, DesktopEntries, SystemClock) as live
@@ -51,8 +70,15 @@ Conventions:
   holds only visual constants shared across domains.
 - **Prefs** persist to `$XDG_STATE_HOME/quickshell/prefs.json` via
   `PrefStore` (FileView + JsonAdapter) — the config tree itself may be a
-  read-only home-manager symlink. The Settings panel is the UI for it.
+  read-only symlink from your dotfiles repo. The Settings panel is the UI
+  for it.
 - **Timers are gated** on visibility or pending work so the shell idles.
+- **Singletons are declared in `qmldir`** in every shared directory
+  (`theme/`, `models/`, `util/`, `components/`) and per-feature singleton
+  directories (`notifications/`, `osd/`, `clipboard/`, `weather/`, `media/`,
+  `time/`). Directory-import resolution marks them singleton for both the
+  engine and `qmllint`, so the linter treats `Panels`, `NetworkModel`,
+  `PrefStore`, etc. as singletons without false-positive warnings.
 
 ## IPC surface (Hyprland binds)
 
@@ -125,9 +151,13 @@ runs `fprintd-verify` concurrently with the password prompt.
 
 ## Runtime dependencies
 
-The systemd user service must have these on its PATH (on NixOS: add the
-packages to the unit's `path`/`Environment=PATH`, or to `home.packages` if
-the unit inherits the session environment):
+The shell is launched as a systemd user service. Ensure the binaries below
+are on the unit's `PATH` — on a distro that runs systemd user units under
+the user session, inherit the user environment or add the packages you
+install to the unit's `Environment=PATH` / `PATH` directive. On NixOS that
+means `home.packages` or `systemd.user.services.quickshell.Service.Path`;
+on Arch/Fedora/Debian it's just "install the package and confirm it's on
+`$PATH` under the session that launches the unit."
 
 | Dependency | Used by | Why not native |
 |---|---|---|
@@ -179,8 +209,13 @@ qs -p lockscreen/test.qml               # lockscreen UI in a window
   Disconnect / Forget), Ethernet (Connect / Disconnect), and Battery
   (Track this device) rows now share a `components/DropdownRow.qml`
   scaffold with the same keyboard nav as the existing ConfigExpandItem
-  pattern. Sections whose only action is the row's main purpose (e.g.
-  Power Profiles, the NetworkManager "nmtui" row) stay direct-click.
+  pattern.
+
+- ~~dropdowns for actionable rows across panels~~ — extended to every
+  clickable row in every panel (Power Profiles, Wi-Fi/BT/nmtui toggles,
+  FFmpeg operations/job cancel). Shared state + close/toggle/trigger +
+  keyboard nav live on `components/DropdownState.qml`; each panel
+  supplies only `rowActions(idx)` + `triggerAction(idx, actIdx)` hooks.
 
 ## Improvements (audit pass)
 
@@ -209,11 +244,49 @@ qs -p lockscreen/test.qml               # lockscreen UI in a window
   (semantic aliases like `selected=color1` were unreadable on a black
   surface). Mismatches with the active wal palette only last until the
   next `setwall`.
+- **qmldir per directory** — every shared dir (`theme/`, `models/`,
+  `util/`, `components/`) and every per-feature dir that contains a
+  singleton (`notifications/`, `osd/`, `clipboard/`, `weather/`, `media/`,
+  `time/`) now has a `qmldir` declaring its singletons and export types.
+  `qmllint` no longer reports "Type X not declared as singleton" false
+  positives against this config; the linter is now usable as a real
+  check, invoked as:
+  ```
+  qmllint -I <path-to-Quickshell-qml> shell.qml
+  ```
+  (where `<path-to-Quickshell-qml>` is the directory containing
+  `Quickshell/qmldir` for your installation — printed by `qs -v`
+  / findable via your Qt 6 QML import path).
+- **Dropdown pattern consolidated** — shared state and keyboard nav for
+  every per-row action dropdown now live on the `DropdownState` QtObject
+  (`components/DropdownState.qml`). Every clickable row in every panel
+  (Battery devices, Power Profiles, Wi-Fi/Ethernet, Configuration
+  toggles, NetworkManager, Volume streams + devices, every FFmpeg
+  operation + Trim/Resize EditRows + Job cancel) opens an action list;
+  ConfigExpandItem sections (Volume / Settings / Bluetooth config) keep
+  the expandable-config path — same UX, owned by PanelNav. Each panel
+  supplies only `rowActions(idx)` (per-section action list) and
+  `triggerAction(idx, actIdx)` (performs the action); ~195 LOC of
+  near-duplicate state + keyboard nav across four panels collapsed into
+  a single ~95 LOC QtObject. The earlier "click a non-keyboard-highlighted
+  row's action silently operated on the keyboard row" bug is fixed along
+  the way: every click always moves `selDevice` to the clicked row.
+- **Theme sizes consolidated to 10px / 45px rhythm** — every leftover
+  per-domain hardcoded size is now expressed through a Theme constant:
+  `meterHeight: 10` (thin track bars / segmented-dot size — OSD value,
+  FFmpeg progress, Volume bars + peak dots, Wi-Fi signal dots, media seek
+  bar), `margin: 10` (bar-track inner spacing, the seek bar's
+  elapsed↔remaining margins, the Battery profile icon+name Row spacing),
+  and `actionButtonSize: 45` (square action buttons + the elapsed/
+  remaining text column widths beside the seek bar). The lockscreen's
+  wallpaper `sourceSize` is removed so the shell renders at any screen
+  resolution; the lockscreen no longer pins a 1920x1080 decode target.
 
 ## Development workflow notes
 
-- `qmllint` is on PATH (Qt 6.11) but the Quickshell singletons (Panels,
-  Models, Util) aren't declared in a project `qmldir`, so it produces
-  false-positive "Type X not declared as singleton" warnings. Treat
-  its output as advisory only — the real check is `qs -p dev.qml` for
-  the panel you edited.
+- `qmllint` (Qt 6.11) is now advisory-and-usable: with the per-directory
+  `qmldir` files declaring singletons, past false-positive "Type X not
+  declared as singleton" warnings are gone. Remaining warnings from
+  `qmllint` should be investigated. The real check remains
+  `qs -p dev.qml` for the panel you edited, plus `qs -p shell.qml` for
+  whole-shell smoke.

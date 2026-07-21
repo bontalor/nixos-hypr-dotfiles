@@ -170,13 +170,13 @@ Panel {
 
             Image {
                 anchors.centerIn: parent
-                width: Math.min(220, parent.width)
-                height: Math.min(220, parent.height)
+                width: Math.min(Theme.albumArtSize, parent.width)
+                height: Math.min(Theme.albumArtSize, parent.height)
                 source: root.trackArtUrl
                 fillMode: Image.PreserveAspectCrop
                 asynchronous: true
-                sourceSize.width: 220
-                sourceSize.height: 220
+                sourceSize.width: Theme.albumArtSize
+                sourceSize.height: Theme.albumArtSize
                 smooth: true
             }
         }
@@ -189,21 +189,19 @@ Panel {
             // Seek bar
             Item {
                 width: parent.width
-                height: 8
+                height: Theme.meterHeight
                 visible: root.trackLength > 0
 
                 ThemeText {
                     id: elapsedText
                     text: root.fmtTime(root.trackPosition)
                     color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
-                    width: 47
-                    horizontalAlignment: Text.AlignRight
                     anchors { left: parent.left; verticalCenter: parent.verticalCenter }
                 }
 
                 Rectangle {
-                    anchors { left: elapsedText.right; leftMargin: 9; right: remainingText.left; rightMargin: 9; verticalCenter: parent.verticalCenter }
-                    height: 10
+                    anchors { left: elapsedText.right; leftMargin: Theme.margin; right: remainingText.left; rightMargin: Theme.margin; verticalCenter: parent.verticalCenter }
+                    height: Theme.meterHeight
                     color: Qt.alpha(Colors.foreground, Theme.alphaInactive)
 
 Rectangle {
@@ -238,8 +236,6 @@ Rectangle {
                     id: remainingText
                     text: root.fmtTime(root.trackLength)
                     color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
-                    width: 47
-                    horizontalAlignment: Text.AlignLeft
                     anchors { right: parent.right; verticalCenter: parent.verticalCenter }
                 }
             }
@@ -248,11 +244,11 @@ Rectangle {
             // via Canvas with raw pixel coordinates).
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
-                height: 45
+                height: Theme.actionButtonSize
                 spacing: Theme.margin
 
                 Rectangle {
-                    width: 45; height: 45
+                    width: Theme.actionButtonSize; height: Theme.actionButtonSize
                     color: prevBtn.containsMouse ? Qt.alpha(Colors.accent, Theme.alphaSectionHeader + Theme.alphaHover) : Qt.alpha(Colors.accent, Theme.alphaSectionHeader)
                     ThemeText {
                         anchors.centerIn: parent
@@ -269,7 +265,7 @@ Rectangle {
                 }
 
                 Rectangle {
-                    width: 45; height: 45
+                    width: Theme.actionButtonSize; height: Theme.actionButtonSize
                     color: playBtn.containsMouse ? Qt.alpha(Colors.accent, Theme.alphaSectionHeader + Theme.alphaHover) : Qt.alpha(Colors.accent, Theme.alphaSectionHeader)
                     ThemeText {
                         anchors.centerIn: parent
@@ -286,7 +282,7 @@ Rectangle {
                 }
 
                 Rectangle {
-                    width: 45; height: 45
+                    width: Theme.actionButtonSize; height: Theme.actionButtonSize
                     color: nextBtn.containsMouse ? Qt.alpha(Colors.accent, Theme.alphaSectionHeader + Theme.alphaHover) : Qt.alpha(Colors.accent, Theme.alphaSectionHeader)
                     ThemeText {
                         anchors.centerIn: parent
