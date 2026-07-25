@@ -12,7 +12,7 @@ import Quickshell
 Singleton {
 // --- Fonts ---
     property string fontFamily: "JetBrainsMono Nerd Font"
-    property int fontPixelSize: 16
+    property int fontPixelSize: 15
     property int fontPixelSizeLarge: 22
     property int fontPixelSizeXLarge: 30
     property int fontPixelSizeHeader: 24       // mid-emphasis (date line in DateTimePanel)
