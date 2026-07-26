@@ -14,6 +14,7 @@ in
     boot.loader.grub.efiSupport = true;
     boot.loader.grub.device = "nodev";
     boot.loader.grub.useOSProber = true;
+    boot.loader.grub.configurationLimit = 10;
     boot.loader.efi.canTouchEfiVariables = true;
     boot.kernelPackages = pkgs.linuxPackages_latest;
     boot.kernelParams = [
@@ -48,6 +49,7 @@ in
 	pulse.enable = true;
 	jack.enable = true;
 	alsa.enable = true;
+	alsa.support32Bit = true;
 	wireplumber.enable = true;
     };
     services.upower.enable = true;
@@ -101,7 +103,9 @@ in
     programs.appimage.package = pkgs.appimage-run.override {
 	extraPkgs = pkgs: [
 	    pkgs.curl
-		pkgs.libmpg123
+	    pkgs.libmpg123
+	    pkgs.icu 
+	    pkgs.libxcrypt-legacy
 	];
     };
 
@@ -145,6 +149,7 @@ in
 	    wget
 	    foot
 	    git
+	    tmux
 	    jq
 	    libarchive
 	    xrdb
@@ -154,6 +159,7 @@ in
 	    fontconfig
 	    icu
 	    quickshell
+	    pipewire.jack
 	    mcsrPkgs.ninjabrain-bot
 	    (pkgs.prismlauncher.override {
 	     jdks = [ mcsrPkgs.graalvm-21 jdk25 javaPackages.compiler.temurin-bin.jdk-25 ];

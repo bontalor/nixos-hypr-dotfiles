@@ -8,7 +8,6 @@
 # Imports
 
     imports = [
-	inputs.spicetify-nix.homeManagerModules.spicetify
     ];
 
 # XDG dirs
@@ -51,6 +50,7 @@
 	    chatterino2
 	    discord
 	    spotify
+	    osu-lazer-bin
 	    vesktop
 	    qbittorrent
 	    python3
@@ -95,7 +95,6 @@
 	    gearlever
 	    appimage-run
 	    rofi
-	    osu-lazer-bin
 	    cava
 	    lavat
 	    evtest

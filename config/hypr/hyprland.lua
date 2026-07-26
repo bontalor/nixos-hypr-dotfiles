@@ -101,6 +101,9 @@ hl.config({
         allow_tearing    = true,
         layout           = "dwindle",
     },
+    render = {
+	direct_scanout = 0;
+    },
 
     decoration = {
         rounding_power   = 0,
@@ -183,7 +186,7 @@ hl.config({
         no_break_fs_vrr = 1,
         min_refresh_rate = 144,
         no_hardware_cursors = 0,
-	hide_on_key_press = false,
+	--hide_on_key_press = false,
     },
 })
 
