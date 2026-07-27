@@ -2,8 +2,16 @@
 //
 // Lives in the shell.qml Scope alongside the bar. Owns the Quickshell
 // `NotificationServer`, exposes a `history` ListModel for the history
-// panel, and raises popups via the live `activePopups` ListModel that
-// `NotifPopup.qml` mirrors via Variants.
+// panel, and raises popups by spawning one NotifPopup PanelWindow per
+// active notification. Each popup Window is created via Component
+// .createObject with the snapshot's fields baked in as concrete
+// properties — there is no shared ListModel + Repeater driving them,
+// so when a popup despawns the surviving windows only have their numeric
+// `WlrLayershell.margins.top` adjusted (recomputed by popupYOffset);
+// their Text / IconImage never rebind, killing the previous
+// "remaining two popups flicker for a split second when one despawns"
+// symptom at both causes (QML row-shift rebind and Wayland-surface
+// resize/reattach on a shared surface).
 //
 // Expiry/dismiss removes the popup but keeps the snapshot in `history`
 // so the panel still shows it. Critical notifications don't auto-expire.
@@ -20,6 +28,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Notifications
+import "../theme"
 import "../util"
 
 Singleton {
@@ -39,7 +48,22 @@ Singleton {
     // Append-only history of snapshot objects.
     property ListModel history: ListModel {}
 
-    property ListModel activePopups: ListModel {}
+    // Active popup Windows keyed by notifId — concrete NotifPopup
+    // instances with their snapshot fields assigned at createObject()
+    // time (no model bindings). `popupOrder` is the newest-first list
+    // of notifIds tracking vertical layout; `popupLayoutVersion` is
+    // bumped on every add/remove so popup Y-offset bindings re-evaluate
+    // without each popup having to subscribe to sibling implicitHeight
+    // changes individually (the function also creates implicit deps on
+    // sibling implicitHeights via QML's binding read-tracking once it
+    // runs, so re-layout fires when any popup's card height settles).
+    property var popupSurfaces: ({})   // String(notifId) -> NotifPopup instance
+    property var popupOrder: []        // int notifIds, newest first
+    property int popupLayoutVersion: 0
+
+    // Component used to spawn popup Windows on demand. Parsed once from
+    // the relative URL (resolved against NotifDaemon.qml's directory).
+    property Component popupComponent: Qt.createComponent("NotifPopup.qml")
 
     // Pending expiries keyed by notifId. A single recurring Timer scans
     // this map and calls notification.expire() on due entries — replaces
@@ -98,11 +122,68 @@ Singleton {
         }
         root.persistHistory()
         if (PrefStore.notifPopups || urgency === NotificationUrgency.Critical) {
-            root.activePopups.insert(0, snap)
-            while (root.activePopups.count > root.maxPopups) {
-                root.activePopups.remove(root.activePopups.count - 1)
+            root.spawnPopup(snap)
+            // Overflow: drop the oldest (visually bottom) popup Window.
+            while (root.popupOrder.length > root.maxPopups) {
+                root.despawnPopupById(root.popupOrder[root.popupOrder.length - 1])
             }
         }
+    }
+
+    // Spawn a fresh popup Window with the snapshot baked in as concrete
+    // properties. Lifetime is tied to the daemon (passed as the QObject
+    // parent) — destroyed with the singleton on shell reload, and
+    // explicitly destroyed via despawnPopupById on dismiss/expire.
+    function spawnPopup(snap) {
+        var inst = root.popupComponent.createObject(root, {
+            notifId:       snap.notifId,
+            notifSummary:  snap.summary,
+            notifBody:     snap.body,
+            notifAppName:  snap.appName,
+            notifAppIcon:  snap.appIcon,
+            notifImage:    snap.image,
+            notifUrgency:  snap.urgency,
+            notifHasAction: snap.hasAction
+        })
+        if (!inst) {
+            console.warn("NotifPopup spawn failed:",
+                         root.popupComponent.errorString())
+            return
+        }
+        root.popupSurfaces[String(snap.notifId)] = inst
+        root.popupOrder.unshift(snap.notifId)
+        root.popupLayoutVersion++
+    }
+
+    // Destroy a popup Window by notifId and recompute sibling Y offsets
+    // ( popupLayoutVersion bump re-evaluates surviving bindings ). The
+    // snapshot stays in `history`.
+    function despawnPopupById(notifId) {
+        var inst = root.popupSurfaces[String(notifId)]
+        if (!inst) return
+        delete root.popupSurfaces[String(notifId)]
+        var idx = root.popupOrder.indexOf(notifId)
+        if (idx >= 0) root.popupOrder.splice(idx, 1)
+        inst.destroy()
+        root.popupLayoutVersion++
+    }
+
+    // Cumulative Y offset (including the 20px top screen margin handled
+    // by each popup's own binding) for the popup identified by `id`,
+    // summing the implicitHeight of preceding popups in stack order.
+    // Reading `popupLayoutVersion` makes the binding depend on layout
+    // changes; reading each preceding `inst.implicitHeight` adds a
+    // per-popup reactive dependency so card-height settling re-fires.
+    function popupYOffset(id) {
+        var _v = root.popupLayoutVersion
+        var y = 0
+        for (var i = 0; i < root.popupOrder.length; i++) {
+            var cur = root.popupOrder[i]
+            if (cur === id) break
+            var inst = root.popupSurfaces[String(cur)]
+            if (inst) y += inst.implicitHeight + Theme.margin
+        }
+        return y
     }
 
     function handleNotification(notification) {
@@ -246,12 +327,7 @@ Singleton {
     }
 
     function removePopupById(notifId) {
-        for (var i = 0; i < root.activePopups.count; i++) {
-            if (root.activePopups.get(i).notifId === notifId) {
-                root.activePopups.remove(i)
-                return
-            }
-        }
+        root.despawnPopupById(notifId)
     }
 
     function clearHistory() {
@@ -259,7 +335,7 @@ Singleton {
         root.persistHistory()
     }
 
-    // Single schema for both history and activePopups snapshots —
+    // Single schema for both history and popup snapshots —
     // includes appIcon/image so the panel can render them too.
     // `hasAction` drives the popup's left-click behavior (invoke vs
     // dismiss); it is forced false for entries reloaded from disk since
