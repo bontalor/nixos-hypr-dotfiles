@@ -7,11 +7,14 @@
 // .createObject with the snapshot's fields baked in as concrete
 // properties — there is no shared ListModel + Repeater driving them,
 // so when a popup despawns the surviving windows only have their numeric
-// `WlrLayershell.margins.top` adjusted (recomputed by popupYOffset);
-// their Text / IconImage never rebind, killing the previous
-// "remaining two popups flicker for a split second when one despawns"
-// symptom at both causes (QML row-shift rebind and Wayland-surface
-// resize/reattach on a shared surface).
+    // `WlrLayershell.margins.top` re-assigned (by relayoutPopups(), which
+    // replaced the old reactive popupYOffset binding — see its comment
+    // below); their Text / IconImage never rebind, killing the previous
+    // "remaining two popups flicker for a split second when one despawns"
+    // symptom at both causes (QML row-shift rebind and Wayland-surface
+    // resize/reattach on a shared surface). The same explicit-assignment
+    // mechanism also closes the spawn-time flicker at 144hz: see the
+    // relayout-debounce comment near popupSurfaces.
 //
 // Expiry/dismiss removes the popup but keeps the snapshot in `history`
 // so the panel still shows it. Critical notifications don't auto-expire.
@@ -51,15 +54,34 @@ Singleton {
     // Active popup Windows keyed by notifId — concrete NotifPopup
     // instances with their snapshot fields assigned at createObject()
     // time (no model bindings). `popupOrder` is the newest-first list
-    // of notifIds tracking vertical layout; `popupLayoutVersion` is
-    // bumped on every add/remove so popup Y-offset bindings re-evaluate
-    // without each popup having to subscribe to sibling implicitHeight
-    // changes individually (the function also creates implicit deps on
-    // sibling implicitHeights via QML's binding read-tracking once it
-    // runs, so re-layout fires when any popup's card height settles).
+    // of notifIds tracking vertical layout. Repositioning is now driven
+    // explicitly by relayoutPopups() — assign each popup's `yOffset` in
+    // stack order — instead of by a QML binding that reads sibling
+    // `implicitHeight` (which fired repeatedly as a freshly spawned
+    // popup's Row polish settled its card height across several frames,
+    // repositioning surviving Wayland surfaces multiple times per spawn
+    // = the "flicker at 144hz on new popup spawn" symptom; at 60hz the
+    // same settle fit inside one frame so it read as the same single
+    // jump despawn already had). relayoutPopups() is called synchronously
+    // on despawn (one jump, preserving the existing seamless feel) and
+    // debounced via relayoutDebounceTimer on spawn so the multi-step
+    // settle collapses into one assignment once the new popup's height
+    // is final.
     property var popupSurfaces: ({})   // String(notifId) -> NotifPopup instance
     property var popupOrder: []        // int notifIds, newest first
-    property int popupLayoutVersion: 0
+
+    // Debounce timer for stack relayout on spawn. Surviving popups jump
+    // once to their final positions only after the freshly spawned
+    // popup's card height has settled (implicitHeightChanged stops
+    // firing for `interval` ms). 16ms ≈ one 60hz frame; long enough for
+    // the Row polish pass to complete on the new popup without letting
+    // an oscillating intermediate layout reach the surviving surfaces.
+    Timer {
+        id: relayoutDebounceTimer
+        interval: 16
+        repeat: false
+        onTriggered: root.relayoutPopups()
+    }
 
     // Component used to spawn popup Windows on demand. Parsed once from
     // the relative URL (resolved against NotifDaemon.qml's directory).
@@ -152,12 +174,28 @@ Singleton {
         }
         root.popupSurfaces[String(snap.notifId)] = inst
         root.popupOrder.unshift(snap.notifId)
-        root.popupLayoutVersion++
+        // Don't relayout synchronously here: the new popup's card height
+        // is still settling (its Row hasn't been polished yet), so this
+        // would position surviving popups against a stale height and they
+        // would oscillate as the height lands. Each `implicitHeightChanged`
+        // from the new popup re-schedules relayoutPopups() via the debounce
+        // timer, so one final relayout fires after the height is settled.
+        root.scheduleRelayout()
     }
 
+    // (Re)start the spawn-relayout debounce. Called by NotifPopup's
+    // onImplicitHeightChanged (and once from spawnPopup). The single
+    // firing of relayoutPopups() that follows assigns every popup's
+    // yOffset against the settled card heights — surviving popups jump
+    // once instead of repeatedly as the new popup's Row polish settles.
+    function scheduleRelayout() { relayoutDebounceTimer.restart() }
+
     // Destroy a popup Window by notifId and recompute sibling Y offsets
-    // ( popupLayoutVersion bump re-evaluates surviving bindings ). The
-    // snapshot stays in `history`.
+    // synchronously. Surviving popups' heights are already settled (this
+    // is a despawn, not a fresh spawn — no Row polish pending), so a
+    // single relayoutPopups() here is exactly the "seamless single jump"
+    // the stack has always had on dismiss. The snapshot stays in
+    // `history`.
     function despawnPopupById(notifId) {
         var inst = root.popupSurfaces[String(notifId)]
         if (!inst) return
@@ -165,25 +203,24 @@ Singleton {
         var idx = root.popupOrder.indexOf(notifId)
         if (idx >= 0) root.popupOrder.splice(idx, 1)
         inst.destroy()
-        root.popupLayoutVersion++
+        root.relayoutPopups()
     }
 
-    // Cumulative Y offset (including the 20px top screen margin handled
-    // by each popup's own binding) for the popup identified by `id`,
-    // summing the implicitHeight of preceding popups in stack order.
-    // Reading `popupLayoutVersion` makes the binding depend on layout
-    // changes; reading each preceding `inst.implicitHeight` adds a
-    // per-popup reactive dependency so card-height settling re-fires.
-    function popupYOffset(id) {
-        var _v = root.popupLayoutVersion
+    // Walk popupOrder (newest first) and set each popup's `yOffset` to
+    // the cumulative height of preceding popups (plus inter-popup margin).
+    // Explicit assignment — NOT a binding — so a popup repositioning
+    // never re-evaluates as a sibling's height later settles. The 20px
+    // top screen margin and `+ Theme.margin` inter-popup gap live in
+    // NotifPopup.qml's margins.top binding against `yOffset`.
+    function relayoutPopups() {
         var y = 0
         for (var i = 0; i < root.popupOrder.length; i++) {
-            var cur = root.popupOrder[i]
-            if (cur === id) break
-            var inst = root.popupSurfaces[String(cur)]
-            if (inst) y += inst.implicitHeight + Theme.margin
+            var id = root.popupOrder[i]
+            var inst = root.popupSurfaces[String(id)]
+            if (!inst) continue
+            inst.yOffset = y
+            y += inst.implicitHeight + Theme.margin
         }
-        return y
     }
 
     function handleNotification(notification) {

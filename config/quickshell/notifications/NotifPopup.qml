@@ -35,16 +35,35 @@ PanelWindow {
 
     WlrLayershell.namespace: "quickshell:notification"
     WlrLayershell.anchors { top: true; right: true }
-    // Y offset within the popup stack is bound to the daemon's layout
-    // function so each window repositions on sibling despawn without
-    // touching its own content bindings.
-    WlrLayershell.margins.top: 20 + NotifDaemon.popupYOffset(notifId)
+    // Y offset within the popup stack is assigned explicitly by
+    // NotifDaemon.relayoutPopups() — NOT bound to a function of sibling
+    // implicitHeights. A binding that reads sibling `implicitHeight`
+    // re-evaluates each time the sibling's Row polish settles the card
+    // height (a multi-step settle that spans several frames at 144hz),
+    // so the surviving windows' Wayland surfaces reposition repeatedly
+    // → visible flicker; at 60hz the settle completes within one frame
+    // so the same binding reads as a single jump (which is why despawn,
+    // where heights are already settled, never flickered either). The
+    // daemon now relayouts explicitly: a debounced single assignment on
+    // spawn (after the new popup's height has settled) and a synchronous
+    // single assignment on despawn, killing the spawn-time oscillation
+    // while preserving despawn's "seamless single jump" feel.
+    property int yOffset: 0
+    WlrLayershell.margins.top: 20 + root.yOffset
     WlrLayershell.margins.right: Theme.margin + 20
 
     color: "transparent"
     implicitWidth: Theme.popupWidthWithShadow
     implicitHeight: card.height
     visible: !fullscreenActive
+
+    // When this popup's height settles (because the Row that hosts the
+    // text/icon is initially aspirational until Qt's polish pass runs),
+    // ask the daemon to relayout the stack — once. The daemon's relayout
+    // debounce coalesces multi-step settles into a single relayout so
+    // sibling popups jump once instead of flickering (see the Y-offset
+    // comment above).
+    onImplicitHeightChanged: NotifDaemon.scheduleRelayout()
 
     property bool fullscreenActive: ToplevelManager.activeToplevel
         ? ToplevelManager.activeToplevel.fullscreen : false
@@ -85,7 +104,15 @@ PanelWindow {
             }
 
             Column {
-                width: parent.width - (popupIcon.resolved ? Theme.iconSize + Theme.margin : 0)
+                // Reserve the icon column based on `expectsIcon`, not
+                // `resolved`: the column width (and so the text wrap, which
+                // dictates contentRow.implicitHeight → card.height → the
+                // popup's implicitHeight) is stable from creation instead
+                // of re-settling once the icon asynchronously resolves.
+                // This makes the only remaining spawn-time height change
+                // the initial Row polish (handled by NotifDaemon's
+                // debounce relayout), not a second async flip.
+                width: parent.width - (popupIcon.expectsIcon ? Theme.iconSize + Theme.margin : 0)
                 spacing: Theme.margin
 
                 ThemeText {

@@ -26,6 +26,17 @@ Item {
     readonly property bool resolved: appIcon !== "" && icon.status === Image.Ready
         || (icon.source === "" && fallback.status === Image.Ready)
 
+    // Whether an icon is *expected* (appIcon or embedded image present),
+    // independent of whether it has finished loading. Used by callers
+    // (NotifPopup) to reserve the icon column slot from creation so the
+    // text column width — and therefore the popup's implicitHeight —
+    // never re-settles as the icon asynchronously resolves. Without
+    // this, surviving popups reposition their Wayland surface multiple
+    // times as a fresh popup's height oscillates (the "flicker when a
+    // new popup spawns" symptom); this mirrors why despawn is already
+    // seamless (surviving popups all have settled heights by then).
+    readonly property bool expectsIcon: appIcon !== "" || image !== ""
+
     IconImage {
         id: icon
         source: root.appIcon
