@@ -36,6 +36,12 @@ Singleton {
     property alias weekStart: adapter.weekStart
     property alias batteryWarnLevel: adapter.batteryWarnLevel
     property alias allLowercase: adapter.allLowercase
+    // Main UI face. "" = Theme.defaultFontFamily (JetBrainsMono Nerd
+    // Font). Icon glyphs never use this — ThemeText routes Icon.* text
+    // through Theme.iconFamily, so this can be any non-nerd font you
+    // have installed (Inter, Cantarell, Noto Sans, …) without breaking
+    // glyph icons. Set via Settings → Appearance → Text font.
+    property alias fontFamily: adapter.fontFamily
 
     FileView {
         // Not Quickshell.statePath(): that resolves to a by-shell/<hash>
@@ -73,6 +79,7 @@ Singleton {
             property string weekStart: "sunday"    // "sunday" | "monday" (calendar)
             property int batteryWarnLevel: 20      // low-battery warning percent
             property bool allLowercase: false
+            property string fontFamily: ""           // "" = Theme.defaultFontFamily; see PrefStore.fontFamily alias
         }
     }
 }

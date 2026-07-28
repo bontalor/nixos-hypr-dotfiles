@@ -71,8 +71,19 @@ for k in range(BANDS):
         band_bins[k] = [max(1, min(WINDOW // 2 - 1, round(center * WINDOW / RATE)))]
 tilt = [(math.sqrt(edges[k] * edges[k + 1]) / edges[0]) ** TILT for k in range(BANDS)]
 
+# `node.lockQuantum` / `node.lockRate` make the visualizer stream a
+# passive follower: it joins the graph at whatever quantum/rate the
+# device is *already* running instead of negotiating the graph down to
+# the smaller latency `pw-record` would otherwise request. Without these,
+# a 1024-sample request drags the global quantum below the playback
+# device's comfortable cycle and you get xruns ("ALSA underrun" / device
+# resync) every time the visualizer starts while music is playing.
+# `stream.capture.sink = true` taps the default sink's monitor (a
+# non-destructive read side-channel — pw-record never drives the sink,
+# so locking the quantum here only pins the stream's own pull cadence).
 RECORD_CMD = [
-    "pw-record", "-P", "{ stream.capture.sink = true }",
+    "pw-record", "-P",
+    "{ stream.capture.sink = true; node.lockQuantum = true; node.lockRate = true }",
     "--format", "s16", "--rate", str(RATE), "--channels", "1", "-",
 ]
 

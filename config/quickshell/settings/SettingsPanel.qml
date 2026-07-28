@@ -33,6 +33,17 @@ Panel {
             { label: "Lowercase text", pref: "allLowercase",
               options: [ { name: "On", value: true }, { name: "Off", value: false } ] }
         ] },
+        { name: "Appearance", settings: [
+            // The main UI face. Any installed font family works — icon
+            // glyphs always render through Theme.iconFamily (a Nerd
+            // Font) regardless of this setting, so a non-nerd font here
+            // (Inter, Cantarell, Noto Sans, …) won't turn Icon.* text
+            // into tofu. Custom... opens an inline TextInput; type the
+            // exact fontconfig family name (e.g. "Inter") + Enter.
+            { label: "Text font", pref: "fontFamily",
+              options: [ { name: "Default (JetBrainsMono Nerd Font)", value: "" },
+                         { name: "Custom…", custom: true } ] }
+        ] },
         { name: "Bar", settings: [
             { label: "Bar position", pref: "barPosition",
               options: [ { name: "Top", value: "top" }, { name: "Bottom", value: "bottom" } ] },

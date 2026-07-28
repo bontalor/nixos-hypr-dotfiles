@@ -49,10 +49,21 @@ Item {
     signal changeVolume(int idx, real fraction)
     signal actionTriggered(int idx)
 
+    // Peak tap is gated to (selected OR default-device) so the panel
+    // holds at most a couple of live PipeWire monitor streams at a time,
+    // not one per visible row. Every PwNodePeakMonitor is a separate
+    // tap on a node — opening the panel with several sinks/sources/
+    // streams visible used to fan out N concurrent monitor streams and
+    // those pulls drove the device quantum down (xruns, audible clicks)
+    // on graphs that don't tolerate a small quantum. The visual cost is
+    // that unselected rows' peak dots sit frozen at their last value;
+    // the focused row and the active default always animate.
     PwNodePeakMonitor {
         id: peakMon
         node: devRow.modelData
         enabled: devRow.visible
+               && (devRow.inSection && devRow.index === devRow.selDevice
+                   || devRow.isDefault)
     }
 
     readonly property real currentPeak: peakMon.peak
