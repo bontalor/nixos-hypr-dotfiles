@@ -34,7 +34,10 @@ FloatingWindow {
 
     // Panels registry key — same self-registration as components/Panel.qml.
     property string panelKey: ""
-    Component.onCompleted: if (panelKey !== "") Panels.register(panelKey, this)
+    Component.onCompleted: {
+        if (panelKey !== "") Panels.register(panelKey, this)
+        root.recomputeFiltered()
+    }
 
     // --- Caller-supplied state ----------------------------------------------
     property var items: []
@@ -55,7 +58,17 @@ FloatingWindow {
     property int selectedIndex: 0
     property string query: searchText.text.trim().toLowerCase()
 
-    property var filtered: {
+    property var filtered: root._filteredCache
+    property var _filteredCache: []
+    Timer {
+        id: filterDebounce
+        interval: 40
+        onTriggered: root.recomputeFiltered()
+    }
+    onQueryChanged: filterDebounce.restart()
+    onItemsChanged: root.recomputeFiltered()
+
+    function recomputeFiltered() {
         var all = root.items || []
         var list = all
         if (root.query !== "") {
@@ -64,14 +77,12 @@ FloatingWindow {
             for (var i = 0; i < all.length; i++) {
                 if (root.matchPredicate(all[i], q)) list.push(all[i])
             }
-            // SubstringRankSort returns a fresh sorted copy; the original
-            // `list` (and `root.items`) is left untouched.
             list = SubstringRankSort.sort(q, list, root.sortKeyFn)
         }
         if (root.maxLength > 0 && list.length > root.maxLength) {
             list = list.slice(0, root.maxLength)
         }
-        return list
+        root._filteredCache = list
     }
 
     onVisibleChanged: if (visible) {
@@ -79,10 +90,9 @@ FloatingWindow {
         root.selectedIndex = 0
         searchText.forceActiveFocus()
     }
-    // Rows may have non-uniform heights (e.g. clipboard image
-    // thumbnails), so scroll by the real delegate geometry, falling
-    // back to the fixed stride before layout settles.
-    onSelectedIndexChanged: {
+    onSelectedIndexChanged: Qt.callLater(root.scrollSelectedIntoView)
+
+    function scrollSelectedIntoView() {
         var item = resultRepeater.itemAt(root.selectedIndex)
         if (item) Scroll.scrollIntoView(resultFlick, item.y, item.height)
         else Scroll.scrollIntoView(resultFlick,

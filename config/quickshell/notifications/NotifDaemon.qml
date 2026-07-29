@@ -30,6 +30,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Wayland
 import Quickshell.Services.Notifications
 import "../theme"
 import "../util"
@@ -104,11 +105,14 @@ Singleton {
     // the scan timer only runs while something is actually pending.
     property int pendingCount: 0
 
-    // True while any toplevel is fullscreened (mirrored from NotifPopup's
-    // binding). Expiry of normal popups is deferred until fullscreen ends
-    // so notifications sent during a fullscreen session aren't silently
-    // dropped while the popup window is invisible.
-    property bool fullscreenActive: false
+    // True while any toplevel is fullscreened. Bound directly to
+    // ToplevelManager so the daemon always has the live state — the
+    // prior design mirrored this from each NotifPopup, but if all
+    // popups were despawned while fullscreened, nothing could write
+    // `false` back when fullscreen later ended, leaving deferred
+    // expiries armed forever.
+    readonly property bool fullscreenActive: ToplevelManager.activeToplevel
+        ? ToplevelManager.activeToplevel.fullscreen : false
     onFullscreenActiveChanged: if (!fullscreenActive) root.rearmDeferredExpiries()
 
     NotificationServer {
@@ -242,6 +246,10 @@ Singleton {
         // dismissals (from the panel/another client) drop the popup.
         var cb = function() {
             root.removePopupById(notification.id)
+            if (root.pendingExpiries[String(notification.id)] !== undefined) {
+                delete root.pendingExpiries[String(notification.id)]
+                root.pendingCount = Object.keys(root.pendingExpiries).length
+            }
             try { notification.closed.disconnect(cb) } catch (e) {}
         }
         notification.closed.connect(cb)
@@ -425,6 +433,10 @@ Singleton {
     }
 
     Component.onCompleted: {
+        if (popupComponent.status !== Component.Ready)
+            console.warn("NotifPopup component not ready:",
+                         popupComponent.errorString())
+
         var es = histFile.histEntries || []
         for (var i = 0; i < es.length && i < root.notifHistoryMax; i++) {
             var e = es[i]
@@ -439,6 +451,31 @@ Singleton {
                 timestamp: e.timestamp ?? 0,
                 hasAction: false
             })
+        }
+
+        // Re-attach `closed` handlers and re-arm expiries for
+        // notifications that survived the reload (keepOnReload: true).
+        // The daemon's popupSurfaces/popupOrder/pendingExpiries are
+        // recreated empty, so without this, tracked notifications
+        // can't be externally dismissed and never expire.
+        var tracked = server.trackedNotifications
+        if (tracked) {
+            var values = tracked.values
+            for (var j = 0; j < values.length; j++) {
+                (function(notification) {
+                    var cb = function() {
+                        root.removePopupById(notification.id)
+                        if (root.pendingExpiries[String(notification.id)] !== undefined) {
+                            delete root.pendingExpiries[String(notification.id)]
+                            root.pendingCount = Object.keys(root.pendingExpiries).length
+                        }
+                        try { notification.closed.disconnect(cb) } catch (e) {}
+                    }
+                    notification.closed.connect(cb)
+                    var ms = root.expireMillis(notification)
+                    if (ms > 0) root.scheduleExpire(notification, ms)
+                })(values[j])
+            }
         }
     }
 }

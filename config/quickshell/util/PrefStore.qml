@@ -17,7 +17,25 @@ import Quickshell.Io
 // alias here; writes persist automatically via onAdapterUpdated.
 
 Singleton {
-    property alias batteryDevice: adapter.batteryDevice
+    // Guard against the write → watch → reload → write echo: when
+    // onAdapterUpdated fires from an internal write, an external fs
+    // watcher could race it into a second reload/write cycle.
+    property bool _writing: false
+
+    function _write() {
+        root._writing = true
+        writeAdapter()
+        // Keep the guard up briefly so the fs watcher's onFileChanged
+        // (fired by our own atomic write) doesn't race into a reload
+        // cycle before the write lands and the adapter values settle.
+        writeGuard.restart()
+    }
+
+    Timer {
+        id: writeGuard
+        interval: 100
+        onTriggered: root._writing = false
+    }
     property alias weatherUnit: adapter.weatherUnit
     property alias weatherCity: adapter.weatherCity
     property alias wallpaper: adapter.wallpaper
@@ -54,8 +72,8 @@ Singleton {
         blockLoading: true
         atomicWrites: true
         watchChanges: true
-        onFileChanged: reload()
-        onAdapterUpdated: writeAdapter()
+        onFileChanged: if (!root._writing) reload()
+        onAdapterUpdated: if (!root._writing) root._write()
 
         JsonAdapter {
             id: adapter

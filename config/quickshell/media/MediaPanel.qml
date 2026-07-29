@@ -3,7 +3,6 @@ import "../components"
 import "../util"
 import QtQuick
 import Quickshell
-import Quickshell.Io
 import Quickshell.Services.Mpris
 
 // Media panel — now-playing UI for MPRIS players.
@@ -56,15 +55,37 @@ Panel {
     // position — but `positionChanged` only fires on real DBus events
     // (seeks). The Timer below re-emits it every second so the binding
     // re-reads the interpolated value, keeping the progress bar synced.
-    property real trackPosition: currentPlayer?.position ?? 0
+    // Quickshell's Mpris service interpolates `position` in C++ (positionMs
+    // = lastDbusPosition + elapsed*rate), so reading `currentPlayer.position`
+    // always returns the exact current value — but `positionChanged` only
+    // fires on real DBus events (seeks). The Timer below bumps `tick` so
+    // this binding re-reads `currentPlayer.position` ~4x/second, keeping
+    // the progress bar synced without calling another object's signal.
+    property int _tick: 0
+    property real trackPosition: { root._tick; return currentPlayer?.position ?? 0 }
 
     function fmtTime(sec) { return FormatUtil.fmtSeconds(sec) }
 
     // If a player disconnects mid-panel-open, selSection may end up past
     // the end of the players list — clamp it back so currentPlayer never
     // nulls out and the panel keeps showing a live track.
+    property string _lastPlayerKey: ""
+
     onAllPlayersChanged: {
+        if (root._lastPlayerKey !== "") {
+            for (var i = 0; i < root.allPlayers.length; i++) {
+                if (MprisSelector._key(root.allPlayers[i]) === root._lastPlayerKey) {
+                    root.selSection = i
+                    return
+                }
+            }
+        }
         if (selSection >= allPlayers.length) selSection = Math.max(0, allPlayers.length - 1)
+    }
+
+    onSelSectionChanged: {
+        if (root.currentPlayer)
+            root._lastPlayerKey = MprisSelector._key(root.currentPlayer)
     }
 
     onShown: {
@@ -84,7 +105,7 @@ Panel {
         interval: 250
         running: root.visible && root.playbackState === MprisPlaybackState.Playing
         repeat: true
-        onTriggered: if (root.currentPlayer) root.currentPlayer.positionChanged()
+        onTriggered: root._tick++
     }
 
     onKeyPressed: function(event) {
@@ -210,32 +231,24 @@ Panel {
                     height: Theme.meterHeight
                     color: Qt.alpha(Colors.foreground, Theme.alphaInactive)
 
-Rectangle {
-                    height: parent.height
-                    // Clamp the fill ratio to [0, 1]: position can briefly
-                    // exceed length while a seek/track-change event is in
-                    // flight (Mpris reports the old position until the
-                    // seek lands), which would overflow the bar.
-                    width: parent.width * Math.max(0, Math.min(1, root.trackPosition / Math.max(1, root.trackLength)))
-                    color: Colors.foreground
-                }
+                    Rectangle {
+                        height: parent.height
+                        width: parent.width * Math.max(0, Math.min(1, root.trackPosition / Math.max(1, root.trackLength)))
+                        color: Colors.foreground
+                    }
 
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    enabled: root.canSeek
-                    onClicked: (mouse) => {
-                        if (root.currentPlayer && root.canSeek && root.trackLength > 0) {
-                            // Position is interpolated against wall-clock
-                            // time — re-read it at click time, not the
-                            // 250ms-tick-stale bound value, so the seek
-                            // delta lands where the user clicked.
-                            var ratio = Math.max(0, Math.min(1, mouse.x / width))
-                            var targetPos = ratio * root.trackLength
-                            root.currentPlayer.seek(targetPos - root.currentPlayer.position)
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        enabled: root.canSeek
+                        onClicked: (mouse) => {
+                            if (root.currentPlayer && root.canSeek && root.trackLength > 0) {
+                                var ratio = Math.max(0, Math.min(1, mouse.x / width))
+                                var targetPos = ratio * root.trackLength
+                                root.currentPlayer.seek(targetPos - root.currentPlayer.position)
+                            }
                         }
                     }
-                }
                 }
 
                 ThemeText {

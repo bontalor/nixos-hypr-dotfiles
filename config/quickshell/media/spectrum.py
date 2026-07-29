@@ -20,14 +20,20 @@ don't strobe (fps-independent feel).
 Usage: spectrum.py [bands] [fps]   (defaults 8, 20)
 """
 import math
+import os
+import signal
 import struct
 import subprocess
 import sys
 import time
 from array import array
 
-BANDS = int(sys.argv[1]) if len(sys.argv) > 1 else 8
-FPS = max(1, int(sys.argv[2])) if len(sys.argv) > 2 else 20
+try:
+    BANDS = int(sys.argv[1]) if len(sys.argv) > 1 else 8
+    FPS = max(1, int(sys.argv[2])) if len(sys.argv) > 2 else 20
+except (ValueError, TypeError):
+    sys.stderr.write("spectrum.py: bad args (expected: [bands] [fps])\n")
+    BANDS, FPS = 8, 20
 
 RATE = 48000
 WINDOW = 2048                     # FFT size: ~43 ms, 23 Hz bins —
@@ -81,9 +87,13 @@ tilt = [(math.sqrt(edges[k] * edges[k + 1]) / edges[0]) ** TILT for k in range(B
 # `stream.capture.sink = true` taps the default sink's monitor (a
 # non-destructive read side-channel — pw-record never drives the sink,
 # so locking the quantum here only pins the stream's own pull cadence).
+# `application.name` tags the stream so Quickshell's volume panel and bar
+# mic-indicator can recognise it as a monitor tap and exclude it from
+# "recording" device lists and the mic-in-use privacy indicator.
 RECORD_CMD = [
     "pw-record", "-P",
-    "{ stream.capture.sink = true; node.lockQuantum = true; node.lockRate = true }",
+    "{ stream.capture.sink = true; node.lockQuantum = true; node.lockRate = true; "
+    "application.name = \"Quickshell Spectrum\" }",
     "--format", "s16", "--rate", str(RATE), "--channels", "1", "-",
 ]
 
@@ -161,9 +171,15 @@ def run(proc):
 # so the visualizer recovers without a shell reload.
 while True:
     with subprocess.Popen(RECORD_CMD, stdout=subprocess.PIPE,
-                          stderr=subprocess.DEVNULL) as proc:
+                          stderr=subprocess.DEVNULL,
+                          start_new_session=True) as proc:
         try:
             run(proc)
         finally:
-            proc.terminate()
+            # Kill the whole process group so pw-record doesn't survive
+            # as a zombie if the python is SIGKILLed mid-run.
+            try:
+                os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+            except (ProcessLookupError, OSError):
+                pass
     time.sleep(1)

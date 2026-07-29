@@ -170,26 +170,22 @@ Panel {
     Platform.FileDialog {
         id: settingsFileDlg
         fileMode: Platform.FileDialog.OpenFile
-        onAccepted: {
-            if (root._pickerPref !== "") {
-                var s = settingsFileDlg.file.toString()
-                PrefStore[root._pickerPref] = s.startsWith("file://") ? s.slice(7) : s
-            }
-            root._pickerPref = ""
-        }
+        onAccepted: root.acceptPicker(settingsFileDlg.file.toString())
         onRejected: root._pickerPref = ""
     }
 
     Platform.FolderDialog {
         id: settingsFolderDlg
-        onAccepted: {
-            if (root._pickerPref !== "") {
-                var s = settingsFolderDlg.folder.toString()
-                PrefStore[root._pickerPref] = s.startsWith("file://") ? s.slice(7) : s
-            }
-            root._pickerPref = ""
-        }
+        onAccepted: root.acceptPicker(settingsFolderDlg.folder.toString())
         onRejected: root._pickerPref = ""
+    }
+
+    function acceptPicker(picked) {
+        if (root._pickerPref !== "") {
+            var s = picked.toString()
+            PrefStore[root._pickerPref] = s.startsWith("file://") ? s.slice(7) : s
+        }
+        root._pickerPref = ""
     }
 
     function optionName(setting, value) {

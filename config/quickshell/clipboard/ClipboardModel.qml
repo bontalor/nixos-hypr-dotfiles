@@ -106,9 +106,17 @@ Singleton {
     // Copying re-triggers the watcher, which push()es the entry back to
     // the front — the MRU reorder falls out for free.
     function copy(text) {
-        copyProc.command = ["wl-copy", text]
+        textQueue.push(text)
+        root.drainTextQueue()
+    }
+
+    function drainTextQueue() {
+        if (copyProc.running || textQueue.length === 0) return
+        copyProc.command = ["wl-copy", textQueue.shift()]
         copyProc.running = true
     }
+
+    property var textQueue: []
 
     // Put actual image bytes on the clipboard for an image entry, so
     // pasting yields the image, not its "<img src=...>" text. wl-copy
@@ -153,17 +161,10 @@ Singleton {
         adapter.entries = []
     }
 
-    // Watchers run only while the Settings pref is on. A Process breaks
-    // its `running` binding when it exits by itself, so the pref toggle
-    // and the respawn timers re-apply the value imperatively below.
-    Connections {
-        target: PrefStore
-        function onClipboardHistoryChanged() {
-            watcher.running = PrefStore.clipboardHistory
-            imageWatcher.running = PrefStore.clipboardHistory
-        }
-    }
-
+    // Watchers run only while the Settings pref is on. The `running`
+    // bindings on each Process track the pref directly; the respawn
+    // timers re-apply it after an unexpected exit (compositor restart
+    // of the data-control connection, etc.).
     Process {
         id: watcher
         running: PrefStore.clipboardHistory
@@ -179,7 +180,19 @@ Singleton {
             splitMarker: "\0"
             // Standalone <img> HTML is the text side of a browser image
             // copy — the image watcher stores the real image instead.
-            onRead: text => { if (!/^\s*<img\s/i.test(text)) root.push(text) }
+            onRead: text => {
+                if (/^\s*<img\s/i.test(text)) {
+                    // Standalone <img> HTML is the text side of a browser
+                    // image copy — the image watcher stores the actual
+                    // image. Notify on drop so a legitimate HTML/SVG
+                    // source paste starting with <img isn't silently lost.
+                    NotifDaemon.notify("Clipboard text not kept",
+                        "Looks like an image copy — the image itself is captured separately.",
+                        NotificationUrgency.Normal)
+                    return
+                }
+                root.push(text)
+            }
         }
         // Respawn if wl-paste ever dies (compositor restart of the
         // data-control connection, etc.).
@@ -229,13 +242,13 @@ Singleton {
     Timer {
         id: respawn
         interval: 1000
-        onTriggered: watcher.running = PrefStore.clipboardHistory
+        onTriggered: if (PrefStore.clipboardHistory) watcher.running = true
     }
 
     Timer {
         id: imageRespawn
         interval: 1000
-        onTriggered: imageWatcher.running = PrefStore.clipboardHistory
+        onTriggered: if (PrefStore.clipboardHistory) imageWatcher.running = true
     }
 
     // `rm -f` for eviction; clears `rmProc.running` and drains the next
@@ -293,6 +306,7 @@ Singleton {
         id: copyProc
         label: "wl-copy"
         running: false
+        onQueueFinished: root.drainTextQueue()
     }
 
     // `wl-copy` for image entries; drains the next queued request on exit.

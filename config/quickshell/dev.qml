@@ -24,9 +24,4 @@ ShellRoot {
         sourceComponent: shared.get(root.which) ?? shared.get("launcher")
         onItemChanged: if (item) item.visible = true
     }
-
-    Connections {
-        target: Quickshell
-        function onLastWindowClosed() { Qt.quit() }
-    }
 }

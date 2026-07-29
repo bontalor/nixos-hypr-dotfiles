@@ -14,7 +14,6 @@
 
 import "."
 import "../theme"
-import "../util"
 import QtQuick
 
 Item {

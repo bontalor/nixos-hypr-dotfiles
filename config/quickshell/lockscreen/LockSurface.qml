@@ -10,6 +10,9 @@ import QtQuick.Effects
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
+
+pragma ComponentBehavior: Bound
+
 Rectangle {
     id: root
     required property LockContext context
@@ -35,12 +38,7 @@ Rectangle {
         anchors.fill: parent
         source: wallpaperPath ? "file://" + wallpaperPath : ""
         fillMode: Image.PreserveAspectCrop
-        asynchronous: false   // decode synchronously so first frame shows wallpaper
-    }
-
-    Process {
-        id: btnProcess
-        running: false
+        asynchronous: false
     }
 
     property string formattedDate: FormatUtil.formattedDate(clock.date)
@@ -202,7 +200,7 @@ Rectangle {
                         }
                         Connections {
                             target: root.context
-                            onCurrentTextChanged: {
+                            function onCurrentTextChanged() {
                                 if (passwordBox.text !== root.context.currentText) {
                                     passwordBox.text = root.context.currentText
                                 }
@@ -230,6 +228,7 @@ Rectangle {
                 Repeater {
                     model: root.lockActions
                     delegate: Column {
+                        required property var modelData
                         spacing: Theme.margin
                         width: Theme.lockActionColumnWidth
                         Rectangle {
@@ -248,8 +247,7 @@ Rectangle {
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: {
-                                    btnProcess.command = modelData.command
-                                    btnProcess.running = true
+                                    Quickshell.execDetached({ command: modelData.command })
                                 }
                             }
                         }

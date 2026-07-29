@@ -33,8 +33,11 @@ Item {
     required property var modelData
     required property int index
     property bool inSection: false
-    readonly property bool isDefault: (devRow.selSection === 2 && Pipewire.defaultAudioSink === devRow.modelData)
-                                   || (devRow.selSection === 3 && Pipewire.defaultAudioSource === devRow.modelData)
+    property bool panelVisible: false
+    readonly property bool isSinksSection: devRow.selSection === 2
+    readonly property bool isSourcesSection: devRow.selSection === 3
+    readonly property bool isDefault: (devRow.isSinksSection && Pipewire.defaultAudioSink === devRow.modelData)
+                                   || (devRow.isSourcesSection && Pipewire.defaultAudioSource === devRow.modelData)
     property int selDevice: -1
     property int selSection: 0
     property real rowHeight: Theme.rowHeight
@@ -61,8 +64,13 @@ Item {
     PwNodePeakMonitor {
         id: peakMon
         node: devRow.modelData
-        enabled: devRow.visible
-               && (devRow.inSection && devRow.index === devRow.selDevice
+        // Gate on panelVisible (which reflects section-level visibility)
+        // rather than devRow.visible, which stays true when only the
+        // parent Column is hidden — so peak monitors don't stay live on
+        // hidden sections. Only the selected row plus the default
+        // device in the visible section get live taps.
+        enabled: devRow.panelVisible
+               && ((devRow.inSection && devRow.index === devRow.selDevice)
                    || devRow.isDefault)
     }
 
@@ -133,9 +141,9 @@ Item {
             color: Qt.alpha(Colors.surface, 1)
 
             Rectangle {
-                width: parent.width * (devRow.modelData.audio?.volume ?? 0)
+                width: parent.width * devRow.nodeVolume
                 height: parent.height
-                color: (devRow.modelData.audio?.muted ?? false) ? Qt.alpha(Colors.foreground, Theme.alphaBackground) : Colors.accent
+                color: devRow.nodeMuted ? Qt.alpha(Colors.foreground, Theme.alphaBackground) : Colors.accent
             }
 
             MouseArea {
@@ -180,9 +188,9 @@ Item {
                 right: parent.right; rightMargin: Theme.margin
                 verticalCenter: parent.verticalCenter
             }
-            text: (devRow.modelData.audio?.muted ?? false) ? "MUT" : FormatUtil.padNum(Math.round((devRow.modelData.audio?.volume ?? 0) * 100), 3) + "%"
-            color: (devRow.modelData.audio?.muted ?? false) ? Colors.critical : Colors.foreground
-            font.bold: (devRow.modelData.audio?.muted ?? false)
+            text: devRow.nodeMuted ? "MUT" : FormatUtil.padNum(Math.round(devRow.nodeVolume * 100), 3) + "%"
+            color: devRow.nodeMuted ? Colors.critical : Colors.foreground
+            font.bold: devRow.nodeMuted
         }
     }
 

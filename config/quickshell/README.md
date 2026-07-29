@@ -143,8 +143,10 @@ screen) and is started by the PowerMenu "Lock" action:
 quickshell -p ~/.config/quickshell/lockscreen/shell.qml
 ```
 
-It shares `models/`, `theme/`, `util/`, and `components/` through relative
-symlinks inside `lockscreen/` (Quickshell isolates each config root), and
+It shares `models/`, `theme/`, `util/`, and `components/` through
+byte-identical copies inside `lockscreen/` (Quickshell isolates each
+config root, so the shared code must be physically present under both
+roots), and
 reads the same `prefs.json` (fingerprint toggle, time format). PAM config
 for password auth is `lockscreen/pam/password.conf`; fingerprint unlock
 runs `fprintd-verify` concurrently with the password prompt.

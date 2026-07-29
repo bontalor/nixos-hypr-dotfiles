@@ -35,6 +35,7 @@ PanelWindow {
 
     WlrLayershell.namespace: "quickshell:notification"
     WlrLayershell.anchors { top: true; right: true }
+    exclusionMode: ExclusionMode.Ignore
     // Y offset within the popup stack is assigned explicitly by
     // NotifDaemon.relayoutPopups() — NOT bound to a function of sibling
     // implicitHeights. A binding that reads sibling `implicitHeight`
@@ -64,14 +65,6 @@ PanelWindow {
     // sibling popups jump once instead of flickering (see the Y-offset
     // comment above).
     onImplicitHeightChanged: NotifDaemon.scheduleRelayout()
-
-    property bool fullscreenActive: ToplevelManager.activeToplevel
-        ? ToplevelManager.activeToplevel.fullscreen : false
-    // Mirror fullscreenActive into the daemon so it can defer expiry
-    // of popups sent during a fullscreen session (otherwise they expire
-    // invisibly and disappear before the user ever sees them).
-    onFullscreenActiveChanged: NotifDaemon.fullscreenActive = fullscreenActive
-    Component.onCompleted: NotifDaemon.fullscreenActive = fullscreenActive
 
     PopupCard {
         id: card

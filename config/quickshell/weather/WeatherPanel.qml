@@ -59,11 +59,8 @@ Panel {
     onVisibleChanged: WeatherModel.panelVisible = visible
 
     onShown: {
-        // Skip the forced refetch if we're within the cache window —
-        // wttr.in itself caches upstream data on a similar window, so
-        // this used to burn bandwidth on every open with no benefit.
         if (WeatherModel.dataReady
-            && Date.now() - (WeatherModel.weatherData._lastFetchMs || 0)
+            && Date.now() - WeatherModel.lastFetchMs
                < WeatherModel.refreshMillis) {
             // Cache still warm; nothing to do.
         } else {
@@ -101,7 +98,7 @@ Panel {
 
     // Hourly `time` is "0" / "300" / ... / "2100".
     function fmtHour(t) {
-        var h = Math.floor((parseInt(t) || 0) / 100)
+        var h = Math.min(23, Math.max(0, Math.floor((parseInt(t) || 0) / 100)))
         if (PrefStore.timeFormat === "24h") return FormatUtil.zeroPad(h) + ":00"
         var h12 = h % 12 === 0 ? 12 : h % 12
         return h12 + (h < 12 ? " AM" : " PM")

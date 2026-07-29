@@ -9,7 +9,7 @@ WidgetButton {
     id: root
 
     PwObjectTracker {
-        objects: [Pipewire.defaultAudioSink]
+        objects: [Pipewire.defaultAudioSink, Pipewire.defaultAudioSource]
     }
 
     property real volume: Pipewire.defaultAudioSink?.audio?.volume ?? 0
@@ -25,9 +25,20 @@ WidgetButton {
             var n = vals[i]
             if (!n.audio || !n.isStream || n.type !== PwNodeType.AudioInStream) continue
             var p = n.properties
-            if (p && (p["stream.capture.sink"] === "true"
-                      || p["media.category"] === "Monitor"
-                      || p["application.name"] === "Quickshell Peak Detect")) continue
+            if (p) {
+                var appName = p["application.name"]
+                var capSink = p["stream.capture.sink"]
+                // `stream.capture.sink` may be a boolean `true` (PipeWire
+                // native type) or the string `"true"` depending on the
+                // property source — check both.
+                if (capSink === true || capSink === "true"
+                        || p["media.category"] === "Monitor"
+                        || p["stream.monitor"] === "true"
+                        || appName === "Quickshell Peak Detect"
+                        || appName === "Quickshell Spectrum"
+                        || appName === "pw-record")
+                    continue
+            }
             return true
         }
         return false

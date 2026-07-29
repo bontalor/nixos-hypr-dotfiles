@@ -11,6 +11,8 @@ import Quickshell
 import Quickshell.Services.Notifications
 import Quickshell.Services.UPower
 
+pragma ComponentBehavior: Bound
+
 Scope {
     id: root
 
@@ -28,7 +30,7 @@ Scope {
         if (root.discharging) root.check()
         else { root.warned = false; root.warnedCritical = false }
     }
-    onPctChanged: root.check()
+    onPctChanged: if (root.discharging) root.check()
 
     function check() {
         if (!root.discharging || root.pct < 0) return

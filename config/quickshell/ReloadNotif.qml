@@ -16,6 +16,14 @@ Scope {
         target: Quickshell
         function onReloadCompleted() {
             Quickshell.inhibitReloadPopup()
+            reloadNotifyTimer.restart()
+        }
+    }
+
+    Timer {
+        id: reloadNotifyTimer
+        interval: 250
+        onTriggered: {
             notifyProc.command = ["notify-send", "Quickshell", "Config reloaded", "-i", "dialog-information"]
             notifyProc.running = true
         }

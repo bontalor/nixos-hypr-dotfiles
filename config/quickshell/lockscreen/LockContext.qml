@@ -4,6 +4,8 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Pam
 
+pragma ComponentBehavior: Bound
+
 Scope {
     id: root
 
@@ -47,7 +49,7 @@ Scope {
     onCurrentTextChanged: showFailure = false
 
     function tryUnlock() {
-        if (currentText === "") return
+        if (currentText.trim() === "") return
         root.unlockInProgress = true
         fprintProc.running = false
         pam.start()
@@ -158,8 +160,8 @@ Scope {
         config: "password.conf"
 
         onPamMessage: {
-            if (this.responseRequired) {
-                this.respond(root.currentText)
+            if (pam.responseRequired) {
+                pam.respond(root.currentText)
             }
         }
 

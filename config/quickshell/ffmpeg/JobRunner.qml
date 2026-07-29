@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 import Quickshell.Io
 
 Item {
@@ -26,22 +27,13 @@ Item {
     signal busy()
 
     function start(jobLabel, args, outFile, jobDurationSec) {
-        // Guard against the cancel-and-immediately-restart race: a
-        // previous `cancel()` leaves `proc.running` true briefly until
-        // the kernel delivers SIGTERM and `onExited` flips it back.
-        // Using `phase === "idle"` as the readiness signal (rather than
-        // `proc.running`) avoids spurious "busy" notifications when the
-        // SIGTERM latency is longer than the user's click gap. `phase`
-        // is reset to "idle" synchronously in onExited below.
         if (runner.phase !== "idle" && runner.phase !== "done"
             && runner.phase !== "failed" && runner.phase !== "cancelled") {
             busy()
             return false
         }
-        // If a Process is still winding down (cancel before onExited),
-        // also refuse — racing the SIGTERM callback would either drop
-        // the new command or dupe onExited back-to-back.
         if (proc.running) { busy(); return false }
+        runner.phase = "idle"   // reset any terminal state from a prior run
         label = jobLabel
         output = outFile
         durationSec = jobDurationSec
@@ -61,6 +53,8 @@ Item {
         proc.running = false
     }
 
+    Component.onDestruction: if (proc.running) proc.running = false
+
     Process {
         id: proc
         stdout: SplitParser {
@@ -73,30 +67,28 @@ Item {
         }
         stderr: StdioCollector { id: errCollector }
         onExited: (exitCode) => {
-            // Reset phase to "idle" first so a re-entrant `start()` (e.g.
-            // cancel immediately followed by retry) doesn't get rejected
-            // as a "running" duplicate. Once phase is flipped, the rest
-            // of the branch is dispatched on this event-loop turn.
             if (runner.phase === "cancelled") {
-                runner.phase = "idle"
-                cleanup.command = ["rm", "-f", runner.output]
-                cleanup.running = true
+                // Spawn cleanup detached so concurrent cancels don't
+                // share one Process and drop rm invocations.
+                Quickshell.execDetached({ command: ["rm", "-f", runner.output] })
                 runner.cancelled(runner.output)
+                // Defer the idle reset so consumers bound to `phase`
+                // observe "cancelled" before it flips to "idle".
+                Qt.callLater(() => { runner.phase = "idle" })
                 return
             }
             if (exitCode === 0) {
                 runner.phase = "done"
                 runner.outTimeSec = runner.durationSec
                 runner.finished(runner.label, runner.output)
-                runner.phase = "idle"
             } else {
                 runner.phase = "failed"
                 runner.error = (errCollector.text || "").trim().slice(-500)
                 runner.failed(runner.label, runner.error, exitCode)
-                runner.phase = "idle"
             }
+            // Defer the idle reset so `finished`/`failed` consumers
+            // observe a stable phase value within their handler.
+            Qt.callLater(() => { runner.phase = "idle" })
         }
     }
-
-    Process { id: cleanup; running: false }
 }
