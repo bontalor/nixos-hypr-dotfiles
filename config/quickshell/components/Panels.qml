@@ -46,8 +46,11 @@ Singleton {
         var isNew = panels[name] === undefined
         panels[name] = panel
         if (isNew && name !== launcher) {
+            var display = panel.title
+            if (!display || display === "")
+                display = name.charAt(0).toUpperCase() + name.slice(1)
             launcherEntries = launcherEntries.concat([{
-                name: "Quickshell " + panel.title,
+                name: "Quickshell " + display,
                 genericName: "Quickshell Panel",
                 panelKey: name
             }])

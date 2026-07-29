@@ -2,6 +2,7 @@ pragma Singleton
 
 import QtQuick
 import Quickshell
+import "../util"
 
 // Centralized visual theme. Single source of truth for fonts, sizes, alphas,
 // and panel geometry. Add shared visual constants here; domain tunables
@@ -10,14 +11,7 @@ import Quickshell
 // only constants used across domains stay here.
 
 Singleton {
-// --- Fonts ---
-    property string fontFamily: "JetBrainsMono Nerd Font"
-    property int fontPixelSize: 16
-    property int fontPixelSizeLarge: 22
-    property int fontPixelSizeXLarge: 30
-    property int fontPixelSizeHeader: 24       // mid-emphasis (date line in DateTimePanel)
-    property int fontPixelSizeDisplay: 32      // large display (lockscreen clock, weather temps)
-    property int fontPixelSizeSmall: 12
+// --- Fonts (see the bottom of this file for full font config + PrefStore binding) ---
 
     // --- Bar geometry ---
     property int barHeight: 30
@@ -116,4 +110,56 @@ Singleton {
     property int lockFpButtonWidth: 30           // fingerprint toggle next to password
     property int lockFpReserve: 40              // password box reserves this when fp enabled
     property int lockInputLetterSpacing: 10     // password field letter spacing
+
+    // --- Lockscreen panel backdrop blur ---
+    // Only the central lock panel is frosted — the surrounding wall
+    // stays sharp (see LockSurface.qml). Hyprland's `layerrule = blur`
+    // can't reach ext-session-lock-v1 surfaces, so the blur lives in
+    // the QtQuick scene via QtQuick.Effects.MultiEffect applied as
+    // `layer.effect` on a panel-anchored Item.
+    //
+    // Tuned to mirror the user's Hyprland blur settings:
+    //   size=8, passes=3, noise=0, contrast=1, brightness=1, vibrancy=1, xray=true
+    //
+    // Hyprland's effective blur radius for `size=N, passes=P` is
+    // `√P × N` for the principal gaussian, but its kernel is iterated
+    // P times with the `size` parameter sampled at each iteration, so
+    // visually it reads closer to `N × P` (24 px for size=8 passes=3).
+    // MultiEffect only does one Gaussian pass on a single `blur`
+    // (0..1) × `blurMax` radius; to match Hyprland's iterated kernel
+    // visually, push `blurMax` to the Qt 6 cap (64) and `blur` toward
+    // the top of its scale. The previous 0.45×32 ≈ 14.4 px setting
+    // matched Hyprland's *theoretical* σ but looked noticeably weaker
+    // in practice.
+    property real lockWallpaperBlur: 0.65          // 0..1 multiplier × blurMax
+    property int  lockWallpaperBlurMax: 64         // px cap; Qt 6.11 MultiEffect clamps >32 but accepts the value
+    property real lockWallpaperBlurMultiplier: 1.0 // kernel multiplier (kept unity; tune for triple-pass feel)
+    // Unity model: 0 = unchanged (matches Hyprland brightness/contrast/
+    // vibrancy all at 1 and noise at 0). Tweak only if a busy wall
+    // needs extra taming; the panel Rectangle's alphaWindow tint
+    // already pulls the backdrop dark.
+    property real lockWallpaperBrightness: 0.0    // -1..1 (0 = unchanged)
+    property real lockWallpaperContrast: 0.0      // -1..1 (0 = unchanged)
+    property real lockWallpaperSaturation: 0.0    // -1..1 (0 = unchanged)
+
+    // --- Fonts ---
+    // `fontFamily` is the main UI face and is User-overridable via the
+    // Settings → Appearance "Text font" pref (PrefStore.fontFamily). It
+    // does NOT need to be a Nerd Font — icon glyphs route through
+    // `iconFamily` regardless (see ThemeText.qml), so a user can run the
+    // whole shell on a non-nerd font (Cantarell, Inter, Noto Sans, …)
+    // and still see every Icon.* glyph.
+    property string defaultFontFamily: "JetBrainsMono Nerd Font"
+    property string fontFamily: PrefStore.fontFamily || defaultFontFamily
+    // Dedicated Nerd Font for Icon.* glyphs. Always a Nerd Font so the
+    // glyphs render even when `fontFamily` is set to a non-nerd face;
+    // users with `Symbols Nerd Font Mono` installed may prefer that —
+    // keep this one so the default install "just works".
+    property string iconFamily: "JetBrainsMono Nerd Font"
+    property int fontPixelSize: 15
+    property int fontPixelSizeLarge: 22
+    property int fontPixelSizeXLarge: 30
+    property int fontPixelSizeHeader: 24       // mid-emphasis (date line in DateTimePanel)
+    property int fontPixelSizeDisplay: 32      // large display (lockscreen clock, weather temps)
+    property int fontPixelSizeSmall: 12
 }

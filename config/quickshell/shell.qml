@@ -25,7 +25,6 @@ import Quickshell.Io
 ShellRoot {
     Bar{}
     ReloadNotif{}
-    NotifPopup{}
     OsdPopup{}
     BatteryAlerts{}
 

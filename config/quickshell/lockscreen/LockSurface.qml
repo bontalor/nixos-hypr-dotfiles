@@ -6,9 +6,13 @@ import "./components"
 import "./util"
 import "./models"
 import QtQuick
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
+
+pragma ComponentBehavior: Bound
+
 Rectangle {
     id: root
     required property LockContext context
@@ -27,15 +31,14 @@ Rectangle {
         onFileChanged: root.wallpaperPath = text().trim()
     }
 
+    // Sharp wallpaper — fills the screen unmodified (the user wants
+    // the wall visible behind the lock panel, not blurred everywhere).
     Image {
+        id: wallImage
         anchors.fill: parent
         source: wallpaperPath ? "file://" + wallpaperPath : ""
         fillMode: Image.PreserveAspectCrop
-        asynchronous: false   // decode synchronously so first frame shows wallpaper
-    }
-    Process {
-        id: btnProcess
-        running: false
+        asynchronous: false
     }
 
     property string formattedDate: FormatUtil.formattedDate(clock.date)
@@ -50,7 +53,81 @@ Rectangle {
         y: (parent.height - Theme.panelHeight) / 2
         width: Theme.panelWidth - Theme.margin
         height: Theme.panelHeight - Theme.margin
-        color: Qt.alpha(Colors.background, Theme.alphaWindow)
+        color: "transparent"   // backdrop handles the tint — see below
+        // Hard clip: MultiEffect's blur kernel (and autoPaddingEnabled,
+        // which lets the blurred FBO extend past the source bounds) would
+        // otherwise bleed outside the panel. Clipping the panel Rectangle
+        // contains every child (the backdrop Item, the tint, the Column)
+        // to exactly the panel rect, so the frosted glass stays framed.
+        clip: true
+
+        // Frosted-glass backdrop scoped to exactly this panel rect.
+        // ext-session-lock-v1 surfaces are NOT wlr-layer-shell
+        // windows, so Hyprland's `layerrule = blur` can't reach the
+        // lockscreen — the blur lives in the QtQuick scene. The Item
+        // is anchored.fill to the panel and rendered to an offscreen
+        // FBO via `layer.enabled`; MultiEffect (as `layer.effect`)
+        // runs a Gaussian over that FBO. The Image inside is the
+        // sharp wall placed at -panel.x/-panel.y so each pixel lands
+        // at the same on-screen coordinate as the wall behind the
+        // panel — the FBO captures exactly the wall patch that would
+        // have shown at the panel's location, and only that rect is
+        // blurred. `transparentBorder: true` lets the blur fall off
+        // past the panel edge instead of clamping to FBO border
+        // pixels (no seam), and the tint Rectangle below covs the
+        // slightly transparent rim. Params mirror the user's Hyprland
+        // blur (size=8, passes=3, noise=0, contrast=1, brightness=1,
+        // vibrancy=1 — i.e. unity everywhere except the blur radius).
+        Item {
+            id: panelBackdrop
+            anchors.fill: parent
+            layer.enabled: true
+            layer.effect: MultiEffect {
+                blurEnabled: true
+                blur: Theme.lockWallpaperBlur
+                blurMax: Theme.lockWallpaperBlurMax
+                blurMultiplier: 1.0
+                // autoPaddingEnabled defaults to true — that resizes
+                // MultiEffect's drawn output to `source + blurMax × 2`
+                // so the kernel has padding to sample past the FBO
+                // edge. We disable it: the parent panel Rectangle's
+                // `clip: true` is what contains any bleed, and turning
+                // auto-padding off stops MultiEffect from drawing
+                // outside the Item at all (the blurred result stays
+                // within the source rect, bluffing a slightly darker
+                // rim at the very edge — fine, hidden by the tint
+                // Rectangle stacked on top).
+                autoPaddingEnabled: false
+                brightness: Theme.lockWallpaperBrightness
+                contrast: Theme.lockWallpaperContrast
+                saturation: Theme.lockWallpaperSaturation
+                // `noise` and `transparentBorder` aren't exposed by
+                // QtQuick.Effects/MultiEffect on this Qt — Hyprland's
+                // `noise = 0` is unity anyway.
+            }
+
+            Image {
+                // The wall Image is anchored to root (0,0); inside
+                // this panel-local Item, place it at -panel.x/-panel.y
+                // so its pixels line up with the sharp wall on screen.
+                x: -panel.x
+                y: -panel.y
+                width: root.width
+                height: root.height
+                source: wallImage.source
+                fillMode: Image.PreserveAspectCrop
+                asynchronous: false
+            }
+        }
+
+        // Translucent tint at Theme.alphaWindow — gives the frosted
+        // backdrop the panel's characteristic solid feel (the previous
+        // flat Qt.alpha(Colors.background, alphaWindow) panel color).
+        Rectangle {
+            anchors.fill: parent
+            color: Qt.alpha(Colors.background, Theme.alphaWindow)
+        }
+
         Column {
             anchors.centerIn: parent
             width: Theme.lockContentWidth
@@ -63,7 +140,8 @@ Rectangle {
                     precision: SystemClock.Seconds
                 }
                 Text {
-                    anchors.centerIn: parent
+                    anchors.bottom: parent.bottom
+                    anchors.horizontalCenter: parent.horizontalCenter
                     color: Colors.foreground
                     font.pixelSize: Theme.fontPixelSizeDisplay
                     font.family: Theme.fontFamily
@@ -75,7 +153,8 @@ Rectangle {
                 width: parent.width
                 height: Theme.lockStatusHeight
                 ThemeText {
-                    anchors.centerIn: parent
+                    anchors.top: parent.top
+                    anchors.horizontalCenter: parent.horizontalCenter
                     text: root.formattedDate
                 }
             }
@@ -121,7 +200,7 @@ Rectangle {
                         }
                         Connections {
                             target: root.context
-                            onCurrentTextChanged: {
+                            function onCurrentTextChanged() {
                                 if (passwordBox.text !== root.context.currentText) {
                                     passwordBox.text = root.context.currentText
                                 }
@@ -149,6 +228,7 @@ Rectangle {
                 Repeater {
                     model: root.lockActions
                     delegate: Column {
+                        required property var modelData
                         spacing: Theme.margin
                         width: Theme.lockActionColumnWidth
                         Rectangle {
@@ -167,8 +247,7 @@ Rectangle {
                                 hoverEnabled: true
                                 cursorShape: Qt.PointingHandCursor
                                 onClicked: {
-                                    btnProcess.command = modelData.command
-                                    btnProcess.running = true
+                                    Quickshell.execDetached({ command: modelData.command })
                                 }
                             }
                         }

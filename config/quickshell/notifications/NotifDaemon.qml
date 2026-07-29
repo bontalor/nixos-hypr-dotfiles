@@ -2,8 +2,19 @@
 //
 // Lives in the shell.qml Scope alongside the bar. Owns the Quickshell
 // `NotificationServer`, exposes a `history` ListModel for the history
-// panel, and raises popups via the live `activePopups` ListModel that
-// `NotifPopup.qml` mirrors via Variants.
+// panel, and raises popups by spawning one NotifPopup PanelWindow per
+// active notification. Each popup Window is created via Component
+// .createObject with the snapshot's fields baked in as concrete
+// properties — there is no shared ListModel + Repeater driving them,
+// so when a popup despawns the surviving windows only have their numeric
+    // `WlrLayershell.margins.top` re-assigned (by relayoutPopups(), which
+    // replaced the old reactive popupYOffset binding — see its comment
+    // below); their Text / IconImage never rebind, killing the previous
+    // "remaining two popups flicker for a split second when one despawns"
+    // symptom at both causes (QML row-shift rebind and Wayland-surface
+    // resize/reattach on a shared surface). The same explicit-assignment
+    // mechanism also closes the spawn-time flicker at 144hz: see the
+    // relayout-debounce comment near popupSurfaces.
 //
 // Expiry/dismiss removes the popup but keeps the snapshot in `history`
 // so the panel still shows it. Critical notifications don't auto-expire.
@@ -19,7 +30,9 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import Quickshell.Wayland
 import Quickshell.Services.Notifications
+import "../theme"
 import "../util"
 
 Singleton {
@@ -39,7 +52,41 @@ Singleton {
     // Append-only history of snapshot objects.
     property ListModel history: ListModel {}
 
-    property ListModel activePopups: ListModel {}
+    // Active popup Windows keyed by notifId — concrete NotifPopup
+    // instances with their snapshot fields assigned at createObject()
+    // time (no model bindings). `popupOrder` is the newest-first list
+    // of notifIds tracking vertical layout. Repositioning is now driven
+    // explicitly by relayoutPopups() — assign each popup's `yOffset` in
+    // stack order — instead of by a QML binding that reads sibling
+    // `implicitHeight` (which fired repeatedly as a freshly spawned
+    // popup's Row polish settled its card height across several frames,
+    // repositioning surviving Wayland surfaces multiple times per spawn
+    // = the "flicker at 144hz on new popup spawn" symptom; at 60hz the
+    // same settle fit inside one frame so it read as the same single
+    // jump despawn already had). relayoutPopups() is called synchronously
+    // on despawn (one jump, preserving the existing seamless feel) and
+    // debounced via relayoutDebounceTimer on spawn so the multi-step
+    // settle collapses into one assignment once the new popup's height
+    // is final.
+    property var popupSurfaces: ({})   // String(notifId) -> NotifPopup instance
+    property var popupOrder: []        // int notifIds, newest first
+
+    // Debounce timer for stack relayout on spawn. Surviving popups jump
+    // once to their final positions only after the freshly spawned
+    // popup's card height has settled (implicitHeightChanged stops
+    // firing for `interval` ms). 16ms ≈ one 60hz frame; long enough for
+    // the Row polish pass to complete on the new popup without letting
+    // an oscillating intermediate layout reach the surviving surfaces.
+    Timer {
+        id: relayoutDebounceTimer
+        interval: 16
+        repeat: false
+        onTriggered: root.relayoutPopups()
+    }
+
+    // Component used to spawn popup Windows on demand. Parsed once from
+    // the relative URL (resolved against NotifDaemon.qml's directory).
+    property Component popupComponent: Qt.createComponent("NotifPopup.qml")
 
     // Pending expiries keyed by notifId. A single recurring Timer scans
     // this map and calls notification.expire() on due entries — replaces
@@ -58,11 +105,14 @@ Singleton {
     // the scan timer only runs while something is actually pending.
     property int pendingCount: 0
 
-    // True while any toplevel is fullscreened (mirrored from NotifPopup's
-    // binding). Expiry of normal popups is deferred until fullscreen ends
-    // so notifications sent during a fullscreen session aren't silently
-    // dropped while the popup window is invisible.
-    property bool fullscreenActive: false
+    // True while any toplevel is fullscreened. Bound directly to
+    // ToplevelManager so the daemon always has the live state — the
+    // prior design mirrored this from each NotifPopup, but if all
+    // popups were despawned while fullscreened, nothing could write
+    // `false` back when fullscreen later ended, leaving deferred
+    // expiries armed forever.
+    readonly property bool fullscreenActive: ToplevelManager.activeToplevel
+        ? ToplevelManager.activeToplevel.fullscreen : false
     onFullscreenActiveChanged: if (!fullscreenActive) root.rearmDeferredExpiries()
 
     NotificationServer {
@@ -98,10 +148,82 @@ Singleton {
         }
         root.persistHistory()
         if (PrefStore.notifPopups || urgency === NotificationUrgency.Critical) {
-            root.activePopups.insert(0, snap)
-            while (root.activePopups.count > root.maxPopups) {
-                root.activePopups.remove(root.activePopups.count - 1)
+            root.spawnPopup(snap)
+            // Overflow: drop the oldest (visually bottom) popup Window.
+            while (root.popupOrder.length > root.maxPopups) {
+                root.despawnPopupById(root.popupOrder[root.popupOrder.length - 1])
             }
+        }
+    }
+
+    // Spawn a fresh popup Window with the snapshot baked in as concrete
+    // properties. Lifetime is tied to the daemon (passed as the QObject
+    // parent) — destroyed with the singleton on shell reload, and
+    // explicitly destroyed via despawnPopupById on dismiss/expire.
+    function spawnPopup(snap) {
+        var inst = root.popupComponent.createObject(root, {
+            notifId:       snap.notifId,
+            notifSummary:  snap.summary,
+            notifBody:     snap.body,
+            notifAppName:  snap.appName,
+            notifAppIcon:  snap.appIcon,
+            notifImage:    snap.image,
+            notifUrgency:  snap.urgency,
+            notifHasAction: snap.hasAction
+        })
+        if (!inst) {
+            console.warn("NotifPopup spawn failed:",
+                         root.popupComponent.errorString())
+            return
+        }
+        root.popupSurfaces[String(snap.notifId)] = inst
+        root.popupOrder.unshift(snap.notifId)
+        // Don't relayout synchronously here: the new popup's card height
+        // is still settling (its Row hasn't been polished yet), so this
+        // would position surviving popups against a stale height and they
+        // would oscillate as the height lands. Each `implicitHeightChanged`
+        // from the new popup re-schedules relayoutPopups() via the debounce
+        // timer, so one final relayout fires after the height is settled.
+        root.scheduleRelayout()
+    }
+
+    // (Re)start the spawn-relayout debounce. Called by NotifPopup's
+    // onImplicitHeightChanged (and once from spawnPopup). The single
+    // firing of relayoutPopups() that follows assigns every popup's
+    // yOffset against the settled card heights — surviving popups jump
+    // once instead of repeatedly as the new popup's Row polish settles.
+    function scheduleRelayout() { relayoutDebounceTimer.restart() }
+
+    // Destroy a popup Window by notifId and recompute sibling Y offsets
+    // synchronously. Surviving popups' heights are already settled (this
+    // is a despawn, not a fresh spawn — no Row polish pending), so a
+    // single relayoutPopups() here is exactly the "seamless single jump"
+    // the stack has always had on dismiss. The snapshot stays in
+    // `history`.
+    function despawnPopupById(notifId) {
+        var inst = root.popupSurfaces[String(notifId)]
+        if (!inst) return
+        delete root.popupSurfaces[String(notifId)]
+        var idx = root.popupOrder.indexOf(notifId)
+        if (idx >= 0) root.popupOrder.splice(idx, 1)
+        inst.destroy()
+        root.relayoutPopups()
+    }
+
+    // Walk popupOrder (newest first) and set each popup's `yOffset` to
+    // the cumulative height of preceding popups (plus inter-popup margin).
+    // Explicit assignment — NOT a binding — so a popup repositioning
+    // never re-evaluates as a sibling's height later settles. The 20px
+    // top screen margin and `+ Theme.margin` inter-popup gap live in
+    // NotifPopup.qml's margins.top binding against `yOffset`.
+    function relayoutPopups() {
+        var y = 0
+        for (var i = 0; i < root.popupOrder.length; i++) {
+            var id = root.popupOrder[i]
+            var inst = root.popupSurfaces[String(id)]
+            if (!inst) continue
+            inst.yOffset = y
+            y += inst.implicitHeight + Theme.margin
         }
     }
 
@@ -124,6 +246,10 @@ Singleton {
         // dismissals (from the panel/another client) drop the popup.
         var cb = function() {
             root.removePopupById(notification.id)
+            if (root.pendingExpiries[String(notification.id)] !== undefined) {
+                delete root.pendingExpiries[String(notification.id)]
+                root.pendingCount = Object.keys(root.pendingExpiries).length
+            }
             try { notification.closed.disconnect(cb) } catch (e) {}
         }
         notification.closed.connect(cb)
@@ -246,12 +372,7 @@ Singleton {
     }
 
     function removePopupById(notifId) {
-        for (var i = 0; i < root.activePopups.count; i++) {
-            if (root.activePopups.get(i).notifId === notifId) {
-                root.activePopups.remove(i)
-                return
-            }
-        }
+        root.despawnPopupById(notifId)
     }
 
     function clearHistory() {
@@ -259,7 +380,7 @@ Singleton {
         root.persistHistory()
     }
 
-    // Single schema for both history and activePopups snapshots —
+    // Single schema for both history and popup snapshots —
     // includes appIcon/image so the panel can render them too.
     // `hasAction` drives the popup's left-click behavior (invoke vs
     // dismiss); it is forced false for entries reloaded from disk since
@@ -312,6 +433,10 @@ Singleton {
     }
 
     Component.onCompleted: {
+        if (popupComponent.status !== Component.Ready)
+            console.warn("NotifPopup component not ready:",
+                         popupComponent.errorString())
+
         var es = histFile.histEntries || []
         for (var i = 0; i < es.length && i < root.notifHistoryMax; i++) {
             var e = es[i]
@@ -326,6 +451,31 @@ Singleton {
                 timestamp: e.timestamp ?? 0,
                 hasAction: false
             })
+        }
+
+        // Re-attach `closed` handlers and re-arm expiries for
+        // notifications that survived the reload (keepOnReload: true).
+        // The daemon's popupSurfaces/popupOrder/pendingExpiries are
+        // recreated empty, so without this, tracked notifications
+        // can't be externally dismissed and never expire.
+        var tracked = server.trackedNotifications
+        if (tracked) {
+            var values = tracked.values
+            for (var j = 0; j < values.length; j++) {
+                (function(notification) {
+                    var cb = function() {
+                        root.removePopupById(notification.id)
+                        if (root.pendingExpiries[String(notification.id)] !== undefined) {
+                            delete root.pendingExpiries[String(notification.id)]
+                            root.pendingCount = Object.keys(root.pendingExpiries).length
+                        }
+                        try { notification.closed.disconnect(cb) } catch (e) {}
+                    }
+                    notification.closed.connect(cb)
+                    var ms = root.expireMillis(notification)
+                    if (ms > 0) root.scheduleExpire(notification, ms)
+                })(values[j])
+            }
         }
     }
 }

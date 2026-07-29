@@ -35,16 +35,16 @@ Singleton {
     // time-of-day for sub-day precision.
     function lunarAge(date) {
         date = date || new Date()
-        var y = date.getFullYear()
-        var m = date.getMonth() + 1
-        var d = date.getDate()
+        var y = date.getUTCFullYear()
+        var m = date.getUTCMonth() + 1
+        var d = date.getUTCDate()
         if (m <= 2) { y -= 1; m += 12 }
         var a = Math.floor(y / 100)
         var b = 2 - a + Math.floor(a / 4)
         var jd = Math.floor(365.25 * (y + 4716))
                + Math.floor(30.6001 * (m + 1))
                + d + b - 1524.5
-        jd += date.getHours() / 24 + date.getMinutes() / 1440 + date.getSeconds() / 86400
+        jd += date.getUTCHours() / 24 + date.getUTCMinutes() / 1440 + date.getUTCSeconds() / 86400
         var cycles = (jd - lunarEpoch) / synodicMonth
         return (cycles - Math.floor(cycles)) * synodicMonth
     }
