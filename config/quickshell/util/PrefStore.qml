@@ -17,25 +17,7 @@ import Quickshell.Io
 // alias here; writes persist automatically via onAdapterUpdated.
 
 Singleton {
-    // Guard against the write → watch → reload → write echo: when
-    // onAdapterUpdated fires from an internal write, an external fs
-    // watcher could race it into a second reload/write cycle.
-    property bool _writing: false
-
-    function _write() {
-        root._writing = true
-        writeAdapter()
-        // Keep the guard up briefly so the fs watcher's onFileChanged
-        // (fired by our own atomic write) doesn't race into a reload
-        // cycle before the write lands and the adapter values settle.
-        writeGuard.restart()
-    }
-
-    Timer {
-        id: writeGuard
-        interval: 100
-        onTriggered: root._writing = false
-    }
+    property alias batteryDevice: adapter.batteryDevice
     property alias weatherUnit: adapter.weatherUnit
     property alias weatherCity: adapter.weatherCity
     property alias wallpaper: adapter.wallpaper
@@ -54,12 +36,6 @@ Singleton {
     property alias weekStart: adapter.weekStart
     property alias batteryWarnLevel: adapter.batteryWarnLevel
     property alias allLowercase: adapter.allLowercase
-    // Main UI face. "" = Theme.defaultFontFamily (JetBrainsMono Nerd
-    // Font). Icon glyphs never use this — ThemeText routes Icon.* text
-    // through Theme.iconFamily, so this can be any non-nerd font you
-    // have installed (Inter, Cantarell, Noto Sans, …) without breaking
-    // glyph icons. Set via Settings → Appearance → Text font.
-    property alias fontFamily: adapter.fontFamily
 
     FileView {
         // Not Quickshell.statePath(): that resolves to a by-shell/<hash>
@@ -72,8 +48,8 @@ Singleton {
         blockLoading: true
         atomicWrites: true
         watchChanges: true
-        onFileChanged: if (!root._writing) reload()
-        onAdapterUpdated: if (!root._writing) root._write()
+        onFileChanged: reload()
+        onAdapterUpdated: writeAdapter()
 
         JsonAdapter {
             id: adapter
@@ -97,7 +73,6 @@ Singleton {
             property string weekStart: "sunday"    // "sunday" | "monday" (calendar)
             property int batteryWarnLevel: 20      // low-battery warning percent
             property bool allLowercase: false
-            property string fontFamily: ""           // "" = Theme.defaultFontFamily; see PrefStore.fontFamily alias
         }
     }
 }

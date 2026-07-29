@@ -173,14 +173,7 @@ Panel {
         if (n.properties) {
             if (n.properties["media.category"] === "Monitor") return true
             if (n.properties["stream.monitor"] === "true") return true
-            // stream.capture.sink may arrive as a JS boolean (PipeWire
-            // native type) or the string "true" — check both.
-            var capSink = n.properties["stream.capture.sink"]
-            if (capSink === true || capSink === "true") return true
-            var appName = n.properties["application.name"]
-            if (appName === "Quickshell Peak Detect") return true
-            if (appName === "Quickshell Spectrum") return true
-            if (appName === "pw-record") return true
+            if (n.properties["application.name"] === "Quickshell Peak Detect") return true
         }
         return false
     }
@@ -254,13 +247,11 @@ Panel {
     }
 
     function refreshConfigDevices() {
-        if (dumpProc.running) return
         dumpProc.command = ["pw-dump"]
         dumpProc.running = true
     }
 
     function setConfigProfile(deviceId, profileIndex) {
-        if (setProc.running) return
         setProc.command = ["pw-cli", "s", String(deviceId), "Profile", '{ "index": ' + String(profileIndex) + ', "save": true }']
         setProc.running = true
         root.configExpanded = false
@@ -271,14 +262,6 @@ Panel {
                 break
             }
         }
-    }
-
-    // Re-fetch config devices when the PipeWire node graph changes
-    // (USB DAC hotplug, etc.) while the panel stays open — otherwise
-    // the config list goes stale until reopen.
-    onAllNodesChanged: {
-        if (root.visible && root.selSection === root.secConfig)
-            root.refreshConfigDevices()
     }
 
     onShown: refreshConfigDevices()
@@ -382,7 +365,6 @@ Panel {
                 selSection: root.selSection
                 inSection: root.inSection
                 selDevice: root.selDevice
-                panelVisible: root.visible && root.selSection < root.secConfig
                 rowHeight: root.rowHeight
                 actions: root.deviceActions(index)
                 dropdownOpen: root.expandedDeviceIdx === index

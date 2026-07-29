@@ -20,7 +20,6 @@ SearchPanel {
     onLaunched: function(idx) {
         var action = root.filtered[idx]
         if (!action) return
-        if (runner.running) return
         runner.command = action.command
         runner.running = true
         root.visible = false

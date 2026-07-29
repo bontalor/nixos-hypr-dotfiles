@@ -3,6 +3,7 @@
 // previously duplicated across VolumePanel/NetworkPanel/BatteryPanel/
 // NotifHistoryPanel. Caller sets `text` and `visible`.
 
+import "."
 import "../theme"
 import QtQuick
 

@@ -5,6 +5,7 @@
 // counts these headers, so keep the two in sync via the constant.
 // Caller sets `text` and `visible`.
 
+import "."
 import "../theme"
 import QtQuick
 

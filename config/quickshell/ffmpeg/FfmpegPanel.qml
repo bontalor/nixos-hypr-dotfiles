@@ -96,17 +96,8 @@ Panel {
         root.inputInfo = "probing…"
         root.inputDuration = 0
         root.inputAudioCodec = ""
-        root._probePath = path
-        if (probeProc.running) { probeProc.running = false; root._probePending = true }
-        else root.startProbe()
-    }
-
-    property string _probePath: ""
-    property bool _probePending: false
-
-    function startProbe() {
         probeProc.command = ["ffprobe", "-v", "error", "-print_format", "json",
-                             "-show_format", "-show_streams", root._probePath]
+                             "-show_format", "-show_streams", path]
         probeProc.running = true
     }
 
@@ -114,12 +105,6 @@ Panel {
         id: probeProc
         stdout: StdioCollector { id: probeOut }
         onExited: (exitCode) => {
-            // If a newer pick superseded this probe, discard the stale result.
-            if (root._probePath !== root.inputPath || root._probePending) {
-                root._probePending = false
-                root.startProbe()
-                return
-            }
             if (exitCode !== 0) { root.inputInfo = "unreadable (ffprobe failed)"; return }
             var j
             try { j = JSON.parse(probeOut.text) } catch (e) {
@@ -520,14 +505,6 @@ Panel {
 
     onVisibleChanged: if (!visible) { root.editing = ""; root.closeRowDropdown() }
     onSelSectionChanged: { root.editing = ""; root.closeRowDropdown() }
-
-    // Clamp selDevice when a section's row count changes due to
-    // hasInput toggling — a Repeater resync can leave selDevice past
-    // the new end.
-    onHasInputChanged: {
-        var n = root.currentModelLength()
-        if (root.selDevice >= n) root.selDevice = Math.max(0, n - 1)
-    }
 
     // Variable-height scroll: open dropdowns add to row height.
     onSelRowActionChanged: Qt.callLater(root.scrollToSelection)

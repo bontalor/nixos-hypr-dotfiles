@@ -106,7 +106,7 @@ FloatingWindow {
         blockLoading: true
         watchChanges: true
         onLoaded: { root.currentWalPath = text().trim(); root.restoreSelection() }
-        onFileChanged: { root.currentWalPath = text().trim(); root.restoreSelection() }
+        onFileChanged: root.currentWalPath = text().trim()
     }
 
     onVisibleChanged: if (visible) {
@@ -119,25 +119,15 @@ FloatingWindow {
 
     function applyWallpaper() {
         if (wallpaperList.length === 0) return
+        // `selected` can point past the end if files were deleted since
+        // the selection was made (the model resync doesn't re-clamp it).
         var path = wallpaperList[Scroll.clamp(root.selected, 0, wallpaperList.length - 1)].path
-        root._pendingWall = path
         setter.command = [Paths.setwallBin, path]
         setter.running = true
+        // Persist the selected path so the picker reopens at the
+        // last-applied wallpaper (lastWallpaper follows via binding).
+        PrefStore.wallpaper = path
         root.visible = false
-    }
-
-    // Persist the selected path only after `setwall` exits 0 — writing
-    // it before the spawn means a failed `setwall` (missing binary,
-    // bad path) leaves the pref disagreeing with the actually-applied
-    // wallpaper, and the next shell restart shows the wrong file.
-    property string _pendingWall: ""
-    Connections {
-        target: setter
-        function onExited(exitCode) {
-            if (exitCode === 0 && root._pendingWall !== "")
-                PrefStore.wallpaper = root._pendingWall
-            root._pendingWall = ""
-        }
     }
 
     Rectangle {

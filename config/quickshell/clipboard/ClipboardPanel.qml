@@ -82,11 +82,7 @@ SearchPanel {
 
     rowDelegate: SearchRow {
         id: row
-        // Compute once on delegate creation rather than re-running the
-        // regex match on every binding re-evaluation (which also
-        // triggers row-height re-layout each time).
-        property string imgSrc: ""
-        Component.onCompleted: row.imgSrc = root.imageSource(row.modelData?.text ?? "")
+        readonly property string imgSrc: root.imageSource(modelData?.text ?? "")
 
         // Image rows grow (with their highlight background) to fit the
         // thumbnail; SearchPanel scrolls by real geometry, so mixed

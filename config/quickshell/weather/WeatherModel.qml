@@ -112,14 +112,14 @@ Singleton {
             weatherData = json
             dataReady = true
             fetchError = ""
-            lastFetchMs = Date.now()
+            _lastFetchMs = Date.now()
             updateMoonData()
         } else if (!dataReady) {
             fetchError = "no data"
         }
     }
 
-    property int lastFetchMs: 0   // last successful fetch timestamp
+    property int _lastFetchMs: 0   // last successful fetch timestamp
 
     function parseTimeToMinutes(timeStr) {
         var parts = timeStr.split(" ")
@@ -132,31 +132,26 @@ Singleton {
         return hours * 60 + minutes
     }
 
+    function getLocationTimezoneOffsetMinutes() {
+        var area = weatherData.nearest_area
+        if (!area || !area.length) return 0
+        var lon = area[0].longitude
+        if (lon === undefined || lon === null) return 0
+        // 15 degrees longitude ≈ 1 hour offset (approximation)
+        return Math.round(lon / 15) * 60
+    }
+
     function calcIsNight() {
         if (!dataReady) return false
-        var cc = weatherData.current_condition
-        if (!cc || !cc.length) return false
-        // wttr.in returns localObsDateTime in the *area's* local clock
-        // time (e.g. "2026-07-29 11:23 PM"), so parsing its HH:MM gives
-        // the correct "now" at the observation point regardless of DST
-        // or half-hour timezones — no longitude-based offset guesswork.
-        var obs = cc[0].localObsDateTime
-        if (!obs) return false
-        var m = obs.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i)
-        if (!m) return false
-        var hours = parseInt(m[1])
-        var minutes = parseInt(m[2])
-        var ampm = m[3].toUpperCase()
-        if (ampm === "PM" && hours !== 12) hours += 12
-        if (ampm === "AM" && hours === 12) hours = 0
-        var locationMinutes = hours * 60 + minutes
-
         var weather = weatherData.weather
         if (!weather || !weather.length) return false
         var astro = weather[0].astronomy
         if (!astro || !astro.length) return false
         var a = astro[0]
         if (!a.sunrise || !a.sunset) return false
+        var offset = getLocationTimezoneOffsetMinutes()
+        var utcNow = new Date()
+        var locationMinutes = ((utcNow.getUTCHours() * 60 + utcNow.getUTCMinutes() + offset) % 1440 + 1440) % 1440
         var sunriseMinutes = parseTimeToMinutes(a.sunrise)
         var sunsetMinutes = parseTimeToMinutes(a.sunset)
         return locationMinutes < sunriseMinutes || locationMinutes >= sunsetMinutes
@@ -180,7 +175,7 @@ Singleton {
     // the panel AND the bar's chip isn't rendered (still rendered →
     // still considered a consumer; the bar widget is always visible).
     property bool panelVisible: false
-    property bool widgetVisible: false   // set by WeatherWidget onCompleted/onDestruction
+    readonly property bool widgetVisible: true   // bar's WeatherWidget is always rendered
     readonly property bool anyConsumerVisible: root.panelVisible || root.widgetVisible
 
     // Only poll after the first fetch completes (or the user opens the
@@ -208,6 +203,6 @@ Singleton {
 
     Component.onCompleted: {
         root.ready = true
-        if (root.anyConsumerVisible) fetchWeather()
+        fetchWeather()
     }
 }

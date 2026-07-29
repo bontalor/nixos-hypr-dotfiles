@@ -47,20 +47,13 @@ SearchPanel {
         var app = root.filtered[idx]
         if (!app) return
         if (app.panelKey) {
+            // toggle() shows the target panel and hides every other
+            // registered panel — including this launcher.
             Panels.toggle(app.panelKey)
             return
         }
-        // Strip Desktop Entry field-code placeholders (%u %f %F %U %d
-        // %D %n %i %c %k %v) from the Exec command — some desktop entries
-        // return the raw `Exec=foo %u` string, and execDetached gets
-        // argv literally, so the token would end up as a broken arg.
-        var cmd = app.command || []
-        if (cmd.length > 0) {
-            cmd = cmd.map(arg => arg.replace(/%[u fodDknickv]/g, "").trim())
-            cmd = cmd.filter(arg => arg !== "")
-        }
         Quickshell.execDetached({
-            command: cmd,
+            command: app.command,
             workingDirectory: app.workingDirectory,
             environment: ({ "XDG_CURRENT_DESKTOP": "Hyprland" })
         })

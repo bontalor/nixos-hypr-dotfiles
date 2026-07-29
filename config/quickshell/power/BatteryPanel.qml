@@ -101,19 +101,6 @@ Panel {
     onVisibleChanged: if (!visible) root.closeRowDropdown()
     onSelSectionChanged: root.closeRowDropdown()
 
-    // Clamp selection when the underlying device/profile list changes
-    // mid-panel (battery hotplug, USB dock) so selDevice/expandedRowIdx
-    // can't dangle past the new end.
-    Connections {
-        target: BatteryModel
-        function onBatteryDevicesChanged() {
-            var n = BatteryModel.batteryDevices.length
-            if (root.selSection === 0 && root.selDevice >= n)
-                root.selDevice = Math.max(0, n - 1)
-            if (root.expandedRowIdx >= n) root.closeRowDropdown()
-        }
-    }
-
     // Variable-height scroll: open dropdowns push the row past rowHeight.
     onSelRowActionChanged: Qt.callLater(root.scrollToSelection)
     onExpandedRowIdxChanged: Qt.callLater(root.scrollToSelection)

@@ -112,13 +112,12 @@ FloatingWindow {
         onActivated: {
             var ev = { key: Qt.Key_Escape, accepted: false, modifiers: 0 }
             root.keyPressed(ev)
-            if (!ev.accepted && root.useDefaultKeys) nav.handleKey(ev)
+            if (!ev.accepted) nav.handleKey(ev)
         }
     }
 
     onVisibleChanged: if (visible) {
         nav.reset()
-        root.sectionChanged(nav.selSection)
         mainRect.forceActiveFocus()
         root.shown()
     }

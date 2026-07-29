@@ -19,20 +19,17 @@ SearchPanel {
     readonly property int recentsMax: 20
 
     property var allEmojis: []
-    property var _byChar: ({})   // char -> entry, built once on parse
 
     FileView {
         path: Paths.emojiData
-        // emoji-test.txt is static Unicode data — no need to watch
-        // for filesystem changes (a backup tool touching the file
-        // would otherwise re-parse the whole ~5000-line file).
+        watchChanges: true
         onLoaded: root.parseEmojis(text())
+        onFileChanged: root.parseEmojis(text())
     }
 
     function parseEmojis(text) {
         var lines = text.split("\n")
         var result = []
-        var byChar = {}
         for (var i = 0; i < lines.length; i++) {
             var line = lines[i].trim()
             if (line === "" || line.startsWith("#")) continue
@@ -40,24 +37,29 @@ SearchPanel {
             var hashIdx = line.indexOf("#")
             if (hashIdx === -1) continue
             var comment = line.substring(hashIdx + 1).trim()
+            // comment looks like: 😀 E1.0 grinning face
             var parts = comment.split(" ")
             if (parts.length < 3) continue
             var emoji = parts[0]
+            // skip the version (parts[1] = E1.0 etc)
             var name = parts.slice(2).join(" ")
-            var entry = { char: emoji, name: name }
-            result.push(entry)
-            byChar[emoji] = entry
+            result.push({ char: emoji, name: name })
         }
-        root._byChar = byChar
         root.allEmojis = result
     }
 
+    // Most-recently-used emoji, shown instead of the full multi-
+    // thousand-row dump while the query is empty. Persisted as a
+    // space-separated pref (emoji sequences never contain spaces).
     readonly property var recentChars: PrefStore.emojiRecents
         ? PrefStore.emojiRecents.split(" ") : []
     readonly property var recentItems: {
+        var byChar = {}
+        for (var i = 0; i < root.allEmojis.length; i++)
+            byChar[root.allEmojis[i].char] = root.allEmojis[i]
         var out = []
         for (var j = 0; j < root.recentChars.length; j++) {
-            var it = root._byChar[root.recentChars[j]]
+            var it = byChar[root.recentChars[j]]
             if (it) out.push(it)
         }
         return out

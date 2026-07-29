@@ -18,14 +18,14 @@ SearchPanel {
 
     property var binds: []
 
-    onVisibleChanged: if (visible) { root.binds = []; bindsProc.running = true }
+    onVisibleChanged: if (visible) bindsProc.running = true
 
     Process {
         id: bindsProc
         command: ["hyprctl", "binds", "-j"]
         stdout: StdioCollector {
             waitForEnd: true
-            onStreamFinished: if (root.visible) root.binds = root.parseBinds(text)
+            onStreamFinished: root.binds = root.parseBinds(text)
         }
     }
 

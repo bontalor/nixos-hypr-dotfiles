@@ -116,28 +116,36 @@ Item {
         color: "transparent"
         implicitWidth: Theme.barHeight
         implicitHeight: overflowColumn.height + 2 * Theme.margin
-        focusable: visible
+        focusable: false
         exclusiveZone: 0
         exclusionMode: ExclusionMode.Ignore
         aboveWindows: true
         WlrLayershell.namespace: "quickshell:tray"
+        // Anchor the popup flush below (top-bar) or above (bottom-bar)
+        // the bar — the previous `top: true; left: true` only + a
+        // mirror formula never actually placed the popup above the
+        // chevron for the bottom case, since neither `bottom` anchor
+        // nor the screen height were consulted.
         anchors {
             top: !root.parentWindow.barAtBottom
             bottom: root.parentWindow.barAtBottom
             left: true
         }
 
-        margins {
-            top: root.parentWindow.barAtBottom ? 0 : Theme.barMargin + Theme.barHeight + Theme.margin
-            bottom: root.parentWindow.barAtBottom ? Theme.barMargin + Theme.barHeight + Theme.margin : 0
-            // Horizontal offset follows the chevron's x position.
-            // Read imperatively on open (see onVisibleChanged) since
-            // itemPosition is a function call, not a bindable signal.
-            left: 0
-        }
-
+        // Vertical offset from the popup's anchor edge: bar margin +
+        // bar height clears the bar, plus a small Theme.margin gap.
+        // Horizontal: align the popup's left edge with the chevron's
+        // left edge (offset by Theme.margin for visual breathing room).
+        // `itemPosition` returns the chevron's coordinates relative to
+        // the bar window's content surface; since both the popup and
+        // the bar ultimately alignto the same screen edges, this gives
+        // a consistent horizontal offset regardless of which side the
+        // bar sits on.
         onVisibleChanged: if (visible) {
             var pos = root.parentWindow.itemPosition(chevronItem)
+            var vClear = Theme.barMargin + Theme.barHeight + Theme.margin
+            margins.top = root.parentWindow.barAtBottom ? 0 : vClear
+            margins.bottom = root.parentWindow.barAtBottom ? vClear : 0
             margins.left = pos.x + Theme.margin
         }
 

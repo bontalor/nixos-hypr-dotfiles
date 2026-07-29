@@ -228,10 +228,7 @@ Panel {
     readonly property bool btScanWanted: root.visible && root.selSection === root.secBluetooth && root.btOn
     // Only write on a real change — a redundant stop makes BlueZ warn
     // "No discovery started" (seen on reload).
-    onBtScanWantedChanged: root.applyBtScan()
-    onBtAdapterChanged: root.applyBtScan()
-
-    function applyBtScan() {
+    onBtScanWantedChanged: {
         if (root.btAdapter && root.btAdapter.discovering !== root.btScanWanted)
             root.btAdapter.discovering = root.btScanWanted
     }
@@ -402,21 +399,17 @@ Panel {
                     }
                 }
             } else {
-                // Static-declared DropdownRows — find the Nth DropdownRow
-                // child in the column rather than indexing by position
-                // (which broke whenever a SectionSubHeader was added or
-                // reordered). nmColumn has just one DropdownRow.
-                var target = null
-                var dropdownCount = 0
-                for (var ci = 0; ci < col.children.length; ci++) {
-                    if (col.children[ci] instanceof DropdownRow) {
-                        if (dropdownCount === root.selDevice) {
-                            target = col.children[ci]
-                            break
-                        }
-                        dropdownCount++
-                    }
+                // Static-declared DropdownRows — locate by section-relative
+                // child index: configColumn children include SectionSubHeader
+                // rows we must skip; nmColumn has just the single row.
+                var childIdx = root.selDevice
+                if (root.selSection === root.secConfig) {
+                    // Children order: [SectionSubHeader, DropdownRow(0),
+                    // SectionSubHeader, Item(eth status), SectionSubHeader,
+                    // DropdownRow(1)] — selDevice 0 -> child 1, selDevice 1 -> child 5.
+                    childIdx = root.selDevice === 0 ? 1 : 5
                 }
+                var target = col.children[childIdx]
                 if (target) {
                     root.scrollToVisible(col.y + target.y, target.height)
                     if (root.expandedRowIdx === root.selDevice && root.selRowAction >= 0) {
@@ -458,7 +451,6 @@ Panel {
     // Terminal comes from Settings (PrefStore.terminal, default foot);
     // whatever is configured must accept `-e <command>`.
     function launchNmtui() {
-        if (nmtuiProc.running) return
         nmtuiProc.command = [PrefStore.terminal || "foot", "-e", "nmtui"]
         nmtuiProc.running = true
     }

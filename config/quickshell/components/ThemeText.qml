@@ -4,17 +4,7 @@
 // every Text in the shell. Callers override only what they need.
 //
 //   ThemeText { text: "hello"; font.bold: true }
-//   ThemeText { text: Icon.play; font.pixelSize: 24 }   // icons render via Theme.iconFamily
-//
-// Icon glyph routing: when the bound text contains a Nerd Font glyph
-// (see Icon.isIconText), `font.family` swaps to `Theme.iconFamily`
-// (a Nerd Font) instead of `Theme.fontFamily` (the user's main font).
-// That keeps every Icon.* glyph rendering at proper Nerd-Font geometry
-// even when the user has retargeted `Theme.fontFamily` to a non-nerd
-// typeface via Settings. Substituting Qt's fontconfig fallback for the
-// real Nerd font matters for sizing/metrics consistency and on systems
-// without any Nerd Font installed (the user's pref matches what they
-// typed, but icons still need their own dedicated face).
+//   ThemeText { text: "small"; size: "small" }
 
 import "../theme"
 import "../util"
@@ -29,7 +19,7 @@ Text {
 
     color: Colors.foreground
     font.capitalization: PrefStore.allLowercase ? Font.AllLowercase : Font.MixedCase
-    font.family: Icon.isIconText(root.text) ? Theme.iconFamily : Theme.fontFamily
+    font.family: Theme.fontFamily
     font.pixelSize: size === "small"
         ? Theme.fontPixelSizeSmall
         : size === "large"

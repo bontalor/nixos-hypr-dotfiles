@@ -25,19 +25,10 @@ Panel {
     // on visibility / pending work so the shell idles).
     SystemClock {
         id: clock
-        // Seconds precision only needed for the Time section; calendar
-        // and date sections don't show seconds, so dropping to Minutes
-        // elsewhere avoids 1Hz re-evaluation of calendar cell bindings.
-        precision: root.visible && root.selSection === 1 ? SystemClock.Seconds : SystemClock.Minutes
+        precision: root.visible ? SystemClock.Seconds : SystemClock.Hours
     }
 
     readonly property var now: clock.date
-    // Stable "today" pulled out of the 1Hz binding so the 42 calendar
-    // cell color bindings don't re-evaluate on every second tick.
-    readonly property date todayDate: {
-        var d = root.now
-        return new Date(d.getFullYear(), d.getMonth(), d.getDate())
-    }
 
     // Month shown in the calendar, as an offset from the current month.
     // Paged from the month-selector level (or the header chevrons);
@@ -379,9 +370,9 @@ Panel {
                         // Compare against the real today, not the
                         // displayed month — offset months would
                         // otherwise highlight their same-numbered day.
-                        var today = modelData.getDate() === root.todayDate.getDate()
-                                 && modelData.getMonth() === root.todayDate.getMonth()
-                                 && modelData.getFullYear() === root.todayDate.getFullYear()
+                        var today = modelData.getDate() === root.now.getDate()
+                                 && modelData.getMonth() === root.now.getMonth()
+                                 && modelData.getFullYear() === root.now.getFullYear()
                         if (today) return Qt.alpha(Colors.accent, Theme.alphaSectionHeader)
                         return "transparent"
                     }

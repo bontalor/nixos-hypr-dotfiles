@@ -54,7 +54,6 @@ Singleton {
 
 
     property bool _show: false   // true when a media-key step should pop the OSD
-    property var _pendingBrightCmd: null   // coalesced while brightSetProc is busy
 
     Timer {
         id: hideTimer
@@ -145,7 +144,8 @@ Singleton {
         var next = Math.min(100, pct + root.brightnessStep) / 100
         root.brightnessValue = next
         root.showBrightness(next, Icon.brightness)
-        root.runBrightSet(["brightnessctl", "s", "+" + root.brightnessStep + "%"])
+        brightSetProc.command = ["brightnessctl", "s", "+" + root.brightnessStep + "%"]
+        brightSetProc.running = true
     }
 
     // Brightness-down floor guard. Reads `brightnessValue` (the dedicated
@@ -165,24 +165,10 @@ Singleton {
         root.brightnessValue = nextPct / 100
         root.showBrightness(nextPct / 100, Icon.brightness)
         if (nextPct === root.brightnessMin)
-            root.runBrightSet(["brightnessctl", "s", String(root.brightnessMin) + "%"])
+            brightSetProc.command = ["brightnessctl", "s", String(root.brightnessMin) + "%"]
         else
-            root.runBrightSet(["brightnessctl", "s", root.brightnessStep + "%-"])
-    }
-
-    // Coalesce rapid brightness-key presses: if a brightnessctl set is
-    // still running, store the latest command and run it when the
-    // current one exits. Without this, Quickshell's Process silently
-    // ignores a `running = true` that's already true, so auto-repeat
-    // key presses after the first are lost — the OSD advances but the
-    // backlight never catches up.
-    function runBrightSet(cmd) {
-        if (brightSetProc.running) {
-            root._pendingBrightCmd = cmd
-        } else {
-            brightSetProc.command = cmd
-            brightSetProc.running = true
-        }
+            brightSetProc.command = ["brightnessctl", "s", root.brightnessStep + "%-"]
+        brightSetProc.running = true
     }
 
     function showBrightness(fraction, glyph) {
@@ -207,30 +193,18 @@ Singleton {
         if (!isFinite(pct) || pct <= 0) return
         root.brightnessValue = pct
         if (root._show && root.activeKind === "brightness") {
+            // Correct the optimistic popup value to the real one.
             root.value = pct
-        }
-        // Drain a coalesced brightness command if one was queued while
-        // we were running (see runBrightSet).
-        if (root._pendingBrightCmd) {
-            brightSetProc.command = root._pendingBrightCmd
-            root._pendingBrightCmd = null
-            brightSetProc.running = true
         }
     }
 
     // onBrightnessRead: silent prime at startup (or any future refresh).
-    // Caches the value and arms `_show`; never pops the OSD. Only arms
-    // `_show` on a successful read — if brightnessctl is missing or no
-    // backlight exists, `_show` stays false and `onBrightnessSet` won't
-    // overwrite the OSD's optimistic value with a wrong 0%. The
-    // CheckedProcess's onExited already notifies the failure.
+    // Caches the value and arms `_show`; never pops the OSD.
     function onBrightnessRead(text) {
         var m = text.match(/\((\d+)%\)/)
         var pct = m ? parseInt(m[1]) / 100 : 0
-        if (isFinite(pct) && pct > 0) {
-            root.brightnessValue = pct
-            root._show = true
-        }
+        if (isFinite(pct) && pct > 0) root.brightnessValue = pct
+        root._show = true
     }
 
     Component.onCompleted: {

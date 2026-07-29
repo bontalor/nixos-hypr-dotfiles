@@ -11,6 +11,4 @@ WidgetButton {
     visible: WeatherModel.dataReady || WeatherModel.fetchError !== ""
     label: WeatherModel.dataReady ? WeatherModel.currentSummary : Icon.alert
     panel: Panels.weather
-    Component.onCompleted: WeatherModel.widgetVisible = true
-    Component.onDestruction: WeatherModel.widgetVisible = false
 }

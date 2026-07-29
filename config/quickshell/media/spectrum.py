@@ -20,20 +20,14 @@ don't strobe (fps-independent feel).
 Usage: spectrum.py [bands] [fps]   (defaults 8, 20)
 """
 import math
-import os
-import signal
 import struct
 import subprocess
 import sys
 import time
 from array import array
 
-try:
-    BANDS = int(sys.argv[1]) if len(sys.argv) > 1 else 8
-    FPS = max(1, int(sys.argv[2])) if len(sys.argv) > 2 else 20
-except (ValueError, TypeError):
-    sys.stderr.write("spectrum.py: bad args (expected: [bands] [fps])\n")
-    BANDS, FPS = 8, 20
+BANDS = int(sys.argv[1]) if len(sys.argv) > 1 else 8
+FPS = max(1, int(sys.argv[2])) if len(sys.argv) > 2 else 20
 
 RATE = 48000
 WINDOW = 2048                     # FFT size: ~43 ms, 23 Hz bins —
@@ -77,23 +71,8 @@ for k in range(BANDS):
         band_bins[k] = [max(1, min(WINDOW // 2 - 1, round(center * WINDOW / RATE)))]
 tilt = [(math.sqrt(edges[k] * edges[k + 1]) / edges[0]) ** TILT for k in range(BANDS)]
 
-# `node.lockQuantum` / `node.lockRate` make the visualizer stream a
-# passive follower: it joins the graph at whatever quantum/rate the
-# device is *already* running instead of negotiating the graph down to
-# the smaller latency `pw-record` would otherwise request. Without these,
-# a 1024-sample request drags the global quantum below the playback
-# device's comfortable cycle and you get xruns ("ALSA underrun" / device
-# resync) every time the visualizer starts while music is playing.
-# `stream.capture.sink = true` taps the default sink's monitor (a
-# non-destructive read side-channel — pw-record never drives the sink,
-# so locking the quantum here only pins the stream's own pull cadence).
-# `application.name` tags the stream so Quickshell's volume panel and bar
-# mic-indicator can recognise it as a monitor tap and exclude it from
-# "recording" device lists and the mic-in-use privacy indicator.
 RECORD_CMD = [
-    "pw-record", "-P",
-    "{ stream.capture.sink = true; node.lockQuantum = true; node.lockRate = true; "
-    "application.name = \"Quickshell Spectrum\" }",
+    "pw-record", "-P", "{ stream.capture.sink = true }",
     "--format", "s16", "--rate", str(RATE), "--channels", "1", "-",
 ]
 
@@ -171,15 +150,9 @@ def run(proc):
 # so the visualizer recovers without a shell reload.
 while True:
     with subprocess.Popen(RECORD_CMD, stdout=subprocess.PIPE,
-                          stderr=subprocess.DEVNULL,
-                          start_new_session=True) as proc:
+                          stderr=subprocess.DEVNULL) as proc:
         try:
             run(proc)
         finally:
-            # Kill the whole process group so pw-record doesn't survive
-            # as a zombie if the python is SIGKILLed mid-run.
-            try:
-                os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
-            except (ProcessLookupError, OSError):
-                pass
+            proc.terminate()
     time.sleep(1)

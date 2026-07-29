@@ -61,9 +61,8 @@ Item {
                     left: parent.left; leftMargin: Theme.margin
                     right: parent.right; rightMargin: Theme.margin
                 }
-                y: root.sublabel === ""
-                   ? (parent.height - height) / 2
-                   : Theme.margin
+                anchors.verticalCenter: root.sublabel === "" ? parent.verticalCenter : undefined
+                y: root.sublabel === "" ? 0 : 4
                 elide: Text.ElideRight
             }
 
@@ -73,7 +72,7 @@ Item {
                 anchors {
                     left: parent.left; leftMargin: Theme.margin
                     right: parent.right; rightMargin: Theme.margin
-                    top: parent.top; topMargin: Theme.rowHeight * 0.5
+                    top: parent.top; topMargin: 24
                 }
                 color: Qt.alpha(Colors.foreground, Theme.alphaBackground)
                 elide: Text.ElideRight

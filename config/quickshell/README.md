@@ -143,10 +143,8 @@ screen) and is started by the PowerMenu "Lock" action:
 quickshell -p ~/.config/quickshell/lockscreen/shell.qml
 ```
 
-It shares `models/`, `theme/`, `util/`, and `components/` through
-byte-identical copies inside `lockscreen/` (Quickshell isolates each
-config root, so the shared code must be physically present under both
-roots), and
+It shares `models/`, `theme/`, `util/`, and `components/` through relative
+symlinks inside `lockscreen/` (Quickshell isolates each config root), and
 reads the same `prefs.json` (fingerprint toggle, time format). PAM config
 for password auth is `lockscreen/pam/password.conf`; fingerprint unlock
 runs `fprintd-verify` concurrently with the password prompt.
@@ -283,57 +281,6 @@ qs -p lockscreen/test.qml               # lockscreen UI in a window
   remaining text column widths beside the seek bar). The lockscreen's
   wallpaper `sourceSize` is removed so the shell renders at any screen
   resolution; the lockscreen no longer pins a 1920x1080 decode target.
-- **Blur lockscreen panel** — `ext-session-lock-v1` surfaces are NOT
-  `wlr-layer-shell` windows, so Hyprland's `layerrule = blur` (which
-  blurs the bar/overlay/popups) can't reach them. The blur now lives
-  inside the QtQuick scene and is scoped to *just* the central lock
-  panel — the surrounding wallpaper stays sharp. `LockSurface.qml`'s
-  panel Rectangle hosts a panel-anchored `Item { anchors.fill: parent;
-  layer.enabled: true }` whose `layer.effect` is
-  `QtQuick.Effects.MultiEffect`; an aligned wallpaper `Image` is placed
-  inside at `-panel.x` / `-panel.y` so its pixels line up with the
-  sharp wall on screen — the FBO captures exactly the wall patch that
-  would have shown at the panel's location, and only that rect ends up
-  blurred. MultiEffect's `autoPaddingEnabled` (on by default) gives
-  the blur transparent padding past the panel edge, so there's no FBO
-  clamp seam; the panel's translucent `alphaWindow` tint Rectangle is
-  drawn on top of the blur for the frosted-glass look. The blur params
-  mirror the user's Hyprland settings —
-  `lockWallpaperBlur: 0.45 × blurMax: 32 ≈ 14 px` (Hyprland
-  `size=8, passes=3` → effective radius ≈ 8 × √3 ≈ 14 px), with
-  `brightness`/`contrast`/`saturation` at `0.0` (Hyprland
-  `brightness=1, contrast=1, vibrancy=1` are all unity). Tune from
-  `theme/Theme.qml`.
-- **Audio xruns fixed** — two concurrent monitor-tap sources were
-  dragging the PipeWire graph quantum down and starving the playback
-  device:
-    - `media/spectrum.py` now launches `pw-record` with
-      `node.lockQuantum = true; node.lockRate = true` so the
-      visualizer stream joins the graph as a passive follower at
-      whatever quantum/rate the device is *already* running instead of
-      renegotiating down to `pw-record`'s default 1024-sample latency.
-    - `volume/AudioDeviceRow.qml`'s `PwNodePeakMonitor` was running
-      per visible row (one PipeWire monitor tap each), fanning out N
-      streams when five sinks/sources/streams were in view. It's now
-      gated to the keyboard-selected row *and* the default sink/
-      source only — at most a couple of live monitor taps — while the
-      bar MediaWidget and OSD keep their single taps. Unselected rows'
-      peak dots freeze at their last value; the focused row + active
-      default still animate live.
-- **Arbitrary font support + Nerd-Font icon guard** —
-  `Theme.fontFamily` is now a user pref (`Settings → Appearance → Text
-  font`) with "Default (JetBrainsMono Nerd Font)" / "Custom…" (type the
-  exact fontconfig family — Inter, Cantarell, Noto Sans, …). Icons
-  were a separate problem: when `Theme.fontFamily` was a Nerd Font, the
-  shell got every Icon.* glyph for free, but a non-nerd main font left
-  those PUA codepoints as tofu (or at the mercy of fontconfig
-  substitution). `Icon.isIconText(string)` classifies Nerd Font glyphs
-  (BMP PUA U+E000..U+F8FF + Plane-15 PUA-B surrogate highs
-  U+DB80..U+DBBF — covers everything currently in `theme/Icon.qml`),
-  and `ThemeText` routes any text containing such a glyph through
-  `Theme.iconFamily` (a dedicated Nerd Font) regardless of
-  `Theme.fontFamily`. So the shell is fully usable on non-nerd fonts
-  while every Icon glyph stays at correct Nerd-Font geometry.
 
 ## Development workflow notes
 
