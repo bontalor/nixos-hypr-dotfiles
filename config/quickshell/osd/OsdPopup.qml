@@ -69,9 +69,14 @@ PanelWindow {
                 }
                 height: Theme.meterHeight
                 color: Qt.alpha(Colors.foreground, Theme.alphaInactive)
+                // Clamp before multiplying so a value > 1 (volume boost
+                // past 100% via an external app, or a transient
+                // brightness rounding) can't paint the fill past the
+                // bar's right edge.
+                clip: true
 
                 Rectangle {
-                    width: parent.width * OsdModel.value
+                    width: parent.width * Math.min(1, Math.max(0, OsdModel.value))
                     height: parent.height
                     color: Colors.foreground
                 }

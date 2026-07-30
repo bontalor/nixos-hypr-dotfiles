@@ -54,15 +54,12 @@ ShellRoot {
         // the bus can call this handler, so an unconstrained `name` would
         // let an untrusted caller spam toggles against arbitrary strings
         // (silently no-op'd by Panels.toggle, but still cheap to reject
-        // up-front and keeps the surface auditable).
+        // up-front and keeps the surface auditable). Iterate
+        // `Panels.knownKeys` instead of re-listing the keys here so a new
+        // panel stays toggollable by IPC the moment it gets a `Panels.*`
+        // constant — no second allowlist to forget to extend.
         function toggle(name: string): void {
-            var keys = [
-                Panels.powerMenu, Panels.picker, Panels.launcher,
-                Panels.volume, Panels.network, Panels.battery,
-                Panels.dateTime, Panels.weather, Panels.media,
-                Panels.emoji, Panels.notifications, Panels.settings,
-                Panels.clipboard, Panels.keybinds, Panels.ffmpeg
-            ]
+            var keys = Panels.knownKeys
             for (var i = 0; i < keys.length; i++) {
                 if (name === keys[i]) { Panels.toggle(name); return }
             }

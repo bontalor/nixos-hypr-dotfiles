@@ -458,6 +458,16 @@ Singleton {
         // The daemon's popupSurfaces/popupOrder/pendingExpiries are
         // recreated empty, so without this, tracked notifications
         // can't be externally dismissed and never expire.
+        //
+        // We also re-spawn a popup for each surviving tracked
+        // notification: without this, a notification that was visibly
+        // popped before reload silently loses its popup window (the
+        // singleton's dynamically-created PanelWindows don't survive
+        // reload) — its snapshot still expires and stays in `history`,
+        // but the user sees nothing on screen after reload until the
+        // next client notification lands. Gated on the same
+        // `notifPopups || Critical` predicate that `addSnapshot` uses,
+        // so DND still suppresses non-critical re-spawns after reload.
         var tracked = server.trackedNotifications
         if (tracked) {
             var values = tracked.values
@@ -474,6 +484,13 @@ Singleton {
                     notification.closed.connect(cb)
                     var ms = root.expireMillis(notification)
                     if (ms > 0) root.scheduleExpire(notification, ms)
+                    if (PrefStore.notifPopups
+                        || notification.urgency === NotificationUrgency.Critical) {
+                        root.spawnPopup(root.snapshot(notification))
+                        while (root.popupOrder.length > root.maxPopups) {
+                            root.despawnPopupById(root.popupOrder[root.popupOrder.length - 1])
+                        }
+                    }
                 })(values[j])
             }
         }

@@ -138,16 +138,16 @@ Singleton {
     // the top of its scale. The previous 0.45×32 ≈ 14.4 px setting
     // matched Hyprland's *theoretical* σ but looked noticeably weaker
     // in practice.
-    property real lockWallpaperBlur: 0.65          // 0..1 multiplier × blurMax
-    property int  lockWallpaperBlurMax: 64         // px cap; Qt 6.11 MultiEffect clamps >32 but accepts the value
-    property real lockWallpaperBlurMultiplier: 1.0 // kernel multiplier (kept unity; tune for triple-pass feel)
+    readonly property real lockWallpaperBlur: 0.65          // 0..1 multiplier × blurMax
+    readonly property int  lockWallpaperBlurMax: 64         // px cap; Qt 6.11 MultiEffect clamps >32 but accepts the value
+    readonly property real lockWallpaperBlurMultiplier: 1.0 // kernel multiplier (kept unity; tune for triple-pass feel)
     // Unity model: 0 = unchanged (matches Hyprland brightness/contrast/
     // vibrancy all at 1 and noise at 0). Tweak only if a busy wall
     // needs extra taming; the panel Rectangle's alphaWindow tint
     // already pulls the backdrop dark.
-    property real lockWallpaperBrightness: 0.0    // -1..1 (0 = unchanged)
-    property real lockWallpaperContrast: 0.0      // -1..1 (0 = unchanged)
-    property real lockWallpaperSaturation: 0.0    // -1..1 (0 = unchanged)
+    readonly property real lockWallpaperBrightness: 0.0    // -1..1 (0 = unchanged)
+    readonly property real lockWallpaperContrast: 0.0      // -1..1 (0 = unchanged)
+    readonly property real lockWallpaperSaturation: 0.0    // -1..1 (0 = unchanged)
 
     // --- Fonts ---
     // `fontFamily` is the main UI face and is User-overridable via the
@@ -156,13 +156,13 @@ Singleton {
     // `iconFamily` regardless (see ThemeText.qml), so a user can run the
     // whole shell on a non-nerd font (Cantarell, Inter, Noto Sans, …)
     // and still see every Icon.* glyph.
-    property string defaultFontFamily: "JetBrainsMono Nerd Font"
-    property string fontFamily: PrefStore.fontFamily || defaultFontFamily
+    readonly property string defaultFontFamily: "JetBrainsMono Nerd Font"
+    readonly property string fontFamily: PrefStore.fontFamily || defaultFontFamily
     // Dedicated Nerd Font for Icon.* glyphs. Always a Nerd Font so the
     // glyphs render even when `fontFamily` is set to a non-nerd face;
     // users with `Symbols Nerd Font Mono` installed may prefer that —
     // keep this one so the default install "just works".
-    property string iconFamily: "JetBrainsMono Nerd Font"
+    readonly property string iconFamily: "JetBrainsMono Nerd Font"
     property int fontPixelSize: 15
     property int fontPixelSizeLarge: 22
     property int fontPixelSizeXLarge: 30

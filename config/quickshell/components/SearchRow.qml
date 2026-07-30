@@ -14,6 +14,8 @@
 // Inside the Repeater, the engine injects `modelData` and `index` so
 // the caller's content can bind to both.
 
+pragma ComponentBehavior: Bound
+
 import "../theme"
 import QtQuick
 

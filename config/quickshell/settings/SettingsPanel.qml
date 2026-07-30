@@ -181,6 +181,15 @@ Panel {
     }
 
     function acceptPicker(picked) {
+        // Guard against the deferred FileDialog/FolderDialog returning
+        // after the user dismissed the panel — the dialog itself is
+        // modal-ish Platform.* so it outlives the panel surface; without
+        // this gate, accepting it later would silently write the picked
+        // path to the pref the user backed out of.
+        if (!root.visible) {
+            root._pickerPref = ""
+            return
+        }
         if (root._pickerPref !== "") {
             var s = picked.toString()
             PrefStore[root._pickerPref] = s.startsWith("file://") ? s.slice(7) : s

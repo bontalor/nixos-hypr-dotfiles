@@ -60,7 +60,7 @@ PanelWindow {
     color: "transparent"
     implicitWidth: Theme.popupWidthWithShadow
     implicitHeight: card.height
-    visible: !fullscreenActive
+    visible: !NotifDaemon.fullscreenActive
 
     // When this popup's height settles (because the Row that hosts the
     // text/icon is initially aspirational until Qt's polish pass runs),

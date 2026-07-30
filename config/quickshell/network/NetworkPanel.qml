@@ -328,6 +328,19 @@ Panel {
     // an in-row TextInput mid-typing.
     property string pwSsid: ""
     onShown: { root.pwSsid = ""; root.closeRowDropdown() }
+    // Clearing the input on every SSID swap (not just on row show/hide)
+    // catches the case where the user opens "Connect" on a second secured
+    // network while the row is already visible for another: the
+    // enclosing Rectangle stays visible so `pwInput.onVisibleChanged`
+    // never fires, leaving the stale partial password from the prior
+    // network in the field. Without this guard, submitting would send
+    // network A's password to network B.
+    onPwSsidChanged: {
+        if (pwInput) {
+            pwInput.text = ""
+            if (root.pwSsid !== "") pwInput.forceActiveFocus()
+        }
+    }
 
     // Enter in the password row: nmcli creates the profile and connects.
     // A wrong password or other failure surfaces as a notification via

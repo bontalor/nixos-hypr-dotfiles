@@ -15,6 +15,16 @@ Scope {
     property bool unlockInProgress: false
     property bool showFailure: false
 
+    // Path to the lock instance pid file. PowerActions' "Lock" command
+    // writes `kill -0` against this pid before spawning a new
+    // lockscreen, so a stuck Hyprland bind or repeated `Lock` press
+    // can't pile ext-session-lock-v1 instances — see README "Lock spawn
+    // guard" note. We write `$PPID` (not `$$`) because the writer runs
+    // as `sh -c '...'`; `$$` there is the spawning `sh`'s PID, which
+    // exits immediately, while `$PPID` is our own (the lockscreen
+    // Quickshell process). Cleared on unlock (see `Component.onCompleted`).
+    readonly property string lockPidPath: Paths.stateDir + "/lock.pid"
+
     // fprintd fingerprint verification runs concurrently with the password
     // prompt — whichever succeeds first unlocks. The standalone
     // `fprintd-verify` CLI is used (rather than a pam_fprintd stack) because
@@ -68,7 +78,33 @@ Scope {
 
     Component.onCompleted: {
         if (root.fingerprintEnabled) fprintProc.running = true
+        // Publish our own PID so PowerActions' "Lock" command can skip
+        // spawning a duplicate lockscreen while we're alive. `sh -c`
+        // writes the env var directly; `$PPID` is the lockscreen
+        // Quickshell process (see the `lockPidPath` explanation).
+        pidWriter.command = ["sh", "-c",
+            "mkdir -p \"" + root.lockPidPath.replace(/\/lock\.pid$/, "") + "\" "
+            + "&& printf '%s' \"$PPID\" > \"" + root.lockPidPath + "\""]
+        pidWriter.running = true
     }
+
+    onUnlocked: {
+        // Best-effort cleanup — drop the pid file so a future Lock
+        // press spawns a fresh instance. Ignore failure: ext-session-
+        // lock-v1 is already unlocking; even if this `rm` races
+        // PowerActions' next spawn, the next instance overwrites the
+        // pid file on its own `Component.onCompleted`.
+        pidRemover.command = ["rm", "-f", root.lockPidPath]
+        pidRemover.running = true
+    }
+
+    // One-shot writers for the lock pid file: the writer publishes our
+    // PID at startup, the remover drops it on unlock. Both deliberately
+    // use plain `Process` (no CheckedProcess — failures here are
+    // non-fatal and must NOT reference NotifDaemon, which would spin up
+    // a second NotificationServer inside the lockscreen instance).
+    Process { id: pidWriter }
+    Process { id: pidRemover }
 
     Process {
         id: fprintProc
@@ -177,7 +213,14 @@ Scope {
             // the user pressed Enter). Without this gate, the post-failure
             // branch wrongly clears currentText/showFailure state on a
             // session that already unlocked.
-            if (root.fingerprintMatched) return
+            if (root.fingerprintMatched) {
+                // Password hygiene: even though `Qt.quit()` follows
+                // shortly on `unlocked()`, the typed password would
+                // otherwise linger in `currentText` for at least one
+                // frame. Clear it explicitly.
+                root.currentText = ""
+                return
+            }
             if (result == PamResult.Success) {
                 root.unlocked()
             } else {

@@ -71,25 +71,7 @@ Singleton {
     //   H = 0xD800 + ((cp-0x10000) >> 10); PUA-B maps to exactly that
     //   range). charCodeAt() reads raw UTF-16 units, so the regex below
     //   catches both ranges in a single scan.
-    // Returns true only when the string is made up *entirely* of Nerd
-    // can route it through `Theme.iconFamily` (a Nerd Font) regardless of
-    // `Theme.fontFamily`. Without this, a user who sets a non-nerd main
-    // font (Inter, Cantarell, Noto Sans, …) gets Icon.* glyphs from Qt's
-    // fontconfig substitution list — which may or may not exist on
-    // their box, and is at best the wrong size/metrics. Forcing the icon
-    // face keeps every Icon.* glyph at consistent Nerd-Font geometry.
-    //
-    // Nerd Font glyphs live in two PUA ranges:
-    //   U+E000  .. U+F8FF  — BMP Private Use Area. The bulk of the
-    //                         Font Awesome / Material / devicons packs.
-    //   U+F0001 .. U+FFFFD — Plane 15 Supplementary PUA-B + Nerd Font
-    //                         Brand glyphs (`Icon.play/prev/next`,
-    //                         `Icon.chevronExpand/…`, `Icon.fingerprint`).
-    // Plane-15 codepoints show up in UTF-16 as a surrogate pair with the
-    // high surrogate in [0xDB80 .. 0xDBBF] (derivation:
-    //   H = 0xD800 + ((cp-0x10000) >> 10); PUA-B maps to exactly that
-    //   range). charCodeAt() reads raw UTF-16 units, so the regex below
-    //   catches both ranges in a single scan.
+
     // Returns true only when the string is made up *entirely* of Nerd
     // Font glyphs (and whitespace) — so ThemeText can route the whole
     // label through `Theme.iconFamily` (a Nerd Font) and get consistent

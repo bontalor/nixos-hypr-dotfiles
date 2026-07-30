@@ -66,7 +66,13 @@ FloatingWindow {
         onTriggered: root.recomputeFiltered()
     }
     onQueryChanged: filterDebounce.restart()
-    onItemsChanged: root.recomputeFiltered()
+    // Route the items-mutation path through the same debounce as the
+    // query-change path. A backing list that grows/reorders while the
+    // panel is open (Launcher rescanning entries, ClipboardModel
+    // growing, Panel registry launcherEntries trickling in after late
+    // panel init) used to trigger a synchronous re-filter+sort on every
+    // push — bursts of N pushes ran the O(N·M) match pass N times.
+    onItemsChanged: filterDebounce.restart()
 
     function recomputeFiltered() {
         var all = root.items || []
@@ -83,6 +89,14 @@ FloatingWindow {
             list = list.slice(0, root.maxLength)
         }
         root._filteredCache = list
+        // If the backing list shrank below the current selection (a
+        // notification was dismissed while the ClipboardPanel was open,
+        // a player was removed, …), keep selectedIndex in range so
+        // scrollSelectedIntoView doesn't read a past-end coordinate
+        // and launchSelected doesn't dispatch against an empty row.
+        if (root.selectedIndex >= list.length) {
+            root.selectedIndex = Math.max(0, list.length - 1)
+        }
     }
 
     onVisibleChanged: if (visible) {

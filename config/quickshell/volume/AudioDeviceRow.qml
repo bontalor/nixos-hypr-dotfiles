@@ -210,7 +210,7 @@ Item {
                 id: actionRow
                 required property int index
                 required property var modelData
-                width: parent.width
+                width: parent ? parent.width : 0
                 height: Theme.searchRowHeight
                 color: index === devRow.selActionIndex
                        ? Qt.alpha(Colors.accent, Theme.alphaSectionHeader)

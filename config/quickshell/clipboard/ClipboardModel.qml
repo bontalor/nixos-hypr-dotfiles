@@ -167,6 +167,19 @@ Singleton {
     // by an imperative assignment (which would clobber the binding and
     // leave the watcher running after the user disables the pref).
     property bool wantRun: true
+    property int _respawnNonce: 0
+    property int _imageRespawnNonce: 0
+
+    Connections {
+        target: PrefStore
+        function onClipboardHistoryChanged() {
+            if (PrefStore.clipboardHistory) {
+                root._respawnNonce = 0
+                root._imageRespawnNonce = 0
+            }
+        }
+    }
+
     Process {
         id: watcher
         running: PrefStore.clipboardHistory && root.wantRun
@@ -244,7 +257,8 @@ Singleton {
     Timer {
         id: respawn
         interval: 1000
-        onTriggered: if (PrefStore.clipboardHistory) {
+        onTriggered: if (PrefStore.clipboardHistory && root._respawnNonce < 20) {
+            root._respawnNonce++
             // Re-arm via the binding, not by setting `running` imperatively
             // (which clobbers the binding and stops the pref from keeping the
             // watcher off when later toggled). The double-assignment keeps
@@ -257,7 +271,8 @@ Singleton {
     Timer {
         id: imageRespawn
         interval: 1000
-        onTriggered: if (PrefStore.clipboardHistory) {
+        onTriggered: if (PrefStore.clipboardHistory && root._imageRespawnNonce < 20) {
+            root._imageRespawnNonce++
             root.wantRun = false
             root.wantRun = true
         }

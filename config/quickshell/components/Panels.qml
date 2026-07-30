@@ -38,6 +38,19 @@ Singleton {
     readonly property string keybinds: "keybinds"
     readonly property string ffmpeg: "ffmpeg"
 
+    // Single source of truth for the keyed set — consumed by the
+    // shell.qml `overlay` IPC allowlist (any caller on the IPC bus can
+    // invoke the handler, so `name` is matched against this list
+    // instead of being passed unchecked to `toggle`, which no-ops
+    // silently on unknowns but still busses a free round-trip for
+    // untrusted senders). Adding a panel above MUST extend this array;
+    // the IPC handler iterates it rather than re-listing the keys.
+    readonly property var knownKeys: [
+        powerMenu, picker, launcher, volume, network, battery,
+        dateTime, weather, media, emoji, notifications, settings,
+        clipboard, keybinds, ffmpeg
+    ]
+
     // Launcher-searchable entries, derived from registration.
     property var launcherEntries: []
     property var panels: ({})
@@ -125,7 +138,14 @@ Singleton {
             handled = true
             target.backingWindowVisibleChanged.disconnect(onBackingVisible)
             try { safety.stop(); safety.destroy() } catch (e) {}
-            for (let j = 0; j < toHide.length; j++) toHide[j].visible = false
+            // Guard each entry: a shell reload between the toggle
+            // (which captured `toHide` by reference) and this
+            // deferred run can destroy the captured FloatingWindows,
+            // and writing `.visible` on a destroyed window throws,
+            // skipping the remaining hides and leaving stale surfaces.
+            for (let j = 0; j < toHide.length; j++) {
+                if (toHide[j]) toHide[j].visible = false
+            }
         }
         target.backingWindowVisibleChanged.connect(onBackingVisible)
 
@@ -143,7 +163,9 @@ Singleton {
             handled = true
             target.backingWindowVisibleChanged.disconnect(onBackingVisible)
             try { safety.destroy() } catch (e) {}
-            for (let i = 0; i < toHide.length; i++) toHide[i].visible = false
+            for (let i = 0; i < toHide.length; i++) {
+                if (toHide[i]) toHide[i].visible = false
+            }
         })
         safety.start()
     }

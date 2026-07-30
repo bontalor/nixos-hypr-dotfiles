@@ -33,11 +33,27 @@ Singleton {
 
     // 0..1 per band, bass first. Length Theme.peakBands.
     property var bands: Array(Theme.peakBands).fill(0)
+    property bool _wantedActive: false
 
-    onActiveChanged: if (!active) bands = Array(Theme.peakBands).fill(0)
+    onActiveChanged: {
+        if (root.active) {
+            root._wantedActive = true
+            stopTimer.stop()
+        } else {
+            stopTimer.restart()
+        }
+    }
+
+    on_WantedActiveChanged: if (!root._wantedActive) root.bands = Array(Theme.peakBands).fill(0)
+
+    Timer {
+        id: stopTimer
+        interval: 500
+        onTriggered: root._wantedActive = false
+    }
 
     Process {
-        running: root.active
+        running: root._wantedActive
         command: ["python3", Quickshell.shellDir + "/media/spectrum.py",
                   String(Theme.peakBands), String(Theme.peakFps)]
         stdout: SplitParser {

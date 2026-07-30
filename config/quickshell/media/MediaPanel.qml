@@ -61,10 +61,30 @@ Panel {
     function fmtTime(sec) { return FormatUtil.fmtSeconds(sec) }
 
     // If a player disconnects mid-panel-open, selSection may end up past
-    // the end of the players list — clamp it back so currentPlayer never
-    // nulls out and the panel keeps showing a live track.
+    // the end of the players list — clamping the index alone isn't enough,
+    // because removing a player *before* the selected one shifts every
+    // later entry's index but selSection stays the same numeric value, so
+    // currentPlayer silently slides to the wrong player. We re-find the
+    // previously-selected player by reference; only reset the section
+    // index when it's truly gone.
     onAllPlayersChanged: {
-        if (selSection >= allPlayers.length) selSection = Math.max(0, allPlayers.length - 1)
+        if (root._previousPlayer) {
+            var idx = root.allPlayers.indexOf(root._previousPlayer)
+            if (idx >= 0) {
+                root.selSection = idx
+            } else if (root.allPlayers.length > 0) {
+                root.selSection = Math.min(root.selSection, root.allPlayers.length - 1)
+            } else {
+                root.selSection = 0
+            }
+        } else if (root.allPlayers.length > 0
+                   && root.selSection >= root.allPlayers.length) {
+            root.selSection = Math.max(0, root.allPlayers.length - 1)
+        }
+    }
+    property var _previousPlayer: null
+    onSelSectionChanged: {
+        root._previousPlayer = root.currentPlayer
     }
 
     onShown: {

@@ -78,7 +78,7 @@ Panel {
         title: "Pick Audio Track"
         fileMode: Platform.FileDialog.OpenFile
         nameFilters: ["Audio & video files (*.mp3 *.m4a *.aac *.flac *.wav *.opus *.ogg *.wma *.mka *.mp4 *.mkv *.mov)", "All files (*)"]
-        onAccepted: root.audioPath = Paths.urlToLocalFile(audioPicker.file)
+        onAccepted: root.pickAudioDone(Paths.urlToLocalFile(audioPicker.file))
     }
 
     // ================= Input metadata =================
@@ -372,10 +372,24 @@ Panel {
 
     // --- Merge ---
     property string audioPath: ""
+    // When the user picks the audio file from `audioPicker`, the dialog
+    // is asynchronous — without remembering which merge mode (mp4 vs
+    // mkv) triggered the pick, `onAccepted` would only set `audioPath`
+    // and require the user to press the Merge action a SECOND time to
+    // actually invoke ffmpeg. `pendingMergeMp4` carries the mode across
+    // that async gap so `pickAudioDone` can launch the merge directly.
+    //
+    // Tri-state sentinel:
+    //   null  → no pending merge (Browse action used the picker to just
+    //           set audioPath without auto-running a merge afterwards)
+    //   true  → user picked "merge-mp4" previously, awaiting audio file
+    //   false → user picked "merge-mkv" previously, awaiting audio file
+    property var _pendingMergeMp4: null
 
     function runMerge(mp4) {
         if (!root.hasInput) return
         if (root.audioPath === "") {
+            root._pendingMergeMp4 = mp4
             audioPicker.open()
             return
         }
@@ -390,6 +404,22 @@ Panel {
              "-map", "0:v:0", "-map", "1:a:0"].concat(codec)
              .concat(["-shortest", out]),
             out, root.inputDuration)) root.selSection = root.secJob
+    }
+
+    // Called by `audioPicker.onAccepted` (and is the fix for the
+    // previous "two-click merge" bug: the picker is async, so without
+    // explicitly chaining back into `runMerge`, picking the audio file
+    // only updated `audioPath` and required a SECOND click on the
+    // Merge action — non-obvious UX). The Browse-audio path leaves
+    // `_pendingMergeMp4` at null, so this only auto-runs a merge when
+    // the picker was invoked from a runMerge call.
+    function pickAudioDone(picked) {
+        root.audioPath = picked
+        if (root._pendingMergeMp4 !== null && root._pendingMergeMp4 !== undefined) {
+            var mp4 = root._pendingMergeMp4
+            root._pendingMergeMp4 = null
+            root.runMerge(mp4)
+        }
     }
 
     // ================= Panel navigation =================
@@ -511,7 +541,13 @@ Panel {
         case "set-fps":      root.gifFpsIdx = act.value; break
         case "set-width":    root.gifWidthIdx = act.value; break
         case "run-gif":      root.runGif(); break
-        case "browse-audio": audioPicker.open(); break
+        case "browse-audio":
+            // Reset any pending merge state so a stale `_pendingMergeMp4`
+            // from a cancelled Merge-mode picker doesn't auto-trigger a
+            // merge when the user picks a fresh audio file here purely
+            // to swap the audio track.
+            root._pendingMergeMp4 = null
+            audioPicker.open(); break
         case "clear-audio":  root.audioPath = ""; break
         case "merge-mkv":    root.runMerge(false); break
         case "merge-mp4":    root.runMerge(true); break

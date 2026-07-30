@@ -53,7 +53,14 @@ Item {
         proc.running = false
     }
 
-    Component.onDestruction: if (proc.running) proc.running = false
+    Component.onDestruction: if (proc.running) {
+        // Mark cancelled BEFORE terminating so the close-of-shell
+        // doesn't churn through onExited's failure branch and emit a
+        // spurious "ffmpeg failed (exit 143)" toast to a user who just
+        // closed the panel. Mirrors `cancel()`'s ordering.
+        runner.phase = "cancelled"
+        proc.running = false
+    }
 
     Process {
         id: proc
