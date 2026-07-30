@@ -8,7 +8,12 @@ import Quickshell
 // input to the shell — wallpapers, the pywal cache, the emoji data file.
 
 Singleton {
-    readonly property string home: Quickshell.env("HOME")
+    // Guard against `HOME` being unset (rare, but possible in custom unit
+    // contexts / sandboxed launchers). Downstream `home + "/.cache/..."`
+    // would otherwise produce "/.cache/..." (absolute, OK) but
+    // `expandHome` would mis-prepend and the user-writable dirs (walls,
+    // setwall, state) would land in the wrong place. Fall back to /tmp.
+    readonly property string home: Quickshell.env("HOME") || "/tmp"
 
     // Strip the `file://` prefix from a QUrl-as-string and decode its
     // escapes. Platform FileDialog returns a QUrl; callers without this

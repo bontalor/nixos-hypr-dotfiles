@@ -50,8 +50,22 @@ ShellRoot {
     IpcHandler {
         target: "overlay"
         enabled: true
+        // Validate `name` against the known panel keys: any IPC client on
+        // the bus can call this handler, so an unconstrained `name` would
+        // let an untrusted caller spam toggles against arbitrary strings
+        // (silently no-op'd by Panels.toggle, but still cheap to reject
+        // up-front and keeps the surface auditable).
         function toggle(name: string): void {
-            Panels.toggle(name)
+            var keys = [
+                Panels.powerMenu, Panels.picker, Panels.launcher,
+                Panels.volume, Panels.network, Panels.battery,
+                Panels.dateTime, Panels.weather, Panels.media,
+                Panels.emoji, Panels.notifications, Panels.settings,
+                Panels.clipboard, Panels.keybinds, Panels.ffmpeg
+            ]
+            for (var i = 0; i < keys.length; i++) {
+                if (name === keys[i]) { Panels.toggle(name); return }
+            }
         }
     }
 

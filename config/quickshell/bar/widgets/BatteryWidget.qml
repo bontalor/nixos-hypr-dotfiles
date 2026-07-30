@@ -11,8 +11,14 @@ WidgetButton {
     property bool isCharging: BatteryModel.charging
 
     // Glyph comes straight from the shared profiles table — no
-    // string-name → icon mapping to keep in sync.
-    property string profileSymbol: BatteryModel.profileIndex >= 0
+    // string-name → icon mapping to keep in sync. The `profiles` length
+    // check guards against the async-model-init race: `profileIndex >= 0`
+    // alone doesn't guarantee `profiles` is populated yet, so indexing
+    // it would throw "Cannot read property 'icon' of undefined".
+    property string profileSymbol: BatteryModel.profiles
+        && BatteryModel.profiles.length > 0
+        && BatteryModel.profileIndex >= 0
+        && BatteryModel.profileIndex < BatteryModel.profiles.length
         ? BatteryModel.profiles[BatteryModel.profileIndex].icon : ""
 
     label: computeStatusText(batteryPercent, isCharging, profileSymbol)

@@ -163,11 +163,13 @@ Singleton {
 
     // Watchers run only while the Settings pref is on. The `running`
     // bindings on each Process track the pref directly; the respawn
-    // timers re-apply it after an unexpected exit (compositor restart
-    // of the data-control connection, etc.).
+    // timers re-arm via `wantRun` so the pref binding is never overwritten
+    // by an imperative assignment (which would clobber the binding and
+    // leave the watcher running after the user disables the pref).
+    property bool wantRun: true
     Process {
         id: watcher
-        running: PrefStore.clipboardHistory
+        running: PrefStore.clipboardHistory && root.wantRun
         // The watch command receives each new selection on stdin; `cat`
         // passes it through with a NUL terminator so the SplitParser can
         // frame entries (clipboard text can contain anything but NUL).
@@ -201,7 +203,7 @@ Singleton {
 
     Process {
         id: imageWatcher
-        running: PrefStore.clipboardHistory
+        running: PrefStore.clipboardHistory && root.wantRun
         // Image-only offers (screenshots, copied images) have no text
         // type, so the text watcher never sees them. This one writes
         // the bytes to imageDir named by bare content hash — no
@@ -242,13 +244,23 @@ Singleton {
     Timer {
         id: respawn
         interval: 1000
-        onTriggered: if (PrefStore.clipboardHistory) watcher.running = true
+        onTriggered: if (PrefStore.clipboardHistory) {
+            // Re-arm via the binding, not by setting `running` imperatively
+            // (which clobbers the binding and stops the pref from keeping the
+            // watcher off when later toggled). The double-assignment keeps
+            // array identity stable enough for the binding to re-evaluate.
+            root.wantRun = false
+            root.wantRun = true
+        }
     }
 
     Timer {
         id: imageRespawn
         interval: 1000
-        onTriggered: if (PrefStore.clipboardHistory) imageWatcher.running = true
+        onTriggered: if (PrefStore.clipboardHistory) {
+            root.wantRun = false
+            root.wantRun = true
+        }
     }
 
     // `rm -f` for eviction; clears `rmProc.running` and drains the next
@@ -271,7 +283,7 @@ Singleton {
     function pruneIfNeeded() {
         if (root._pruned) return
         root._pruned = true
-        pruneProc.command = ["sh", "-c", 'ls -- "$1" 2>/dev/null || true', "sh", imageDir]
+        pruneProc.command = ["sh", "-c", 'ls -- "$1" 2>/dev/null || true', "sh", root.imageDir]
         pruneProc.running = true
     }
     Process {

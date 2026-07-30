@@ -1,10 +1,10 @@
+pragma ComponentBehavior: Bound
+
 import "./util"
 import QtQuick
 import Quickshell
 import Quickshell.Io
 import Quickshell.Services.Pam
-
-pragma ComponentBehavior: Bound
 
 Scope {
     id: root
@@ -82,7 +82,11 @@ Scope {
         // fprintd-verify: exit 0 == verify-match, exit 1 == anything else
         // (no-match, no device, no enrolled fingers, daemon down, …).
         // Exit 127 == fprintd not installed. Stdout disambiguates the
-        // recoverable exit-1 cases from the permanent ones.
+        // recoverable exit-1 cases from the permanent ones. A crash
+        // (SIGSEGV, etc.) is reported with exitStatus === Process.CrashExit
+        // and exitCode holding the signal number — handled here as a
+        // transient retry (the watchdog re-arms) rather than a permanent
+        // disable, since fprintd crashes are typically transient.
         onExited: (exitCode, exitStatus) => {
             if (root.fingerprintMatched) return
             if (exitCode === 0) {

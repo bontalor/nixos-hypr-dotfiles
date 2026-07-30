@@ -51,7 +51,10 @@ QtObject {
                                                 && sectionSubs(selSection).length > 0
 
     // Last-chosen subsection per section, so reopening the dropdown
-    // lands where the user left off.
+    // lands where the user left off. Always reassigned as a fresh
+    // object on each write so any binding on `_lastSub` re-evaluates —
+    // in-place mutation (`nav._lastSub[k] = v`) keeps the object
+    // identity unchanged and silently suppresses QML change signals.
     property var _lastSub: ({})
 
     signal sectionChanged(int idx)
@@ -64,7 +67,16 @@ QtObject {
         nav.sectionChanged(nav.selSection)
     }
     onSelSubChanged: {
-        if (nav.selSub >= 0) nav._lastSub[nav.selSection] = nav.selSub
+        if (nav.selSub >= 0) {
+            // Reassign a fresh object rather than mutating in place so
+            // any consumer that binds to `_lastSub` actually sees the
+            // change (QML's change signal doesn't fire on in-place
+            // mutation of a `var`'s inner properties).
+            var next = {}
+            for (var k in nav._lastSub) next[k] = nav._lastSub[k]
+            next[nav.selSection] = nav.selSub
+            nav._lastSub = next
+        }
         nav.configExpanded = false
         nav.selConfigItem = 0
         nav.selConfigProfile = 0
@@ -78,6 +90,13 @@ QtObject {
         nav.inSection = false
         nav.selDevice = 0
         nav.configExpand.reset()
+        // onSelSectionChanged only fires when the value actually
+        // differs; if reset() runs with selSection already 0 (common on
+        // reopen) the signal is suppressed and any subclass relying on
+        // the signal alone (rather than the explicit call from
+        // Panel.qml's onVisibleChanged) would miss the reset. Emit here
+        // for symmetry with the other state fields.
+        nav.sectionChanged(nav.selSection)
     }
 
     function sectionSubs(i) {
@@ -103,14 +122,24 @@ QtObject {
         nav.configExpand.toggleConfigItem(idx)
     }
 
+    // "Unwind one level out" — shared by Shift+Tab and Backtab so the two
+    // key sequences always behave identically. Previously Shift+Tab had
+    // a final fallback to `Scroll.clamp(nav.selSection - 1, …)` while
+    // Backtab did not, so on setups that synthesize Shift+Tab (or
+    // modifier-only) keyboard layouts users got section-nav where Backtab
+    // users got stuck. Both branches now share this helper.
+    function unwindOut() {
+        if (nav.inExpandSection && nav.configExpanded) nav.configExpanded = false
+        else if (nav.inSection) nav.inSection = false
+        else if (nav.sidebarDropdownOpen) nav.toggleSidebarDropdown()
+        else nav.selSection = Scroll.clamp(nav.selSection - 1, 0, nav.sections.length - 1)
+    }
+
     function handleKey(event) {
         switch (event.key) {
         case Qt.Key_Tab:
             if (event.modifiers & Qt.ShiftModifier) {
-                if (nav.inExpandSection && nav.configExpanded) nav.configExpanded = false
-                else if (nav.inSection) nav.inSection = false
-                else if (nav.sidebarDropdownOpen) nav.toggleSidebarDropdown()
-                else nav.selSection = Scroll.clamp(nav.selSection - 1, 0, nav.sections.length - 1)
+                nav.unwindOut()
             } else if (nav.inExpandSection) {
                 if (nav.configExpanded) nav.configExpanded = false
                 else { nav.configExpanded = true; nav.selConfigProfile = Math.max(0, nav.configCurrentProfile()) }
@@ -125,9 +154,7 @@ QtObject {
             event.accepted = true; break
 
         case Qt.Key_Backtab:
-            if (nav.inExpandSection && nav.configExpanded) nav.configExpanded = false
-            else if (nav.inSection) nav.inSection = false
-            else if (nav.sidebarDropdownOpen) nav.toggleSidebarDropdown()
+            nav.unwindOut()
             event.accepted = true; break
 
         case Qt.Key_J:

@@ -1,5 +1,6 @@
 pragma Singleton
 
+import "."
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -17,24 +18,37 @@ import Quickshell.Io
 // alias here; writes persist automatically via onAdapterUpdated.
 
 Singleton {
-    // Guard against the write → watch → reload → write echo: when
-    // onAdapterUpdated fires from an internal write, an external fs
-    // watcher could race it into a second reload/write cycle.
-    property bool _writing: false
+    // Guard against the write → watch → reload → write echo. The
+    // previous design armed a 100 ms `_writing` boolean and skipped any
+    // onFileChanged inside that window — but a *real* external write
+    // landing in the window (e.g. another shell instance editing prefs)
+    // would also be skipped, silently dropping the user's change.
+    //
+    // A fingerprint instead compares the adapter's current state against
+    // the state we last wrote to disk. The echo is now broken at the
+    // `onAdapterUpdated` step: when our own write's file-change event
+    // reloads the file back into the adapter, the adapter's just-reloaded
+    // fingerprint still matches what we last wrote, so `onAdapterUpdated`
+    // fires but `_write()` is suppressed and the loop dies. A genuine
+    // external edit reloads *different* adapter values → fingerprint
+    // differs → `_write()` runs and persists the diff.
+    property string _writtenFingerprint: ""
 
-    function _write() {
-        root._writing = true
-        writeAdapter()
-        // Keep the guard up briefly so the fs watcher's onFileChanged
-        // (fired by our own atomic write) doesn't race into a reload
-        // cycle before the write lands and the adapter values settle.
-        writeGuard.restart()
+    function _adapterFingerprint() {
+        return JSON.stringify([
+            adapter.batteryDevice, adapter.weatherUnit, adapter.weatherCity,
+            adapter.wallpaper, adapter.wallpaperDir, adapter.distroIcon,
+            adapter.barPosition, adapter.timeFormat, adapter.notifPopups,
+            adapter.notifExpireSec, adapter.emojiRecents, adapter.visualizer,
+            adapter.fingerprintUnlock, adapter.terminal, adapter.clipboardHistory,
+            adapter.timeSeconds, adapter.weekStart, adapter.batteryWarnLevel,
+            adapter.allLowercase, adapter.fontFamily
+        ])
     }
 
-    Timer {
-        id: writeGuard
-        interval: 100
-        onTriggered: root._writing = false
+    function _write() {
+        root._writtenFingerprint = root._adapterFingerprint()
+        writeAdapter()
     }
     property alias weatherUnit: adapter.weatherUnit
     property alias weatherCity: adapter.weatherCity
@@ -53,6 +67,7 @@ Singleton {
     property alias timeSeconds: adapter.timeSeconds
     property alias weekStart: adapter.weekStart
     property alias batteryWarnLevel: adapter.batteryWarnLevel
+    property alias batteryDevice: adapter.batteryDevice
     property alias allLowercase: adapter.allLowercase
     // Main UI face. "" = Theme.defaultFontFamily (JetBrainsMono Nerd
     // Font). Icon glyphs never use this — ThemeText routes Icon.* text
@@ -66,14 +81,18 @@ Singleton {
         // directory unique to each shell instance, and the lockscreen runs
         // as its own instance (-p lockscreen/shell.qml) but must see the
         // same prefs (fingerprintUnlock, timeFormat). One shared file in
-        // the parent quickshell state dir works for both.
-        path: (Quickshell.env("XDG_STATE_HOME") || (Quickshell.env("HOME") + "/.local/state"))
-              + "/quickshell/prefs.json"
+        // the parent quickshell state dir works for both — reuse Paths.stateDir
+        // so the XDG_STATE_HOME resolution lives in one place.
+        path: Paths.stateDir + "/prefs.json"
         blockLoading: true
         atomicWrites: true
         watchChanges: true
-        onFileChanged: if (!root._writing) reload()
-        onAdapterUpdated: if (!root._writing) root._write()
+        // Unconditional reload: the echo now dies at `onAdapterUpdated`,
+        // not here — otherwise an external write landing ~100 ms after
+        // our own would be silently dropped (the previous boolean-guard
+        // race that this fingerprint approach eliminates).
+        onFileChanged: reload()
+        onAdapterUpdated: if (root._adapterFingerprint() !== root._writtenFingerprint) root._write()
 
         JsonAdapter {
             id: adapter

@@ -8,8 +8,6 @@ import Quickshell.Io
 WidgetButton {
     id: root
 
-    readonly property string assetsDir: Quickshell.shellDir + "/assets"
-
     // Single source of truth for the NixOS logo path (previously
     // duplicated as both the fallback default and the table entry).
     readonly property string nixosLogo: "/run/current-system/sw/share/icons/hicolor/scalable/apps/nix-snowflake.svg"

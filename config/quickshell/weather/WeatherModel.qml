@@ -50,7 +50,15 @@ Singleton {
     }
 
     property bool ready: false
-    property bool retryingFallback: false
+    // Monotonic attempt counter for the current fetch cycle. Increments
+    // on each `fetchWeather()` invocation; the fallback path is gated on
+    // `attempt === 1` rather than a separate `retryingFallback` flag
+    // whose state spanned the async callback — the previous two-state
+    // flag was correct but brittle: reordering the `return`/the line-90
+    // reset would have started a tight loop on a bad customCity. A
+    // counter keeps the "at most one fallback attempt" invariant
+    // structural and self-documenting.
+    property int _attempt: 0
     property bool fetchRunning: false
     property bool needsRefetch: false
 
@@ -65,8 +73,17 @@ Singleton {
         }
         fetchRunning = true
         fetchError = ""
+        root._attempt++
+        var attempt = root._attempt
         var url = "https://wttr.in/"
-        if (customCity && !retryingFallback) url += encodeURIComponent(customCity)
+        // Custom city is only added on the *first* attempt of a fetch
+        // cycle; if it fails, the immediate retry falls back to
+        // IP-based auto-location (attempt 2) — and never retries the
+        // custom city again, since `attempt > 1` skips the `url +=`
+        // path. The previous `retryingFallback` flag carried state
+        // across the async callback; this counter keeps the "at most
+        // one fallback" invariant structural.
+        if (customCity && attempt === 1) url += encodeURIComponent(customCity)
         url += "?format=j1"
 
         var xhr = new XMLHttpRequest()
@@ -82,15 +99,17 @@ Singleton {
             }
             // A custom city that fails (bad name, wttr.in hiccup) falls
             // back to one auto-location (IP-based) attempt.
-            if (!dataReady && customCity && !retryingFallback) {
-                retryingFallback = true
-                fetchWeather()
+            if (!dataReady && customCity && attempt === 1) {
+                root.fetchWeather()
                 return
             }
-            retryingFallback = false
+            // End of this fetch cycle — reset the attempt counter so
+            // the next user-driven fetchWeather() can re-enter with
+            // attempt=1 (and add the custom city again).
+            root._attempt = 0
             if (needsRefetch) {
                 needsRefetch = false
-                fetchWeather()
+                root.fetchWeather()
             }
         }
         xhr.open("GET", url)
@@ -174,14 +193,22 @@ Singleton {
         root.nextFullMoon = MoonUtil.nextFullMoon(age)
     }
 
-    // Visibility gate: refetch only while a consumer (the bar's weather
+// Visibility gate: refetch only while a consumer (the bar's weather
     // chip or the WeatherPanel) — or an eager-fallback retry — needs
     // data. Saves the app-server wakeup cost when nobody is looking at
     // the panel AND the bar's chip isn't rendered (still rendered →
     // still considered a consumer; the bar widget is always visible).
+    //
+    // Multi-screen setups instantiate one WeatherWidget per screen via
+    // Bar's Variants — a plain bool flipped from onCompleted/onDestruction
+    // would race between screens (one screen's destructor flips the bool
+    // false while another's widget is still showing, stopping polling).
+    // A refcount keeps the model honest about whether *any* chip is up.
     property bool panelVisible: false
-    property bool widgetVisible: false   // set by WeatherWidget onCompleted/onDestruction
-    readonly property bool anyConsumerVisible: root.panelVisible || root.widgetVisible
+    property int widgetViewers: 0
+    function addViewer() { root.widgetViewers += 1 }
+    function removeViewer() { root.widgetViewers = Math.max(0, root.widgetViewers - 1) }
+    readonly property bool anyConsumerVisible: root.panelVisible || root.widgetViewers > 0
 
     // Only poll after the first fetch completes (or the user opens the
     // panel) — running before `dataReady` would race with startup.

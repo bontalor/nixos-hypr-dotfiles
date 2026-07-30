@@ -24,8 +24,13 @@ FloatingWindow {
     onClosed: visible = false
 
     // Panels registry key — same self-registration as components/Panel.qml.
+    // Unregister on destruction (Panel.qml's FloatingWindow survives
+    // reloads via keepOnReload; this FloatingWindow doesn't, so without
+    // unregister a stale registry ref + dangling launcher entry would
+    // point at a destroyed window across reloads).
     property string panelKey: ""
     Component.onCompleted: if (panelKey !== "") Panels.register(panelKey, this)
+    Component.onDestruction: if (panelKey !== "") Panels.unregister(panelKey)
 
     property int selected: 0
 
@@ -121,8 +126,18 @@ FloatingWindow {
         if (wallpaperList.length === 0) return
         var path = wallpaperList[Scroll.clamp(root.selected, 0, wallpaperList.length - 1)].path
         root._pendingWall = path
-        setter.command = [Paths.setwallBin, path]
-        setter.running = true
+        if (setter.running) {
+            // A prior `setwall` is still running: setting `running = true`
+            // is a no-op, but overwriting `_pendingWall` with the new path
+            // would let the *old* setwall's onExited commit the *new*
+            // path to PrefStore even though the old wall was actually
+            // applied — data divergence on restart. Queue the new path
+            // and drain after the current one exits (see onExited).
+            root._queuedWall = path
+        } else {
+            setter.command = [Paths.setwallBin, path]
+            setter.running = true
+        }
         root.visible = false
     }
 
@@ -131,12 +146,21 @@ FloatingWindow {
     // bad path) leaves the pref disagreeing with the actually-applied
     // wallpaper, and the next shell restart shows the wrong file.
     property string _pendingWall: ""
+    // Queued while a `setwall` is already running (rapid double-apply).
+    property string _queuedWall: ""
     Connections {
         target: setter
         function onExited(exitCode) {
             if (exitCode === 0 && root._pendingWall !== "")
                 PrefStore.wallpaper = root._pendingWall
             root._pendingWall = ""
+            // Drain a queued apply if one was stored while we were busy.
+            if (root._queuedWall !== "") {
+                root._pendingWall = root._queuedWall
+                root._queuedWall = ""
+                setter.command = [Paths.setwallBin, root._pendingWall]
+                setter.running = true
+            }
         }
     }
 

@@ -15,7 +15,6 @@
 // the caller's content can bind to both.
 
 import "../theme"
-import Quickshell
 import QtQuick
 
 Rectangle {
@@ -24,7 +23,9 @@ Rectangle {
     required property int index
 
     // Read straight from the result Column — populated by SearchPanel.
-    property var searchPanel: parent ? parent.panel ?? null : null
+    // `||` rather than `??` for portability across Qt minor versions
+    // (nullish coalescing is QML-V4 Qt 6.3+ only).
+    property var searchPanel: parent ? (parent.panel || null) : null
 
     width: parent.width
     height: Theme.searchRowHeight

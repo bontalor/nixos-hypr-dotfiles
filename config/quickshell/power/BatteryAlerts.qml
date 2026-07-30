@@ -4,14 +4,14 @@
 // Going back on AC resets both. Lives in shell.qml alongside the bar so
 // the model layer stays notification-free.
 
+pragma ComponentBehavior: Bound
+
 import "../models"
 import "../notifications"
 import QtQuick
 import Quickshell
 import Quickshell.Services.Notifications
 import Quickshell.Services.UPower
-
-pragma ComponentBehavior: Bound
 
 Scope {
     id: root

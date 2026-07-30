@@ -84,7 +84,7 @@ Singleton {
         case UPowerDeviceType.Mouse: return "Mouse"
         case UPowerDeviceType.Keyboard: return "Keyboard"
         case UPowerDeviceType.Ups: return "UPS"
-        default: return "Battery"
+        default: return "Device"   // unknown type — calling it "Battery" was misleading on UPS-edge cases
         }
     }
 

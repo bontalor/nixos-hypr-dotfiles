@@ -71,7 +71,6 @@ Panel {
         fileMode: Platform.FileDialog.OpenFile
         nameFilters: ["Video files (*.mp4 *.mkv *.webm *.mov *.avi *.ts *.mts *.wmv *.flv *.m4v *.mpg *.mpeg *.3gp)", "All files (*)"]
         onAccepted: root.pickFile(Paths.urlToLocalFile(videoPicker.file))
-        onRejected: {}
     }
 
     Platform.FileDialog {
@@ -80,7 +79,6 @@ Panel {
         fileMode: Platform.FileDialog.OpenFile
         nameFilters: ["Audio & video files (*.mp3 *.m4a *.aac *.flac *.wav *.opus *.ogg *.wma *.mka *.mp4 *.mkv *.mov)", "All files (*)"]
         onAccepted: root.audioPath = Paths.urlToLocalFile(audioPicker.file)
-        onRejected: {}
     }
 
     // ================= Input metadata =================
@@ -96,28 +94,56 @@ Panel {
         root.inputInfo = "probing…"
         root.inputDuration = 0
         root.inputAudioCodec = ""
+        root._probeSeq++
         root._probePath = path
-        if (probeProc.running) { probeProc.running = false; root._probePending = true }
-        else root.startProbe()
+        if (probeProc.running) {
+            // A previous probe is in flight. Don't kill it — killing
+            // fires onExited with a non-zero exit code which transiently
+            // flashes "unreadable (ffprobe failed)" in the info field
+            // before the new probe lands. Instead, just bump `_probeSeq`;
+            // the in-flight probe's onExited sees the stale seq (its
+            // captured `_seq` was set at spawn time and isn't overwritten
+            // until the next `_startProbe` call), discards its result, and
+            // re-spawns against the newer `_probePath`. The old probe
+            // runs to completion (ffprobe is sub-second), but the UI
+            // stays clean — no transient error text, no dead guard.
+        } else {
+            root._startProbe(root._probeSeq)
+        }
     }
 
     property string _probePath: ""
-    property bool _probePending: false
+    // Monotonic probe sequence: each `pickFile` increments it, and each
+    // probe's onExited only commits its result if its seq still matches
+    // `_probeSeq`. A newer pick that lands while the prior ffprobe is
+    // still running causes the prior's onExited to discard its result
+    // (stale seq) and re-spawn against the current `_probePath`. The seq
+    // is captured at spawn time into `probeProc._seq` (a per-Process
+    // property), so it's NOT overwritten by a subsequent `_startProbe`
+    // until the Process actually starts running the new command — the
+    // prior probe's onExited reads the *old* seq and correctly identifies
+    // itself as stale. Replaces the race-prone `_probePending` bool.
+    property int _probeSeq: 0
 
-    function startProbe() {
+    function _startProbe(seq) {
         probeProc.command = ["ffprobe", "-v", "error", "-print_format", "json",
                              "-show_format", "-show_streams", root._probePath]
+        probeProc._seq = seq
         probeProc.running = true
     }
 
     Process {
         id: probeProc
+        property int _seq: 0
         stdout: StdioCollector { id: probeOut }
         onExited: (exitCode) => {
-            // If a newer pick superseded this probe, discard the stale result.
-            if (root._probePath !== root.inputPath || root._probePending) {
-                root._probePending = false
-                root.startProbe()
+            // A newer pick superseded this probe: discard the stale
+            // result and re-spawn against the current `_probePath`.
+            // `_seq` was captured at this probe's spawn time and hasn't
+            // been overwritten (no `_startProbe` ran since — the newer
+            // pick just bumped `_probeSeq` and waited for this exit).
+            if (probeProc._seq !== root._probeSeq) {
+                root._startProbe(root._probeSeq)
                 return
             }
             if (exitCode !== 0) { root.inputInfo = "unreadable (ffprobe failed)"; return }

@@ -19,6 +19,8 @@
 // have variable heights — the base Panel's scrollToSelection assumes a
 // fixed rowHeight stride.
 
+pragma ComponentBehavior: Bound
+
 import "../theme"
 import "../components"
 import "../util"
@@ -27,8 +29,6 @@ import QtQuick
 import Quickshell
 import Quickshell.Services.Notifications
 import Quickshell.Widgets
-
-pragma ComponentBehavior: Bound
 
 Panel {
     id: root

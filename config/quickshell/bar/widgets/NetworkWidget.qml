@@ -1,9 +1,9 @@
+pragma ComponentBehavior: Bound
+
 import "../../theme"
 import "../../components"
 import "../../models"
 import QtQuick
-
-pragma ComponentBehavior: Bound
 
 WidgetButton {
     id: root

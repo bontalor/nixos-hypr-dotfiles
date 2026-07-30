@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 import "../../theme"
 import "../../components"
 import "../../util"
@@ -6,8 +8,6 @@ import Quickshell
 import Quickshell.Wayland
 import Quickshell.Services.SystemTray
 import Quickshell.Widgets
-
-pragma ComponentBehavior: Bound
 
 Item {
     id: root
@@ -20,6 +20,10 @@ Item {
     // over into the dropdown opened by the chevron on the right.
     readonly property int maxVisible: Theme.trayMaxVisible
 
+    // Inline component declared nested inside the root object — QML
+    // 6.x requires inline components to live inside a parent object
+    // (a top-level `component` declaration is not supported here,
+    // unlike a Qt 6.5+ dialect); the previous nesting was correct.
     component TrayIcon: Item {
         id: iconRoot
         required property var trayItem
@@ -132,26 +136,55 @@ Item {
             bottom: root.parentWindow.barAtBottom ? Theme.barMargin + Theme.barHeight + Theme.margin : 0
             // Horizontal offset follows the chevron's x position.
             // Read imperatively on open (see onVisibleChanged) since
-            // itemPosition is a function call, not a bindable signal.
+            // itemPosition is a function call, not a bindable signal —
+            // and re-applied on `trayContent.width`/`parentWindow.width`
+            // change so the popup tracks the chevron if the tray
+            // rearranges or the bar resizes while the popup is open.
             left: 0
         }
 
-        onVisibleChanged: if (visible) {
+        function reposition() {
             var pos = root.parentWindow.itemPosition(chevronItem)
             margins.left = pos.x + Theme.margin
         }
 
+        onVisibleChanged: if (visible) root.reposition()
+        // Keep the popup glued to the chevron while open: icons may
+        // appear/disappear (width change), or the bar window itself may
+        // resize on screen layout change. Without this, the popup's
+        // left margin stays at its on-open value and drifts off the
+        // chevron — the previous code only positioned once on open.
+        Connections {
+            target: trayContent
+            function onWidthChanged() { if (overflowPopup.visible) overflowPopup.reposition() }
+        }
+        Connections {
+            target: root.parentWindow
+            function onWidthChanged() { if (overflowPopup.visible) overflowPopup.reposition() }
+        }
+
         // As soon as overflow disappears (tray drops to <= maxVisible),
         // dismiss the popup so it doesn't dangle empty with no chevron.
+        // Also reposition if the tray rearranges while still overflowing
+        // (an icon departing moves the chevron's slot).
         Connections {
             target: SystemTray.items
             function onValuesChanged() {
                 if (SystemTray.items.values.length <= root.maxVisible)
                     overflowPopup.visible = false
+                else if (overflowPopup.visible)
+                    overflowPopup.reposition()
             }
         }
 
-        Shortcut { sequence: "Escape"; onActivated: overflowPopup.visible = false }
+        // Only grab Escape when the popup is actually open and focused —
+        // a global Shortcut on a visible:false PanelWindow can shadow
+        // Escape handlers elsewhere depending on Quickshell's scoping.
+        Shortcut {
+            sequence: "Escape"
+            enabled: overflowPopup.visible && overflowPopup.activeFocus
+            onActivated: overflowPopup.visible = false
+        }
 
         Rectangle {
             id: overflowBackground

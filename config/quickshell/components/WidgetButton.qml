@@ -40,7 +40,7 @@ Item {
     signal rightClicked(var mouse)
     signal wheeled(var wheel)
 
-    width: label !== "" ? labelItem.implicitWidth + 2 * Theme.margin : 30
+    width: label !== "" ? labelItem.implicitWidth + 2 * Theme.margin : Theme.widgetButtonWidth
     height: Theme.barHeight
 
     Rectangle {

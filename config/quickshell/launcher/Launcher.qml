@@ -1,11 +1,11 @@
+pragma ComponentBehavior: Bound
+
 import "../theme"
 import "../components"
 import "."
 import QtQuick
 import Quickshell
 import Quickshell.Widgets
-
-pragma ComponentBehavior: Bound
 
 SearchPanel {
     id: root

@@ -11,6 +11,9 @@ WidgetButton {
     visible: WeatherModel.dataReady || WeatherModel.fetchError !== ""
     label: WeatherModel.dataReady ? WeatherModel.currentSummary : Icon.alert
     panel: Panels.weather
-    Component.onCompleted: WeatherModel.widgetVisible = true
-    Component.onDestruction: WeatherModel.widgetVisible = false
+    // Refcounted instead of a single bool: Bar's Variants instantiate one
+    // WeatherWidget per screen; a multi-screen destructor would otherwise
+    // flip the model's gate off while another screen's chip is still shown.
+    Component.onCompleted: WeatherModel.addViewer()
+    Component.onDestruction: WeatherModel.removeViewer()
 }

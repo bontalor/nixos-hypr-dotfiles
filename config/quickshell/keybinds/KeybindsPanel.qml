@@ -4,13 +4,13 @@
 // Searchable by key combo or by dispatcher/description; Enter or click
 // just closes the panel — the rows are reference, not actions.
 
+pragma ComponentBehavior: Bound
+
 import "../theme"
 import "../components"
 import QtQuick
 import Quickshell
 import Quickshell.Io
-
-pragma ComponentBehavior: Bound
 
 SearchPanel {
     id: root
@@ -18,7 +18,19 @@ SearchPanel {
 
     property var binds: []
 
-    onVisibleChanged: if (visible) { root.binds = []; bindsProc.running = true }
+    onVisibleChanged: if (visible) {
+        // Reset to the empty state immediately so a stale result from a
+        // prior open doesn't linger while the new fetch is in flight;
+        // then re-fetch only if the prior `hyprctl binds` has finished
+        // (setting `running = true` on an already-running Process is a
+        // no-op and would silently show the stale output until the next
+        // open). Killing the prior proc first would also work but
+        // re-launching once it exits (via `running = false` then `true`)
+        // would race the StdioCollector's `onStreamFinished`; simplest
+        // is to drop the result if we can't start a fresh fetch now.
+        root.binds = []
+        if (!bindsProc.running) bindsProc.running = true
+    }
 
     Process {
         id: bindsProc
@@ -29,13 +41,22 @@ SearchPanel {
         }
     }
 
-    // Hyprland modmask uses X11 modifier bits.
+    // Hyprland's modmask uses X11 modifier bits. Named constants below
+    // keep the table self-documenting — the raw `64 / 8 / 4 / 1` literals
+    // were brittle to compare against `Qt.ShiftModifier` etc. (the Qt
+    // enums differ in value), so any future reader would have to
+    // cross-reference hyprctl's source.
+    readonly property int _modSuper:  64
+    readonly property int _modAlt:    8
+    readonly property int _modCtrl:   4
+    readonly property int _modShift:  1
+
     function modString(mask) {
         var mods = []
-        if (mask & 64) mods.push("SUPER")
-        if (mask & 8) mods.push("ALT")
-        if (mask & 4) mods.push("CTRL")
-        if (mask & 1) mods.push("SHIFT")
+        if (mask & root._modSuper)  mods.push("SUPER")
+        if (mask & root._modAlt)    mods.push("ALT")
+        if (mask & root._modCtrl)   mods.push("CTRL")
+        if (mask & root._modShift)  mods.push("SHIFT")
         return mods.join("+")
     }
 

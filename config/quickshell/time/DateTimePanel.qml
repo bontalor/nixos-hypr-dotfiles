@@ -19,8 +19,8 @@ Panel {
 
 
     // Panel-local clock. Time section shows seconds so this needs Seconds
-    // precision when the panel is open; when closed, drop to Hours so the
-    // QML engine doesn't wake every second just to evaluate stale
+    // precision when the panel is open; when closed, drop to Minutes so
+    // the QML engine doesn't wake every second just to evaluate stale
     // calendar / month-offset bindings (README convention: timers gated
     // on visibility / pending work so the shell idles).
     SystemClock {

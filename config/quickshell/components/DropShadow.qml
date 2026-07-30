@@ -21,12 +21,15 @@ Item {
     property int extent: Theme.margin
 
     // Bottom shadow strip — starts at x=extent (aligned with the right
-    // shadow), runs to the bottom-right corner.
+    // shadow), runs to the bottom-right corner. `Math.max(0, …)` clamps
+    // against tiny parents (< 2×extent) where the unclamped width went
+    // negative and the strip rendered as a no-op rectangle in the wrong
+    // spot.
     Rectangle {
         color: root.shadowColor
         x: root.extent
         y: parent.height - root.extent
-        width: parent.width - root.extent
+        width: Math.max(0, parent.width - root.extent)
         height: root.extent
     }
 
@@ -37,6 +40,6 @@ Item {
         x: parent.width - root.extent
         y: root.extent
         width: root.extent
-        height: parent.height - 2 * root.extent
+        height: Math.max(0, parent.height - 2 * root.extent)
     }
 }

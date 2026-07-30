@@ -47,13 +47,30 @@ Singleton {
         panels[name] = panel
         if (isNew && name !== launcher) {
             var display = panel.title
-            if (!display || display === "")
+            if (!display)
                 display = name.charAt(0).toUpperCase() + name.slice(1)
             launcherEntries = launcherEntries.concat([{
                 name: "Quickshell " + display,
                 genericName: "Quickshell Panel",
                 panelKey: name
             }])
+        }
+    }
+
+    // Counterpart to register(): drop the panel from the registry and
+    // its launcher entry. Callers that self-register in
+    // `Component.onCompleted` should call this from
+    // `Component.onDestruction` so reloads that destroy the panel don't
+    // leave a stale `panels[name]` reference + dangling launcher entry
+    // pointing at a destroyed window. (Panel.qml's FloatingWindow
+    // outlives shell reload via keepOnReload so it doesn't need this,
+    // but Picker.qml's FloatingWindow does.)
+    function unregister(name) {
+        if (panels[name] !== undefined) {
+            delete panels[name]
+            launcherEntries = launcherEntries.filter(function(e) {
+                return e.panelKey !== name
+            })
         }
     }
 

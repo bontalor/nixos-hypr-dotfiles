@@ -23,6 +23,10 @@ Singleton {
     }
 
     // fmtSeconds(83) -> "01:23". mm:ss for media seek bars. Clamps negative.
+    // Note: for tracks longer than 99 minutes the minute component grows
+    // naturally (e.g. 120 min -> "120:00") — there's no hour rollover.
+    // All call sites today (media seek bar) top out well under an hour;
+    // if a long-form audiobook use case appears, switch to fmtDuration.
     function fmtSeconds(totalSeconds) {
         var s = Math.max(0, Math.floor(totalSeconds))
         var m = Math.floor(s / 60)

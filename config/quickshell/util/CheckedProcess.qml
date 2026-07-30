@@ -18,17 +18,31 @@ Process {
 
     // Notification summary prefix; defaults to the executable name.
     property string label: ""
+    // When true, a non-zero exit is silently dropped (no notification).
+    // Used by the OsdModel brightness "silent prime" so a system without
+    // a backlight (a desktop, or a machine with no backlight module
+    // loaded) doesn't pop a "brightnessctl info failed" toast on every
+    // shell startup. The notification is left on by default for one-off
+    // user-driven commands where silent failure would be confusing.
+    property bool silent: false
     signal queueFinished()
 
     stderr: StdioCollector { id: errCollector }
 
     onExited: (exitCode, exitStatus) => {
         if (exitCode === 0) { root.queueFinished(); return }
-        var what = root.label
-            || (root.command && root.command.length > 0 ? root.command[0] : "command")
-        var detail = (errCollector.text || "").trim()
-        NotifDaemon.notify(what + " failed (exit " + exitCode + ")",
-            detail.slice(0, 300), NotificationUrgency.Normal)
+        if (!root.silent) {
+            var what = root.label
+                || (root.command && root.command.length > 0 ? root.command[0] : "command")
+            var detail = (errCollector.text || "").trim()
+            // Distinguish a crash (SIGSEGV, etc.) from a normal non-zero
+            // exit — `exitStatus` is `Process.CrashExit` when the
+            // process was killed by a signal. Previously a crash and a
+            // clean failure surfaced as the same "exit <code>" toast.
+            var suffix = exitStatus === Process.CrashExit ? " (crashed)" : ""
+            NotifDaemon.notify(what + " failed (exit " + exitCode + ")" + suffix,
+                detail.slice(0, 300), NotificationUrgency.Normal)
+        }
         root.queueFinished()
     }
 }

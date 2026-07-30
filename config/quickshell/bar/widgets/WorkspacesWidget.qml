@@ -20,16 +20,12 @@ Row {
         return ids
     }
 
-    // Bind to the actual Hyprland workspace list but always render at least
-    // `Theme.workspacesMin` slots so the bar is usable before the
-    // compositor reports workspaces (Hyprland lazily-populates the list
-    // until workspaces are explicitly created). Per user preference: 9
-    // slots are always visible, even if Hyprland reports fewer.
-    property int wsCount: {
-        var ws = Hyprland.workspaces
-        var n = ws ? ws.values.length : 0
-        return Math.max(Theme.workspacesMin, n)
-    }
+    // Fixed 1..9 slots, always visible. Clicking slot i dispatches
+    // `focus workspace i` (Hyprland creates it on demand if absent),
+    // so the bar is usable before the compositor reports workspaces
+    // and stays stable across workspace create/delete. Workspaces
+    // outside 1..9 simply don't get a slot — by design.
+    readonly property int wsCount: Theme.workspacesMin
 
     Repeater {
         model: root.wsCount

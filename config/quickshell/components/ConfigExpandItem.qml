@@ -17,11 +17,11 @@
 //   toggled()    — fired when the header row is clicked, after the
 //                  standard transition (for caller side effects)
 
+pragma ComponentBehavior: Bound
+
 import "."
 import "../theme"
 import QtQuick
-
-pragma ComponentBehavior: Bound
 
 Item {
     id: root
@@ -30,7 +30,11 @@ Item {
     property bool isSelected: false
     property bool isExpanded: false
     property int profileCount: 0
-    property var panel: null
+    // Typed as Panel so tooling/parse-time check catches typos in
+    // `toggleConfigItem`/`sectionSubs` (the call site reads
+    // `panel.toggleConfigItem(itemIndex)`). `Panel` is the components/
+    // Panel.qml type — `import "."` above makes it visible.
+    property Panel panel: null
     property int itemIndex: 0
 
     signal toggled()

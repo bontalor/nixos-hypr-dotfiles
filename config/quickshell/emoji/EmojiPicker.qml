@@ -1,14 +1,14 @@
 // Subprocess dependency: wl-copy (copies emoji to clipboard via
 // Wayland data device).
 
+pragma ComponentBehavior: Bound
+
 import "../components"
 import "../util"
 import "."
 import QtQuick
 import Quickshell
 import Quickshell.Io
-
-pragma ComponentBehavior: Bound
 
 SearchPanel {
     id: root
@@ -72,11 +72,24 @@ SearchPanel {
         ? "No emoji data — expected Unicode emoji-test.txt at " + Paths.emojiData
         : "No matches"
 
+    // Queue + drain pattern: setting `Process.running = true` on an
+    // already-running Process is a no-op, so rapid Enter presses used to
+    // silently drop every wl-copy after the first. The queue is drained
+    // on `onQueueFinished` (fired by CheckedProcess on both success and
+    // failure), so all queued copies eventually run.
+    property var copyQueue: []
+
+    function drainCopyQueue() {
+        if (copyProcess.running || root.copyQueue.length === 0) return
+        copyProcess.command = root.copyQueue.shift()
+        copyProcess.running = true
+    }
+
     onLaunched: function(idx) {
         var emoji = root.filtered[idx]
         if (!emoji) return
-        copyProcess.command = ["wl-copy", emoji.char]
-        copyProcess.running = true
+        root.copyQueue.push(["wl-copy", emoji.char])
+        root.drainCopyQueue()
         var next = [emoji.char].concat(root.recentChars.filter(function(c) {
             return c !== emoji.char
         })).slice(0, root.recentsMax)
@@ -88,6 +101,7 @@ SearchPanel {
         id: copyProcess
         label: "wl-copy"
         running: false
+        onQueueFinished: root.drainCopyQueue()
     }
 
     rowDelegate: SearchRow {

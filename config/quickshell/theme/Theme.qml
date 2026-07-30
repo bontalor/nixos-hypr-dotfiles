@@ -14,61 +14,68 @@ Singleton {
 // --- Fonts (see the bottom of this file for full font config + PrefStore binding) ---
 
     // --- Bar geometry ---
-    property int barHeight: 30
-    property int barMargin: 10
+    // `readonly` so an accidental external write (`Theme.barHeight = 100`)
+    // can't silently mutate global geometry. Tweak the literal here.
+    readonly property int barHeight: 30
+    readonly property int barMargin: 10
+    // Fallback width for content-only WidgetButtons (no `label`):
+    // sized to the bar height so an icon-only button (SystemTray
+    // chevron, WorkspacesWidget slots) is a clean square. Override
+    // per-instance via `width:` if content needs more room.
+    readonly property int widgetButtonWidth: barHeight
     // Tray icons shown inline before overflowing into the dropdown.
-    property int trayMaxVisible: 3
+    readonly property int trayMaxVisible: 3
     // Workspaces always shown in the bar. The bar reserves these 9 slots
     // regardless of how many workspaces Hyprland currently reports, so
     // the bar is usable as soon as the surface maps (Hyprland may report
     // fewer than 9 until workspaces are explicitly created). Clicking a
     // slot below the live count focuses (creating) that workspace.
-    property int workspacesMin: 9
+    readonly property int workspacesMin: 9
 
     // --- Panel geometry ---
-    property int panelWidth: 850
-    property int panelHeight: 450
-    property int margin: 10
-    property int colSpacing: 10
+    readonly property int panelWidth: 850
+    readonly property int panelHeight: 450
+    readonly property int margin: 10
+    readonly property int colSpacing: 10
 
     // Popups (notifications, OSD). Smaller than panels. The `+ margin`
     // popup*WithShadow values account for the DropShadow pair extending
     // right/below — consumers size the PanelWindow to the WithShadow
     // value and the inner content to the plain value.
-    property int popupWidth: 270
-    property int popupHeight: 90
-    property int popupWidthWithShadow: popupWidth + margin
-    property int popupHeightWithShadow: popupHeight + margin
+    readonly property int popupWidth: 270
+    readonly property int popupHeight: 90
+    readonly property int popupWidthWithShadow: popupWidth + margin
+    readonly property int popupHeightWithShadow: popupHeight + margin
 
     // Two-pane scaffold (see components/Panel.qml)
-    property int rowHeight: 45
-    property int headerHeight: 30
-    property int subHeaderHeight: 20   // SectionSubHeader rows ("My devices", …)
+    readonly property int rowHeight: 45
+    readonly property int headerHeight: 30
+    readonly property int subHeaderHeight: 20   // SectionSubHeader rows ("My devices", …)
 
     // Search-list scaffold (Launcher/EmojiPicker/PowerMenu)
-    property int searchRowHeight: 30
-    property int searchRowStride: searchRowHeight + margin
-    property int iconSize: 22
+    readonly property int searchRowHeight: 30
+    readonly property int searchRowStride: searchRowHeight + margin
+    readonly property int iconSize: 22
 
     // --- Alphas ---
-    property real alphaBackground: 0.75     // Qt.alpha(Colors.surface, 0.75)
-    property real alphaSelected: 0.75       // Qt.alpha(Colors.selected, 0.75)
-    property real alphaSectionHeader: 0.75  // Qt.alpha(Colors.accent, 0.75)
-    property real alphaHover: 0.25          // Qt.alpha(Colors.foreground, alphaHover) — bar widget hover
-    property real alphaWindow: 0.76         // Qt.alpha(Colors.background, alphaWindow) — bar/popup solid bg
-    property real alphaInactive: 0.25       // Qt.alpha(Colors.foreground, alphaInactive) — unlit meter dots / empty bar track
-    property real alphaDim: 0.5             // Qt.alpha(Colors.foreground, alphaDim) — dimmed metadata text
+    readonly property real alphaBackground: 0.75     // Qt.alpha(Colors.surface, 0.75)
+    readonly property real alphaSelected: 0.75       // Qt.alpha(Colors.selected, 0.75)
+    readonly property real alphaSectionHeader: 0.75  // Qt.alpha(Colors.accent, 0.75)
+    readonly property real alphaHover: 0.25          // Qt.alpha(Colors.foreground, alphaHover) — bar widget hover
+    readonly property real alphaWindow: 0.76         // Qt.alpha(Colors.background, alphaWindow) — bar/popup solid bg
+    readonly property real alphaInactive: 0.25       // Qt.alpha(Colors.foreground, alphaInactive) — unlit meter dots / empty bar track
+    readonly property real alphaDim: 0.5             // Qt.alpha(Colors.foreground, alphaDim) — dimmed metadata text
 
     // --- Audio visualizer (shared by media/SpectrumModel, VolumePanel,
     // and the bar's MediaWidget) ---
     // peakFps drives both the spectrum helper's frame rate (spectrum.py
     // restarts with the new value on reload) and VolumePanel's meters.
-    property int peakFps: 16
-    property int peakBands: 15
-    property real peakDecay: 0.05
+    readonly property int peakFps: 16
+    readonly property int peakBands: 15
+    readonly property real peakDecay: 0.05
 
     // Volume step per key/scroll tick (bar widget, VolumePanel, OSD).
-    property real volumeStep: 0.05
+    readonly property real volumeStep: 0.05
 
     // Small meter thickness / segmented-dot size. Used by:
     //   - OSD popup value bar (osd/OsdPopup.qml)
@@ -77,8 +84,8 @@ Singleton {
     //   - Wi-Fi signal dots (network/NetworkPanel.qml)
     //   - Media seek bar (media/MediaPanel.qml)
     // Keeps the segmented-meter look uniform across the shell.
-    property int meterHeight: 10
-    property int marqueeSpeed: 25       // ms per pixel — lower is faster
+    readonly property int meterHeight: 10
+    readonly property int marqueeSpeed: 25       // ms per pixel — lower is faster
 
     // --- Per-domain display sizes (hoisted for centralized tuning) ---
     //
@@ -87,29 +94,29 @@ Singleton {
     // from a single file rather than scattered as magic numbers.
     //
     // Media now-playing UI.
-    property int albumArtSize: 220          // square album art in MediaPanel
+    readonly property int albumArtSize: 220          // square album art in MediaPanel
     // Square icon-button size. Used across domains: media transport
     // (prev/play/next) and lockscreen action buttons (Suspend/Reboot/…).
-    property int actionButtonSize: 45
+    readonly property int actionButtonSize: 45
 
     // Wallpaper picker grid (cell already includes Theme.margin padding).
-    property int wallpaperCellWidth: 205
-    property int wallpaperCellHeight: 140
+    readonly property int wallpaperCellWidth: 205
+    readonly property int wallpaperCellHeight: 140
 
     // Keybind cheatsheet — the key-combo column in each row.
-    property int keybindKeyColumnWidth: 240
+    readonly property int keybindKeyColumnWidth: 240
 
     // Lockscreen layout. The lockscreen runs as its own Quickshell
     // instance but shares this theme file through a relative symlink,
     // so these constants are available there too.
-    property int lockContentWidth: 420          // inner column width
-    property int lockClockHeight: 60             // clock row height (room around the display font)
-    property int lockStatusHeight: 20           // small status rows under the clock
-    property int lockActionSpacing: 45          // gap between action buttons
-    property int lockActionColumnWidth: 60      // each action's column (button + label)
-    property int lockFpButtonWidth: 30           // fingerprint toggle next to password
-    property int lockFpReserve: 40              // password box reserves this when fp enabled
-    property int lockInputLetterSpacing: 10     // password field letter spacing
+    readonly property int lockContentWidth: 420          // inner column width
+    readonly property int lockClockHeight: 60             // clock row height (room around the display font)
+    readonly property int lockStatusHeight: 20           // small status rows under the clock
+    readonly property int lockActionSpacing: 45          // gap between action buttons
+    readonly property int lockActionColumnWidth: 60      // each action's column (button + label)
+    readonly property int lockFpButtonWidth: 30           // fingerprint toggle next to password
+    readonly property int lockFpReserve: 40              // password box reserves this when fp enabled
+    readonly property int lockInputLetterSpacing: 10     // password field letter spacing
 
     // --- Lockscreen panel backdrop blur ---
     // Only the central lock panel is frosted — the surrounding wall

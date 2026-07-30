@@ -9,20 +9,26 @@ Singleton {
     property alias special: jsonAdapter.special
     property alias colors: jsonAdapter.colors
 
-    // Convenience aliases matching common usage
-    property string background: special.background
-    property string foreground: special.foreground
-    property string cursor: special.cursor
+    // Convenience aliases matching common usage. Each guards against an
+    // empty adapter value (e.g. a JsonAdapter set to "" by a malformed
+    // wal palette file) by falling back to the documented dark default —
+    // without this, an empty `background` would silently make every
+    // consumer render against "transparent".
+    property string background: special.background || "#1e1e2e"
+    property string foreground: special.foreground || "#cdd6f4"
+    property string cursor: special.cursor || "#f5e0dc"
 
     // Semantic aliases — name the palette slot by role so consumers
-    // don't hardcode palette indices.
-    property string critical: colors.color8
-    property string warning: colors.color9
-    property string accent: colors.color13
-    property string selected: colors.color1
-    property string surface: colors.color0
-    property string border: colors.color5
-    property string success: colors.color11
+    // don't hardcode palette indices. Same guard pattern: each falls
+    // back to its Catppuccin Mocha default if the wal palette slot is
+    // missing or empty.
+    property string critical: colors.color8 || "#f38ba8"
+    property string warning: colors.color9 || "#fab387"
+    property string accent: colors.color13 || "#cba6f7"
+    property string selected: colors.color1 || "#45475a"
+    property string surface: colors.color0 || "#1e1e2e"
+    property string border: colors.color5 || "#f5c2e7"
+    property string success: colors.color11 || "#a6e3a1"
 
     FileView {
         path: Paths.walColors
@@ -33,7 +39,7 @@ Singleton {
             id: jsonAdapter
 
             readonly property Special special: Special {}
-            readonly property Colors colors: Colors {}
+            readonly property ColorsPalette colors: ColorsPalette {}
         }
     }
 
@@ -49,7 +55,12 @@ Singleton {
         property string cursor: "#f5e0dc"
     }
 
-    component Colors: JsonObject {
+    // Renamed from `component Colors:` to `ColorsPalette` so the
+    // inline-component name no longer shadows the file's singleton id
+    // `Colors` (registered as the singleton type from Colors.qml) —
+    // the previous shadowing was legal but confusing, since `Colors{}`^W
+    // could refer to either depending on context.
+    component ColorsPalette: JsonObject {
         // Catppuccin Mocha (defaults while the wal cache loads / on a
         // missing palette). The semantic aliases in this singleton
         // (critical=color8, accent=color13, selected=color1, surface=color0,

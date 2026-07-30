@@ -144,6 +144,7 @@ Panel {
             // Reconnecting a wired device isn't exposed by the Quickshell
             // API — nmcli fallback (same caveat as the prior single-click
             // connect; the dropdown is UI-only, behavior is unchanged).
+            if (ethConnectProc.running) return
             ethConnectProc.command = ["nmcli", "device", "connect", dev.name]
             ethConnectProc.running = true
         }
@@ -155,10 +156,10 @@ Panel {
         var acts = root.wifiActions(net)
         var act = acts[actIdx]
         if (!act) return
+        var ssid = net.network.name || ""   // declared once at the top
         if (act.action === "connect") {
             if (net.active) return
             if (net.secured && !net.known) {
-                var ssid = net.network.name || ""
                 if (ssid === "") launchNmtui()
                 else root.pwSsid = ssid  // opens the inline password row
             } else {
@@ -169,10 +170,27 @@ Panel {
         } else if (act.action === "forget") {
             // Quickshell.Networking exposes disconnect() but not
             // forget() of known WifiNetwork profiles in 0.3.0; route
-            // via nmcli so the action row is fulfilled.
-            var ssid = net.network.name || ""
-            if (ssid !== "") {
-                wifiForgetProc.command = ["nmcli", "connection", "delete", ssid]
+            // via nmcli so the action row is fulfilled. `nmcli
+            // connection delete` matches by profile name (NM connection
+            // id), not SSID: the two usually agree for auto-created
+            // profiles, but a user who renamed a connection or has
+            // multiple profiles for the same SSID would have the wrong
+            // one deleted (or the call would fail) when keying off
+            // the SSID. The WifiNetwork exposes its NM settings entries
+            // via `nmSettings`; each entry's `name` is the stable NM
+            // profile id, so use that.
+            var connName = ""
+            var settingsList = net.network.nmSettings || []
+            for (var s = 0; s < settingsList.length; s++) {
+                if (settingsList[s] && settingsList[s].name) {
+                    connName = settingsList[s].name
+                    break
+                }
+            }
+            if (connName === "") connName = ssid
+            if (connName !== "") {
+                if (wifiForgetProc.running) return
+                wifiForgetProc.command = ["nmcli", "connection", "delete", connName]
                 wifiForgetProc.running = true
             }
         }
@@ -324,6 +342,7 @@ Panel {
     // regardless of exit, so no secret lingers on disk.
     function connectWifiPassword(password) {
         if (root.pwSsid === "") return
+        if (wifiConnectProc.running) return   // guard before overwriting command
         wifiConnectProc.command = ["sh", "-c",
             'f=$(mktemp -t qs-wifi-pw.XXXXXX) || exit 1; ' +
             'chmod 600 "$f"; ' +

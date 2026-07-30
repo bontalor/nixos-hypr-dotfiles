@@ -78,8 +78,7 @@ WidgetButton {
                 delegate: Item {
                     id: bandItem
                     required property int index
-                    property int colIdx: index
-                    x: 1 + colIdx * root.dotStride
+                    x: 1 + index * root.dotStride
                     width: 2
                     height: parent.height
 
@@ -91,7 +90,13 @@ WidgetButton {
                             height: 2
                             y: parent.height - 2 - index * root.dotStride
                             color: Colors.foreground
-                            opacity: index === 0 ? 1.0 : (index < Math.round(SpectrumModel.bands[bandItem.colIdx] * root.dotRows) ? 1.0 : 0.0)
+                            // `?? 0` guards against `bands[i]` being
+                            // undefined before the spectrum helper starts
+                            // or after visualizer toggle — without it the
+                            // round yields NaN and the `index < NaN` check
+                            // collapses all dots to opacity 0 silently.
+                            opacity: index === 0 ? 1.0
+                                : (index < Math.round((SpectrumModel.bands[bandItem.index] ?? 0) * root.dotRows) ? 1.0 : 0.0)
                         }
                     }
                 }

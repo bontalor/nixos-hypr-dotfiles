@@ -27,9 +27,15 @@ Text {
     // font-pixel-size constant. Defaults to "normal".
     property string size: "normal"
 
+    // Cache the per-char scan once per text change so re-evaluations
+    // triggered by other property reads (font.capitalization below
+    // responding to PrefStore.allLowercase, for instance) don't
+    // re-walk the string.
+    readonly property bool _isIcon: Icon.isIconText(root.text)
+
     color: Colors.foreground
     font.capitalization: PrefStore.allLowercase ? Font.AllLowercase : Font.MixedCase
-    font.family: Icon.isIconText(root.text) ? Theme.iconFamily : Theme.fontFamily
+    font.family: root._isIcon ? Theme.iconFamily : Theme.fontFamily
     font.pixelSize: size === "small"
         ? Theme.fontPixelSizeSmall
         : size === "large"

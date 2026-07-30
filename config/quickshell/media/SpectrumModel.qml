@@ -22,6 +22,15 @@ Singleton {
     readonly property bool active: PrefStore.visualizer
         && MprisSelector.currentPlayer?.playbackState === MprisPlaybackState.Playing
 
+    // Application names this shell spawns for sink-monitoring captures
+    // (the spectrum FFT helper and the legacy pw-record tail). These
+    // are NOT microphone access and must be excluded from the bar's
+    // mic-in-use privacy indicator — see bar/widgets/VolumeWidget.qml.
+    // Names live here (next to the helper process that uses them) so
+    // there's a single source of truth rather than a denylist mirrored
+    // in the widget that silently drifts if either side changes.
+    readonly property var monitorAppNames: ["Quickshell Peak Detect", "Quickshell Spectrum", "pw-record"]
+
     // 0..1 per band, bass first. Length Theme.peakBands.
     property var bands: Array(Theme.peakBands).fill(0)
 

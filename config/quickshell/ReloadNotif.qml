@@ -25,6 +25,13 @@ Scope {
         interval: 250
         onTriggered: {
             notifyProc.command = ["notify-send", "Quickshell", "Config reloaded", "-i", "dialog-information"]
+            // Kill any in-flight notify-send first: setting `running = true`
+            // on an already-running Process is a no-op, so a reload that
+            // fires while a prior notify-send is still running would be
+            // silently dropped (and `command` set on a running Process
+            // has no effect either). Toggling false then true forces a
+            // fresh spawn so every reload actually surfaces a toast.
+            notifyProc.running = false
             notifyProc.running = true
         }
     }

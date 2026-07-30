@@ -62,16 +62,22 @@ Scope {
                     anchors.verticalCenter: parent.verticalCenter
                 }
 
+                // Declared before the widgets that anchor to it
+                // (MediaWidget right-anchors to clockWidget.left,
+                // WeatherWidget left-anchors to clockWidget.right).
+                // QML allows forward `id` references in anchors, but
+                // placing ClockWidget first matches the visual
+                // left-to-right order and avoids fragile reorders.
+                ClockWidget {
+                    id: clockWidget
+                    anchors.centerIn: parent
+                }
+
                 MediaWidget {
                     id: mediaWidget
                     anchors.right: clockWidget.left
                     anchors.rightMargin: Theme.barMargin
                     anchors.verticalCenter: clockWidget.verticalCenter
-                }
-
-                ClockWidget {
-                    id: clockWidget
-                    anchors.centerIn: parent
                 }
 
                 WeatherWidget {
@@ -108,13 +114,19 @@ Scope {
             }
 
             // Shared drop-shadow component. Sized to include the shadow
-            // extent (bar width + margin, bar height + margin) so the
-            // internal L-shaped strips align with the bar's right/bottom edges.
+            // extent (bar width + barMargin, bar height + barMargin) so
+            // the internal L-shaped strips align with the bar's
+            // right/bottom edges. Uses `Theme.barMargin` (the same
+            // constant the window reserves for the shadow gutter on
+            // lines 35-40) rather than the generic `Theme.margin` —
+            // the two happen to both be 10 today, but if they ever
+            // diverge the shadow would either clip or over-allocate.
             DropShadow {
                 x: 0
                 y: 0
-                width: bar.width + Theme.margin
-                height: Theme.barHeight + Theme.margin
+                width: bar.width + Theme.barMargin
+                height: Theme.barHeight + Theme.barMargin
+                extent: Theme.barMargin
                 z: 0
             }
         }

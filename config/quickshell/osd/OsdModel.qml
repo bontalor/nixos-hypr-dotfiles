@@ -45,11 +45,20 @@ Singleton {
 
     // Pipewire volume state. `?? 0`/`?? false` guards against
     // defaultAudioSink being null at startup.
-    property real volume: Pipewire.defaultAudioSink?.audio?.volume ?? 0
-    property bool muted: Pipewire.defaultAudioSink?.audio?.muted ?? false
+    // `defaultSink`/`defaultSource` are stored (rather than read inline
+    // in the PwObjectTracker's `objects` array) so the array identity
+    // stays stable across property churn inside the same sink/source —
+    // an inline `[a, b]` literal would reallocate on every
+    // defaultAudioSink change, forcing the tracker to retag listeners
+    // every spin. See bar/widgets/VolumeWidget.qml for the same fix.
+    property var defaultSink: Pipewire.defaultAudioSink
+    property var defaultSource: Pipewire.defaultAudioSource
+    readonly property var trackedObjects: [root.defaultSink, root.defaultSource]
+    property real volume: root.defaultSink?.audio?.volume ?? 0
+    property bool muted: root.defaultSink?.audio?.muted ?? false
 
     PwObjectTracker {
-        objects: [Pipewire.defaultAudioSink, Pipewire.defaultAudioSource]
+        objects: root.trackedObjects
     }
 
 
@@ -66,9 +75,19 @@ Singleton {
     // Two separate Process instances — one for silent info reads, one
     // for set commands — so a `brightnessUp` mid-prime can't drop the
     // initial info reply.
+    //
+    // `brightReadProc` runs as a "silent" CheckedProcess: a system
+    // without a backlight (most desktops, or any machine whose
+    // brightnessctl has no backlight to report on) would otherwise
+    // surface a "brightnessctl info failed" notification on every shell
+    // startup — the silent intent behind the prime was masked by the
+    // failure notification. The dedicated cache (`brightnessValue`)
+    // staying at 0 is the user-visible side of the same condition; the
+    // brightness keys simply do nothing, matching the actual hardware.
     CheckedProcess {
         id: brightReadProc
         label: "brightnessctl info"
+        silent: true
         running: false
         stdout: StdioCollector {
             waitForEnd: true
@@ -223,7 +242,9 @@ Singleton {
     // `_show` on a successful read — if brightnessctl is missing or no
     // backlight exists, `_show` stays false and `onBrightnessSet` won't
     // overwrite the OSD's optimistic value with a wrong 0%. The
-    // CheckedProcess's onExited already notifies the failure.
+    // CheckedProcess `silent: true` keeps the missing-backlight case
+    // quiet on systems without one (otherwise every startup would pop
+    // a "brightnessctl info failed" toast).
     function onBrightnessRead(text) {
         var m = text.match(/\((\d+)%\)/)
         var pct = m ? parseInt(m[1]) / 100 : 0

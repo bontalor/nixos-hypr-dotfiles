@@ -10,7 +10,9 @@ import Quickshell
 Singleton {
     // Milliseconds per day. Used by dayOfYear/isoWeek; lifted to a named
     // constant so the 86400000 magic number stops being copy-pasted.
-    property int msPerDay: 86400000
+    // `readonly` so an accidental external write can't quietly break the
+    // calendar math.
+    readonly property int msPerDay: 86400000
 
     // Day-of-year (1..366) for a Date.
     function dayOfYear(d) {

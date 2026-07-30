@@ -27,9 +27,11 @@ Singleton {
     readonly property string moonWaningCrescent:  "🌘"
 
     // Synodic (mean) month in days. Constant of the Brown-style algorithm.
-    property real synodicMonth: 29.530587
+    // `readonly` so an accidental external write can't quietly break the
+    // lunar-age math.
+    readonly property real synodicMonth: 29.530587
     // J2000 new-moon epoch (1999-08-29 04:14 UTC).
-    property real lunarEpoch: 2451550.226
+    readonly property real lunarEpoch: 2451550.226
 
     // Lunar age (0 .. synodicMonth) for a given date (UTC). Includes
     // time-of-day for sub-day precision.

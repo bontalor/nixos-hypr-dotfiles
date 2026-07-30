@@ -55,7 +55,7 @@ Panel {
 
     // Mark the panel as a consumer of WeatherModel so the singleton's
     // refresh timer keeps polling while the panel is visible. (The bar
-    // chip is always a consumer — see widgetVisible on WeatherModel.)
+    // chip is always a consumer — see widgetViewers on WeatherModel.)
     onVisibleChanged: WeatherModel.panelVisible = visible
 
     onShown: {

@@ -210,32 +210,32 @@ Panel {
                     height: Theme.meterHeight
                     color: Qt.alpha(Colors.foreground, Theme.alphaInactive)
 
-Rectangle {
-                    height: parent.height
-                    // Clamp the fill ratio to [0, 1]: position can briefly
-                    // exceed length while a seek/track-change event is in
-                    // flight (Mpris reports the old position until the
-                    // seek lands), which would overflow the bar.
-                    width: parent.width * Math.max(0, Math.min(1, root.trackPosition / Math.max(1, root.trackLength)))
-                    color: Colors.foreground
-                }
+                    Rectangle {
+                        height: parent.height
+                        // Clamp the fill ratio to [0, 1]: position can briefly
+                        // exceed length while a seek/track-change event is in
+                        // flight (Mpris reports the old position until the
+                        // seek lands), which would overflow the bar.
+                        width: parent.width * Math.max(0, Math.min(1, root.trackPosition / Math.max(1, root.trackLength)))
+                        color: Colors.foreground
+                    }
 
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    enabled: root.canSeek
-                    onClicked: (mouse) => {
-                        if (root.currentPlayer && root.canSeek && root.trackLength > 0) {
-                            // Position is interpolated against wall-clock
-                            // time — re-read it at click time, not the
-                            // 250ms-tick-stale bound value, so the seek
-                            // delta lands where the user clicked.
-                            var ratio = Math.max(0, Math.min(1, mouse.x / width))
-                            var targetPos = ratio * root.trackLength
-                            root.currentPlayer.seek(targetPos - root.currentPlayer.position)
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        enabled: root.canSeek
+                        onClicked: (mouse) => {
+                            if (root.currentPlayer && root.canSeek && root.trackLength > 0) {
+                                // Position is interpolated against wall-clock
+                                // time — re-read it at click time, not the
+                                // 250ms-tick-stale bound value, so the seek
+                                // delta lands where the user clicked.
+                                var ratio = Math.max(0, Math.min(1, mouse.x / width))
+                                var targetPos = ratio * root.trackLength
+                                root.currentPlayer.seek(targetPos - root.currentPlayer.position)
+                            }
                         }
                     }
-                }
                 }
 
                 ThemeText {

@@ -85,13 +85,23 @@ Singleton {
         var key = root._key(p)
         var now = Date.now()
         var prev = root.playerTimestamps[key]
+        // Reassign the whole `playerTimestamps` object on any change so
+        // any consumer that binds to it actually re-evaluates — in-place
+        // mutation (`prev.time = now` or `root.playerTimestamps[k] = …`)
+        // keeps the property's identity unchanged and silently suppresses
+        // QML change signals. The readonly `currentPlayer` binding happens
+        // to also depend on `Mpris.players`'s state, so the practical
+        // impact today is invisible; this fix is forward-proofing.
+        var next = {}
+        for (var k in root.playerTimestamps) next[k] = root.playerTimestamps[k]
         if (!prev) {
-            root.playerTimestamps[key] = { trackTitle: p.trackTitle, playbackState: p.playbackState, time: now }
+            next[key] = { trackTitle: p.trackTitle, playbackState: p.playbackState, time: now }
         } else if (prev.trackTitle !== p.trackTitle || prev.playbackState !== p.playbackState) {
-            prev.trackTitle = p.trackTitle
-            prev.playbackState = p.playbackState
-            prev.time = now
+            next[key] = { trackTitle: p.trackTitle, playbackState: p.playbackState, time: now }
+        } else {
+            return  // nothing actually changed
         }
+        root.playerTimestamps = next
     }
 
     // The preferred player. A plain readonly binding reads
@@ -110,10 +120,17 @@ Singleton {
             function onTrackTitleChanged()    { root.updateTimestamp(conn.modelData); root.playersChanged() }
             // Prune the timestamp entry when this player disappears from
             // the Mpris list — prevents unbounded growth as players churn.
+            // Reassigns a fresh object (rather than `delete`) for the
+            // same reason as `updateTimestamp`: in-place mutation
+            // suppresses change signals on `playerTimestamps`.
             Component.onDestruction: {
                 var key = root._key(conn.modelData)
                 if (root.playerTimestamps[key] !== undefined) {
-                    delete root.playerTimestamps[key]
+                    var next = {}
+                    for (var k in root.playerTimestamps) {
+                        if (k !== key) next[k] = root.playerTimestamps[k]
+                    }
+                    root.playerTimestamps = next
                     root.playersChanged()
                 }
             }

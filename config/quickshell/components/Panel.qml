@@ -105,16 +105,13 @@ FloatingWindow {
     onSelConfigProfileChanged: if (root.autoScroll && root.inSection) root.scrollToSelection()
     onConfigExpandedChanged: if (root.autoScroll && root.inSection && root.configExpanded) root.scrollToSelection()
 
-    // Single Escape handler: exits inSection first, then closes the panel.
-    // Mirrors mainRect's dispatch order: keyPressed can pre-empt.
-    Shortcut {
-        sequence: "Escape"
-        onActivated: {
-            var ev = { key: Qt.Key_Escape, accepted: false, modifiers: 0 }
-            root.keyPressed(ev)
-            if (!ev.accepted && root.useDefaultKeys) nav.handleKey(ev)
-        }
-    }
+    // No dedicated `Shortcut { sequence: "Escape" }` here: Shortcuts
+    // take priority over `Keys.onPressed`, which would pre-empt the
+    // focused item's own Escape handling (e.g. an open TextInput that
+    // wants to cancel). mainRect's Keys.onPressed walks the same
+    // dispatch order (keyPressed first → nav.handleKey fallback), so
+    // Escape still closes via that path while leaving a focused sub-
+    // widget free to consume it first via `event.accepted = true`.
 
     onVisibleChanged: if (visible) {
         nav.reset()
@@ -154,6 +151,13 @@ FloatingWindow {
     // config-section math is shared via Scroll.expandConfigTarget so
     // VolumePanel's override (which needs the same computation) calls
     // the same helper instead of carrying a verbatim copy.
+    //
+    // Assumption: every row in the standard section is exactly
+    // `root.rowHeight` tall. Panels that mix heights inside the
+    // default slot (e.g. NotifHistoryPanel's `SectionSubHeader` rows
+    // of `Theme.subHeaderHeight`) MUST set `autoScroll: false` and
+    // call `root.scrollToVisible(itemY, itemH)` themselves — the
+    // uniform-stride math below quietly mis-scrolls on mixed content.
     function scrollToSelection() {
         var y, h
         if (root.selSection === root.expandSection && root.expandSection !== -1) {

@@ -50,7 +50,11 @@ PanelWindow {
     // single assignment on despawn, killing the spawn-time oscillation
     // while preserving despawn's "seamless single jump" feel.
     property int yOffset: 0
-    WlrLayershell.margins.top: 20 + root.yOffset
+    // Vertical screen anchor: 20 px below the bar (bar bottom edge ≈
+    // y=50 from screen top, so the popup's top edge sits at y≈80).
+    // `yOffset` adds the cumulative stack offset assigned by
+    // NotifDaemon.relayoutPopups().
+    WlrLayershell.margins.top: Theme.barMargin + Theme.barHeight + Theme.margin + 20 + root.yOffset
     WlrLayershell.margins.right: Theme.margin + 20
 
     color: "transparent"

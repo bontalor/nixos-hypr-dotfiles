@@ -1,6 +1,8 @@
 // Subprocess dependencies: systemctl (suspend/reboot/poweroff),
 // loginctl (terminate-user logout) — same power actions as PowerMenu.
 
+pragma ComponentBehavior: Bound
+
 import "./theme"
 import "./components"
 import "./util"
@@ -10,8 +12,6 @@ import QtQuick.Effects
 import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
-
-pragma ComponentBehavior: Bound
 
 Rectangle {
     id: root
@@ -54,6 +54,7 @@ Rectangle {
         width: Theme.panelWidth - Theme.margin
         height: Theme.panelHeight - Theme.margin
         color: "transparent"   // backdrop handles the tint — see below
+        z: 1   // sit above the DropShadow sibling (z: 0) declared after
         // Hard clip: MultiEffect's blur kernel (and autoPaddingEnabled,
         // which lets the blurred FBO extend past the source bounds) would
         // otherwise bleed outside the panel. Clipping the panel Rectangle
@@ -277,10 +278,21 @@ Rectangle {
             text: "Incorrect password"
         }
     }
+
+    // Drop shadow for the frosted panel — uses the shared
+    // components/DropShadow.qml L-shaped strip (the same one Bar.qml and
+    // the popups use), sized to `panel rect + Theme.margin` so the right
+    // and bottom strips align with the panel's edges. The previous
+    // `DropShadow { ... }` here was using the Qt5Compat GraphicalEffects
+    // type (not imported) with no `source` and silently rendered nothing;
+    // this version uses the in-shell strip pair and actually draws.
+    // `z: 0` puts it behind the panel sibling (`z: 1`).
     DropShadow {
         x: panel.x
         y: panel.y
         width: panel.width + Theme.margin
         height: panel.height + Theme.margin
+        extent: Theme.margin
+        z: 0
     }
 }
