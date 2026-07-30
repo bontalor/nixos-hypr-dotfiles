@@ -122,6 +122,9 @@ Panel {
         case Qt.Key_Space:
             if (root.currentPlayer) root.currentPlayer.togglePlaying()
             event.accepted = true; break
+        case Qt.Key_Escape:
+            root.visible = false
+            event.accepted = true; break
         }
     }
 
