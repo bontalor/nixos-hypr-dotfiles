@@ -60,19 +60,8 @@ FloatingWindow {
 
     property var filtered: root._filteredCache
     property var _filteredCache: []
-    Timer {
-        id: filterDebounce
-        interval: 40
-        onTriggered: root.recomputeFiltered()
-    }
-    onQueryChanged: filterDebounce.restart()
-    // Route the items-mutation path through the same debounce as the
-    // query-change path. A backing list that grows/reorders while the
-    // panel is open (Launcher rescanning entries, ClipboardModel
-    // growing, Panel registry launcherEntries trickling in after late
-    // panel init) used to trigger a synchronous re-filter+sort on every
-    // push — bursts of N pushes ran the O(N·M) match pass N times.
-    onItemsChanged: filterDebounce.restart()
+    onQueryChanged: root.recomputeFiltered()
+    onItemsChanged: root.recomputeFiltered()
 
     function recomputeFiltered() {
         var all = root.items || []
