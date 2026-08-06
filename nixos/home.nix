@@ -62,6 +62,9 @@
 	    pywal16
 	    pywalfox-native
 	    kdePackages.dolphin
+	    kdePackages.kdeconnect-kde
+	    kdePackages.partitionmanager
+	    kdePackages.isoimagewriter
 	    kdePackages.kio
 	    kdePackages.kio-fuse
 	    kdePackages.kio-extras
@@ -108,7 +111,7 @@
 	    nixd
 	    ffmpeg
 	    helvum
-	    spice-gtk
+	    localsend
 	    ];
 
 # Session
