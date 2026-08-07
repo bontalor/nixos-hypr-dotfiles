@@ -180,13 +180,17 @@ Rectangle {
                         color: Colors.foreground
                         font.pixelSize: Theme.fontPixelSize
                         font.letterSpacing: Theme.lockInputLetterSpacing
-                        font.family: Theme.fontFamily
-                        focus: true
-                        echoMode: TextInput.Password
-                        passwordCharacter: "■"
-                        inputMethodHints: Qt.ImhSensitiveData
-                        onTextChanged: root.context.currentText = this.text
-                        onAccepted: root.context.tryUnlock()
+                         font.family: Theme.fontFamily
+                         focus: true
+                         echoMode: TextInput.Password
+                         passwordCharacter: "■"
+                         inputMethodHints: Qt.ImhSensitiveData
+                         Component.onCompleted: forceActiveFocus()
+                         onActiveFocusChanged: {
+                             if (!activeFocus) forceActiveFocus()
+                         }
+                         onTextChanged: root.context.currentText = this.text
+                         onAccepted: root.context.tryUnlock()
                         Text {
                             anchors {
                                 left: parent.left
